@@ -3,7 +3,6 @@ import type {
   GameFeed,
   MatchupSide,
   PlayerRef,
-  TeamBoxscore,
   TeamRef,
   VsPlayerLine,
 } from "./types";
@@ -11,43 +10,47 @@ import type {
 /** Max batters we look up per pitching side (a standard lineup). */
 const LINEUP_SIZE = 9;
 
+type Side = "away" | "home";
+
 function ref(id: number, names: Record<number, string>): PlayerRef {
   return { id, fullName: names[id] ?? `#${id}` };
 }
 
-/** The starting pitcher for a side: the boxscore starter, else the probable. */
-function resolvePitcher(
-  feed: GameFeed,
-  box: TeamBoxscore,
-  probable: PlayerRef | undefined,
-): PlayerRef | null {
+/**
+ * The starting pitcher for a side: the boxscore starter once the game is
+ * underway, otherwise the announced probable (or null if TBD).
+ */
+export function startingPitcherFor(feed: GameFeed, side: Side): PlayerRef | null {
   if (feed.state === "Live" || feed.state === "Final") {
-    const starterId = box.pitcherIds[0];
+    const starterId = feed.boxscore[side].pitcherIds[0];
     if (starterId) return ref(starterId, feed.playerNames);
   }
-  return probable ?? null;
+  return feed.probablePitchers[side] ?? null;
 }
 
-/** The batting side's lineup: real batting order when posted, else a proxy. */
-async function resolveBatters(
+/**
+ * A side's batting order: the real order once posted, otherwise a proxy built
+ * from the active roster's top hitters by plate appearances (Preview games).
+ */
+export async function lineupFor(
   feed: GameFeed,
-  battingBox: TeamBoxscore,
+  side: Side,
   season: number,
 ): Promise<{ batters: PlayerRef[]; isProxy: boolean }> {
+  const box = feed.boxscore[side];
   if (
     (feed.state === "Live" || feed.state === "Final") &&
-    battingBox.battingOrderIds.length > 0
+    box.battingOrderIds.length > 0
   ) {
     return {
-      batters: battingBox.battingOrderIds
+      batters: box.battingOrderIds
         .slice(0, LINEUP_SIZE)
         .map((id) => ref(id, feed.playerNames)),
       isProxy: false,
     };
   }
 
-  // Preview (or missing order): proxy with the roster's top hitters by PA.
-  const roster = await getRosterWithSeasonStats(battingBox.team.id, season);
+  const roster = await getRosterWithSeasonStats(box.team.id, season);
   return {
     batters: roster.slice(0, LINEUP_SIZE).map((h) => h.player),
     isProxy: true,
@@ -55,7 +58,6 @@ async function resolveBatters(
 }
 
 async function buildSide(
-  feed: GameFeed,
   pitchingTeam: TeamRef,
   battingTeam: TeamRef,
   pitcher: PlayerRef | null,
@@ -89,41 +91,19 @@ export async function buildMatchups(
   const awayTeam = feed.away.team;
   const homeTeam = feed.home.team;
 
-  const awayPitcher = resolvePitcher(
-    feed,
-    feed.boxscore.away,
-    feed.probablePitchers.away,
-  );
-  const homePitcher = resolvePitcher(
-    feed,
-    feed.boxscore.home,
-    feed.probablePitchers.home,
-  );
+  const awayPitcher = startingPitcherFor(feed, "away");
+  const homePitcher = startingPitcherFor(feed, "home");
 
   const [homeLineup, awayLineup] = await Promise.all([
-    resolveBatters(feed, feed.boxscore.home, season),
-    resolveBatters(feed, feed.boxscore.away, season),
+    lineupFor(feed, "home", season),
+    lineupFor(feed, "away", season),
   ]);
 
   const [awayPitching, homePitching] = await Promise.all([
     // Away team pitching -> faces the home lineup.
-    buildSide(
-      feed,
-      awayTeam,
-      homeTeam,
-      awayPitcher,
-      homeLineup.batters,
-      homeLineup.isProxy,
-    ),
+    buildSide(awayTeam, homeTeam, awayPitcher, homeLineup.batters, homeLineup.isProxy),
     // Home team pitching -> faces the away lineup.
-    buildSide(
-      feed,
-      homeTeam,
-      awayTeam,
-      homePitcher,
-      awayLineup.batters,
-      awayLineup.isProxy,
-    ),
+    buildSide(homeTeam, awayTeam, homePitcher, awayLineup.batters, awayLineup.isProxy),
   ]);
 
   return { awayPitching, homePitching };

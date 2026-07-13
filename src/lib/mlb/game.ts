@@ -1,4 +1,4 @@
-import { mlbFetch, TTL } from "./client";
+import { mlbFetch, MlbApiError, TTL } from "./client";
 import { mapGameState } from "./schedule";
 import type {
   BoxscoreBatter,
@@ -164,6 +164,12 @@ export async function getLiveFeed(gamePk: number): Promise<GameFeed> {
     {},
     TTL.live,
   );
+
+  // Unknown gamePks return HTTP 200 with an empty skeleton (gamePk 0, team
+  // id 0). Treat that as a 404 so callers can render notFound() cleanly.
+  if (!feed.gamePk || feed.gameData?.teams?.away?.id === 0) {
+    throw new MlbApiError(404, `/api/v1.1/game/${gamePk}/feed/live`, "Game not found");
+  }
 
   const gd = feed.gameData;
   const ld = feed.liveData;

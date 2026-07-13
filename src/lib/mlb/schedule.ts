@@ -158,11 +158,24 @@ export async function getHeadToHead(
   );
 
   const rawGames = (data.dates ?? []).flatMap((d) => d.games);
+
+  // A rescheduled game can appear twice — a stale "Postponed" stub and the
+  // real makeup — under the same gamePk. Keep the entry with a decided result.
+  const decided = (g: RawGame) =>
+    g.teams.away.isWinner === true ||
+    g.teams.home.isWinner === true ||
+    (g.teams.away.score != null && g.teams.home.score != null);
+  const byPk = new Map<number, RawGame>();
+  for (const g of rawGames) {
+    const existing = byPk.get(g.gamePk);
+    if (!existing || (!decided(existing) && decided(g))) byPk.set(g.gamePk, g);
+  }
+
   let aWins = 0;
   let bWins = 0;
   const meetings: SeriesMeeting[] = [];
 
-  for (const g of rawGames) {
+  for (const g of byPk.values()) {
     const state = mapGameState(g.status.abstractGameState);
     const away = g.teams.away;
     const home = g.teams.home;
