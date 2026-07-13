@@ -104,12 +104,11 @@ async function HeadToHeadSection({
   feed: GameFeed;
   season: number;
 }) {
-  try {
-    const h2h = await getHeadToHead(feed.away.team, feed.home.team, season);
-    return <HeadToHead h2h={h2h} />;
-  } catch {
-    return <SectionError label="the season series" />;
-  }
+  // Await inside try/catch, build JSX outside — a try/catch cannot catch errors
+  // thrown while React later renders returned JSX.
+  const h2h = await safe(getHeadToHead(feed.away.team, feed.home.team, season));
+  if (!h2h) return <SectionError label="the season series" />;
+  return <HeadToHead h2h={h2h} />;
 }
 
 async function MatchupSection({
@@ -119,17 +118,14 @@ async function MatchupSection({
   feed: GameFeed;
   season: number;
 }) {
-  try {
-    const { awayPitching, homePitching } = await buildMatchups(feed, season);
-    return (
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-        <MatchupTable side={awayPitching} />
-        <MatchupTable side={homePitching} />
-      </div>
-    );
-  } catch {
-    return <SectionError label="matchup history" />;
-  }
+  const matchups = await safe(buildMatchups(feed, season));
+  if (!matchups) return <SectionError label="matchup history" />;
+  return (
+    <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+      <MatchupTable side={matchups.awayPitching} />
+      <MatchupTable side={matchups.homePitching} />
+    </div>
+  );
 }
 
 function hitterStats(s: SaberHitting | null): SaberStat[] {
@@ -152,13 +148,23 @@ async function TeamSaber({
 }) {
   const team = feed[side].team;
   const pitcher = startingPitcherFor(feed, side);
-  const lineup = await lineupFor(feed, side, season);
-  const hitters = lineup.batters.slice(0, 4);
 
-  const [pitchingStats, hittingStats] = await Promise.all([
-    pitcher ? safe(getSaberPitching(pitcher.id, season)) : Promise.resolve(null),
-    Promise.all(hitters.map((h) => safe(getSaberHitting(h.id, season)))),
-  ]);
+  const data = await safe(
+    (async () => {
+      const lineup = await lineupFor(feed, side, season);
+      const hitters = lineup.batters.slice(0, 4);
+      const [pitchingStats, hittingStats] = await Promise.all([
+        pitcher
+          ? safe(getSaberPitching(pitcher.id, season))
+          : Promise.resolve(null),
+        Promise.all(hitters.map((h) => safe(getSaberHitting(h.id, season)))),
+      ]);
+      return { hitters, pitchingStats, hittingStats, isProxy: lineup.isProxy };
+    })(),
+  );
+
+  if (!data) return <SectionError label={`${team.name} sabermetrics`} />;
+  const { hitters, pitchingStats, hittingStats, isProxy } = data;
 
   return (
     <div>
@@ -185,7 +191,7 @@ async function TeamSaber({
           />
         ))}
       </div>
-      {lineup.isProxy && (
+      {isProxy && (
         <p className="mt-2 text-xs text-neutral-500">
           Lineup not posted — showing roster leaders by PA.
         </p>
@@ -194,23 +200,15 @@ async function TeamSaber({
   );
 }
 
-async function SaberSection({
-  feed,
-  season,
-}: {
-  feed: GameFeed;
-  season: number;
-}) {
-  try {
-    return (
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-        <TeamSaber feed={feed} side="away" season={season} />
-        <TeamSaber feed={feed} side="home" season={season} />
-      </div>
-    );
-  } catch {
-    return <SectionError label="sabermetrics" />;
-  }
+function SaberSection({ feed, season }: { feed: GameFeed; season: number }) {
+  // Each TeamSaber isolates its own failures, so no try/catch is needed (and
+  // one wouldn't catch errors thrown during async child rendering anyway).
+  return (
+    <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+      <TeamSaber feed={feed} side="away" season={season} />
+      <TeamSaber feed={feed} side="home" season={season} />
+    </div>
+  );
 }
 
 // --- page --------------------------------------------------------------------
