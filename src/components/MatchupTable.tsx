@@ -34,14 +34,21 @@ export default function MatchupTable({ side }: { side: MatchupSide }) {
 
       <div className="mt-2 overflow-x-auto">
         <table className="nums w-full min-w-max text-sm">
+          <caption className="sr-only">
+            {side.pitcher.fullName} vs {name(side.battingTeam)} hitters, career
+          </caption>
           <thead>
             <tr>
-              <th className="px-2 py-1 text-left font-medium text-neutral-500">
+              <th
+                scope="col"
+                className="px-2 py-1 text-left font-medium text-neutral-500"
+              >
                 Batter
               </th>
               {COLS.map((c) => (
                 <th
                   key={c}
+                  scope="col"
                   className="px-2 py-1 text-right font-medium text-neutral-500"
                 >
                   {c}
@@ -70,7 +77,7 @@ export default function MatchupTable({ side }: { side: MatchupSide }) {
                 ) : (
                   <td
                     colSpan={COLS.length}
-                    className="px-2 py-1 text-right text-neutral-400"
+                    className="px-2 py-1 text-right text-neutral-500 dark:text-neutral-400"
                   >
                     — no career history
                   </td>

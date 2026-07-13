@@ -6,6 +6,7 @@ const PIT_COLS = ["IP", "H", "R", "ER", "BB", "K", "ERA"] as const;
 function Th({ children, first }: { children: React.ReactNode; first?: boolean }) {
   return (
     <th
+      scope="col"
       className={`px-2 py-1 font-medium text-neutral-500 ${first ? "text-left" : "text-right"}`}
     >
       {children}
@@ -20,6 +21,7 @@ function TeamBox({ box }: { box: TeamBoxscore }) {
 
       <div className="overflow-x-auto">
         <table className="nums w-full min-w-max text-sm">
+          <caption className="sr-only">{box.team.name} batting</caption>
           <thead>
             <tr>
               <Th first>Batters</Th>
@@ -56,6 +58,7 @@ function TeamBox({ box }: { box: TeamBoxscore }) {
       {box.pitchers.length > 0 && (
         <div className="mt-3 overflow-x-auto">
           <table className="nums w-full min-w-max text-sm">
+            <caption className="sr-only">{box.team.name} pitching</caption>
             <thead>
               <tr>
                 <Th first>Pitchers</Th>

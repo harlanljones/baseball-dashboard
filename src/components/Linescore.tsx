@@ -16,17 +16,32 @@ export default function Linescore({ feed }: { feed: GameFeed }) {
   return (
     <div className="overflow-x-auto">
       <table className="nums w-full min-w-max text-sm">
+        <caption className="sr-only">
+          Line score by inning: {abbr(feed, "away")} at {abbr(feed, "home")}
+        </caption>
         <thead>
           <tr className="text-neutral-500">
-            <th className="px-2 py-1 text-left font-medium">&nbsp;</th>
+            <th scope="col" className="px-2 py-1 text-left font-medium">
+              <span className="sr-only">Team</span>
+            </th>
             {innings.map((i) => (
-              <th key={i.num} className="w-7 px-1 py-1 text-center font-medium">
+              <th
+                key={i.num}
+                scope="col"
+                className="w-7 px-1 py-1 text-center font-medium"
+              >
                 {i.num}
               </th>
             ))}
-            <th className="w-8 px-2 py-1 text-center font-semibold">R</th>
-            <th className="w-8 px-2 py-1 text-center font-semibold">H</th>
-            <th className="w-8 px-2 py-1 text-center font-semibold">E</th>
+            <th scope="col" className="w-8 px-2 py-1 text-center font-semibold">
+              R
+            </th>
+            <th scope="col" className="w-8 px-2 py-1 text-center font-semibold">
+              H
+            </th>
+            <th scope="col" className="w-8 px-2 py-1 text-center font-semibold">
+              E
+            </th>
           </tr>
         </thead>
         <tbody>

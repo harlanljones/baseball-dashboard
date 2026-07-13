@@ -1,3 +1,5 @@
+import { cache } from "react";
+
 import { getRosterWithSeasonStats, getVsPlayer } from "./players";
 import type {
   GameFeed,
@@ -31,8 +33,12 @@ export function startingPitcherFor(feed: GameFeed, side: Side): PlayerRef | null
 /**
  * A side's batting order: the real order once posted, otherwise a proxy built
  * from the active roster's top hitters by plate appearances (Preview games).
+ *
+ * Wrapped in `React.cache` so the matchup and sabermetric Suspense sections
+ * (which both need lineups for the same `feed` object) share one computation
+ * per request instead of mapping/sorting the roster twice per team.
  */
-export async function lineupFor(
+export const lineupFor = cache(async function lineupFor(
   feed: GameFeed,
   side: Side,
   season: number,
@@ -55,7 +61,7 @@ export async function lineupFor(
     batters: roster.slice(0, LINEUP_SIZE).map((h) => h.player),
     isProxy: true,
   };
-}
+});
 
 async function buildSide(
   pitchingTeam: TeamRef,

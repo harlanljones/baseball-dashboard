@@ -1,16 +1,7 @@
 import Link from "next/link";
 import GameStatusBadge from "./GameStatusBadge";
+import LocalTime from "./LocalTime";
 import type { ScheduleGame, ScheduleTeamSide } from "@/lib/mlb/types";
-
-function formatStartTime(iso: string): string {
-  if (!iso) return "";
-  return new Intl.DateTimeFormat("en-US", {
-    timeZone: "America/New_York",
-    hour: "numeric",
-    minute: "2-digit",
-    timeZoneName: "short",
-  }).format(new Date(iso));
-}
 
 function recordText(side: ScheduleTeamSide): string {
   return side.record ? `${side.record.wins}-${side.record.losses}` : "";
@@ -73,7 +64,7 @@ export default function GameCard({ game }: { game: ScheduleGame }) {
         <GameStatusBadge game={game} />
         {game.state === "Preview" && (
           <span className="text-xs text-neutral-500">
-            {formatStartTime(game.gameDate)}
+            <LocalTime iso={game.gameDate} />
           </span>
         )}
       </div>

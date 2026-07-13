@@ -1,8 +1,10 @@
 import { Suspense } from "react";
+import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 
 import AutoRefresh from "@/components/AutoRefresh";
+import LocalTime from "@/components/LocalTime";
 import BoxscoreTables from "@/components/BoxscoreTables";
 import GameStatusBadge from "@/components/GameStatusBadge";
 import HeadToHead from "@/components/HeadToHead";
@@ -82,17 +84,6 @@ function SectionSkeleton() {
   return (
     <div className="h-24 animate-pulse rounded bg-neutral-100 dark:bg-neutral-800" />
   );
-}
-
-function formatFirstPitch(iso: string): string {
-  if (!iso) return "";
-  return new Intl.DateTimeFormat("en-US", {
-    timeZone: "America/New_York",
-    weekday: "short",
-    hour: "numeric",
-    minute: "2-digit",
-    timeZoneName: "short",
-  }).format(new Date(iso));
 }
 
 // --- async sections ----------------------------------------------------------
@@ -213,6 +204,33 @@ function SaberSection({ feed, season }: { feed: GameFeed; season: number }) {
 
 // --- page --------------------------------------------------------------------
 
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ gamePk: string }>;
+}): Promise<Metadata> {
+  const { gamePk } = await params;
+  const id = Number(gamePk);
+  if (!Number.isInteger(id) || id <= 0) return { title: "Game not found" };
+
+  // Shares the page's fetch via per-request memoization — no extra API call.
+  try {
+    const feed = await getLiveFeed(id);
+    const away = teamName(feed.away.team);
+    const home = teamName(feed.home.team);
+    const scored = feed.state === "Live" || feed.state === "Final";
+    const suffix = scored
+      ? ` — ${feed.state === "Live" ? "Live" : "Final"} ${feed.away.score ?? 0}-${feed.home.score ?? 0}`
+      : "";
+    return {
+      title: `${away} @ ${home}${suffix}`,
+      description: `Score, boxscore, matchups, and sabermetrics for ${feed.away.team.name} at ${feed.home.team.name}.`,
+    };
+  } catch {
+    return { title: "Game" };
+  }
+}
+
 export default async function GamePage({
   params,
 }: {
@@ -249,11 +267,14 @@ export default async function GamePage({
 
       {/* Header */}
       <div className="rounded-lg border border-neutral-200 bg-white p-4 dark:border-neutral-800 dark:bg-neutral-900">
+        <h1 className="sr-only">
+          {feed.away.team.name} at {feed.home.team.name}
+        </h1>
         <div className="mb-3 flex items-center justify-between">
           <GameStatusBadge game={{ state: feed.state, detailedState: feed.detailedState }} />
           {isPreview && feed.startTime && (
             <span className="text-sm text-neutral-500">
-              {formatFirstPitch(feed.startTime)}
+              <LocalTime iso={feed.startTime} weekday />
             </span>
           )}
         </div>

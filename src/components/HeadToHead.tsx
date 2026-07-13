@@ -50,7 +50,7 @@ export default function HeadToHead({ h2h }: { h2h: HeadToHeadData }) {
                   <span className="flex-1 truncate">
                     {name(m.away.team)} @ {name(m.home.team)}
                   </span>
-                  <span className="nums shrink-0 tabular-nums">
+                  <span className="nums shrink-0">
                     {isFinal
                       ? `${m.away.score ?? "-"}–${m.home.score ?? "-"}`
                       : m.state === "Live"

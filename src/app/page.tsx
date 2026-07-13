@@ -4,9 +4,9 @@ import GameCard from "@/components/GameCard";
 import { easternToday, shiftDate } from "@/lib/mlb/client";
 import { getSchedule } from "@/lib/mlb/schedule";
 
-// The slate depends on the current Eastern date and the optional ?date= param,
-// so this route is always rendered per-request (upstream stays fetch-cached).
-export const dynamic = "force-dynamic";
+// This route renders per-request because it awaits `searchParams` (a
+// request-time API). Don't add `dynamic = "force-dynamic"` — in Next 16 that
+// forces every fetch to `no-store`, defeating the TTL caching in mlbFetch.
 
 function prettyDate(date: string): string {
   return new Intl.DateTimeFormat("en-US", {
@@ -42,7 +42,7 @@ export default async function Home({
           </h1>
           <p className="text-sm text-neutral-500">{prettyDate(date)}</p>
         </div>
-        <nav className="flex items-center gap-1 text-sm">
+        <nav aria-label="Date navigation" className="flex items-center gap-1 text-sm">
           <Link
             href={`/?date=${prev}`}
             className="rounded-md border border-neutral-200 px-2.5 py-1 hover:bg-neutral-100 dark:border-neutral-800 dark:hover:bg-neutral-800"
