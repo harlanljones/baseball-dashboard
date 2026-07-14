@@ -48,18 +48,21 @@ export default async function Home({
         >
           <Link
             href={`/?date=${prev}`}
-            className="rounded-l-md px-3 py-1.5 hover:bg-field/5"
+            className="whitespace-nowrap rounded-l-md px-3 py-1.5 hover:bg-field/5"
           >
             ← Prev
           </Link>
           {date !== today && (
-            <Link href="/" className="px-3 py-1.5 hover:bg-field/5">
+            <Link
+              href="/"
+              className="whitespace-nowrap px-3 py-1.5 hover:bg-field/5"
+            >
               Today
             </Link>
           )}
           <Link
             href={`/?date=${next}`}
-            className="rounded-r-md px-3 py-1.5 hover:bg-field/5"
+            className="whitespace-nowrap rounded-r-md px-3 py-1.5 hover:bg-field/5"
           >
             Next →
           </Link>
