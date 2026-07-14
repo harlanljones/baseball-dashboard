@@ -3,6 +3,7 @@ import { mapGameState } from "./schedule";
 import type {
   BoxscoreBatter,
   BoxscorePitcher,
+  BullpenPitcher,
   GameFeed,
   InningLine,
   PlayerRef,
@@ -25,6 +26,9 @@ interface RawBoxPlayer {
     batting?: Record<string, unknown>;
     pitching?: Record<string, unknown>;
   };
+  seasonStats?: {
+    pitching?: Record<string, unknown>;
+  };
 }
 
 interface RawBoxTeam {
@@ -32,6 +36,7 @@ interface RawBoxTeam {
   players: Record<string, RawBoxPlayer>;
   batters: number[];
   pitchers: number[];
+  bullpen?: number[];
   battingOrder: number[];
 }
 
@@ -47,6 +52,7 @@ interface RawFeed {
   gameData: {
     status: { abstractGameState?: string; detailedState?: string };
     datetime?: { dateTime?: string };
+    venue?: { name?: string; location?: { city?: string } };
     teams: {
       away: { id: number; name: string; abbreviation?: string };
       home: { id: number; name: string; abbreviation?: string };
@@ -117,6 +123,18 @@ function mapPitcher(p: RawBoxPlayer): BoxscorePitcher {
   };
 }
 
+function mapBullpenPitcher(p: RawBoxPlayer): BullpenPitcher {
+  const s = p.seasonStats?.pitching ?? {};
+  return {
+    id: p.person.id,
+    name: p.person.fullName,
+    ip: str(s.inningsPitched, "0.0"),
+    era: str(s.era),
+    whip: str(s.whip),
+    k: num(s.strikeOuts),
+  };
+}
+
 function mapBoxTeam(t: RawBoxTeam): TeamBoxscore {
   const player = (id: number) => t.players[`ID${id}`];
   const batters = t.batters
@@ -127,10 +145,15 @@ function mapBoxTeam(t: RawBoxTeam): TeamBoxscore {
     .map(player)
     .filter((p): p is RawBoxPlayer => Boolean(p))
     .map(mapPitcher);
+  const bullpen = (t.bullpen ?? [])
+    .map(player)
+    .filter((p): p is RawBoxPlayer => Boolean(p))
+    .map(mapBullpenPitcher);
   return {
     team: { id: t.team.id, name: t.team.name, abbreviation: t.team.abbreviation },
     batters,
     pitchers,
+    bullpen,
     battingOrderIds: t.battingOrder ?? [],
     pitcherIds: t.pitchers ?? [],
   };
@@ -197,6 +220,8 @@ export async function getLiveFeed(gamePk: number): Promise<GameFeed> {
     state: mapGameState(gd.status.abstractGameState),
     detailedState: gd.status.detailedState ?? "",
     startTime: gd.datetime?.dateTime ?? "",
+    venue: gd.venue?.name,
+    venueCity: gd.venue?.location?.city,
     away: { team: mapRef(away), score: ld.linescore.teams.away.runs },
     home: { team: mapRef(home), score: ld.linescore.teams.home.runs },
     linescore: {

@@ -1,6 +1,25 @@
 import type { Metadata } from "next";
+import { Barlow_Condensed, IBM_Plex_Mono, IBM_Plex_Sans } from "next/font/google";
 import Link from "next/link";
 import "./globals.css";
+
+const display = Barlow_Condensed({
+  weight: ["500", "600", "700"],
+  subsets: ["latin"],
+  variable: "--font-barlow",
+});
+
+const sans = IBM_Plex_Sans({
+  weight: ["400", "500", "600"],
+  subsets: ["latin"],
+  variable: "--font-plex-sans",
+});
+
+const mono = IBM_Plex_Mono({
+  weight: ["400", "500", "600"],
+  subsets: ["latin"],
+  variable: "--font-plex-mono",
+});
 
 export const metadata: Metadata = {
   title: {
@@ -16,28 +35,34 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" className="h-full antialiased">
-      <body className="min-h-full flex flex-col bg-neutral-50 text-neutral-900 dark:bg-neutral-950 dark:text-neutral-100">
+    <html
+      lang="en"
+      className={`h-full antialiased ${display.variable} ${sans.variable} ${mono.variable}`}
+    >
+      <body className="min-h-full flex flex-col bg-paper text-ink">
         <a
           href="#main"
-          className="sr-only focus:not-sr-only focus:absolute focus:left-4 focus:top-4 focus:z-50 focus:rounded-md focus:bg-white focus:px-3 focus:py-2 focus:text-sm focus:shadow dark:focus:bg-neutral-900"
+          className="sr-only focus:not-sr-only focus:absolute focus:left-4 focus:top-4 focus:z-50 focus:rounded-md focus:bg-card focus:px-3 focus:py-2 focus:text-sm focus:shadow"
         >
           Skip to content
         </a>
-        <header className="sticky top-0 z-10 border-b border-neutral-200 bg-white/80 backdrop-blur dark:border-neutral-800 dark:bg-neutral-900/80">
-          <div className="mx-auto flex max-w-5xl items-center gap-2 px-4 py-3">
-            <Link href="/" className="flex items-center gap-2 font-semibold">
-              <span aria-hidden className="text-lg">
-                ⚾
+        <header className="sticky top-0 z-10 bg-field text-white">
+          <div className="mx-auto flex max-w-5xl items-center px-4 py-2.5">
+            <Link
+              href="/"
+              className="flex items-center gap-2.5 focus-visible:outline-gold"
+            >
+              <span aria-hidden className="h-4.5 w-1.5 bg-gold" />
+              <span className="font-display text-xl font-semibold uppercase tracking-wide">
+                Baseball Dashboard
               </span>
-              <span>Baseball Dashboard</span>
             </Link>
           </div>
         </header>
         <main id="main" className="mx-auto w-full max-w-5xl flex-1 px-4 py-6">
           {children}
         </main>
-        <footer className="border-t border-neutral-200 py-4 text-center text-xs text-neutral-500 dark:border-neutral-800">
+        <footer className="border-t border-ink/10 py-4 text-center text-xs text-ink/50">
           Data: MLB Stats API · not affiliated with MLB
         </footer>
       </body>

@@ -37,29 +37,29 @@ export default async function Home({
 
       <div className="mb-5 flex items-center justify-between gap-3">
         <div>
-          <h1 className="text-xl font-semibold">
+          <h1 className="font-display text-3xl font-bold uppercase leading-none tracking-wide">
             {date === today ? "Today's Games" : "Games"}
           </h1>
-          <p className="text-sm text-neutral-500">{prettyDate(date)}</p>
+          <p className="mt-1 text-sm text-ink/60">{prettyDate(date)}</p>
         </div>
-        <nav aria-label="Date navigation" className="flex items-center gap-1 text-sm">
+        <nav
+          aria-label="Date navigation"
+          className="flex divide-x divide-ink/15 rounded-md border border-ink/15 bg-card text-sm shadow-sm"
+        >
           <Link
             href={`/?date=${prev}`}
-            className="rounded-md border border-neutral-200 px-2.5 py-1 hover:bg-neutral-100 dark:border-neutral-800 dark:hover:bg-neutral-800"
+            className="rounded-l-md px-3 py-1.5 hover:bg-field/5"
           >
             ← Prev
           </Link>
           {date !== today && (
-            <Link
-              href="/"
-              className="rounded-md border border-neutral-200 px-2.5 py-1 hover:bg-neutral-100 dark:border-neutral-800 dark:hover:bg-neutral-800"
-            >
+            <Link href="/" className="px-3 py-1.5 hover:bg-field/5">
               Today
             </Link>
           )}
           <Link
             href={`/?date=${next}`}
-            className="rounded-md border border-neutral-200 px-2.5 py-1 hover:bg-neutral-100 dark:border-neutral-800 dark:hover:bg-neutral-800"
+            className="rounded-r-md px-3 py-1.5 hover:bg-field/5"
           >
             Next →
           </Link>
@@ -67,11 +67,9 @@ export default async function Home({
       </div>
 
       {games.length === 0 ? (
-        <div className="rounded-lg border border-dashed border-neutral-300 py-16 text-center dark:border-neutral-700">
-          <p className="text-neutral-600 dark:text-neutral-400">
-            No games scheduled for this date.
-          </p>
-          <p className="mt-1 text-sm text-neutral-500">
+        <div className="rounded-md border border-dashed border-ink/20 py-16 text-center">
+          <p className="text-ink/70">No games scheduled for this date.</p>
+          <p className="mt-1 text-sm text-ink/50">
             Try the previous or next day.
           </p>
         </div>

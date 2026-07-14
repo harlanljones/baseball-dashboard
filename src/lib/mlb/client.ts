@@ -18,6 +18,8 @@ export const TTL = {
   playerStats: 6 * 60 * 60,
   /** Rosters / past-date schedules — effectively static. */
   roster: 24 * 60 * 60,
+  /** Pitcher game logs, used to derive recent-workload (pitch counts). */
+  pitcherLog: 3 * 60 * 60,
 } as const;
 
 /** Thrown when the MLB API responds with a non-2xx status. */
@@ -72,10 +74,15 @@ export async function mlbFetch<T>(
  * which would roll over at UTC midnight and show tomorrow's card after ~8pm ET.
  */
 export function easternToday(): string {
+  return easternDateOf(new Date());
+}
+
+/** The `YYYY-MM-DD` Eastern-time date a given instant falls on. */
+export function easternDateOf(instant: Date | string): string {
   // en-CA formats as YYYY-MM-DD.
   return new Intl.DateTimeFormat("en-CA", {
     timeZone: "America/New_York",
-  }).format(new Date());
+  }).format(new Date(instant));
 }
 
 /** Shift a `YYYY-MM-DD` date string by `deltaDays` (calendar days, UTC-safe). */

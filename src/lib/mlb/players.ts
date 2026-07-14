@@ -1,9 +1,10 @@
-import { mlbFetch, TTL } from "./client";
+import { mlbFetch, shiftDate, TTL } from "./client";
 import type {
   PlayerRef,
   SaberHitting,
   SaberPitching,
   VsPlayerLine,
+  VsPlayerSeasonLine,
 } from "./types";
 
 // --- Raw stats shapes --------------------------------------------------------
@@ -90,6 +91,25 @@ export async function getSaberPitching(
 
 // --- Batter vs pitcher -------------------------------------------------------
 
+function parseVsPlayerStat(
+  stat?: Record<string, unknown>,
+): Omit<VsPlayerLine, "batter" | "pitcher"> {
+  if (!stat) {
+    return { hasHistory: false, pa: 0, h: 0, hr: 0, bb: 0, k: 0, avg: "-", obp: "-", slg: "-" };
+  }
+  return {
+    hasHistory: true,
+    pa: n(stat.plateAppearances) ?? 0,
+    h: n(stat.hits) ?? 0,
+    hr: n(stat.homeRuns) ?? 0,
+    bb: n(stat.baseOnBalls) ?? 0,
+    k: n(stat.strikeOuts) ?? 0,
+    avg: s(stat.avg) ?? "-",
+    obp: s(stat.obp) ?? "-",
+    slg: s(stat.slg) ?? "-",
+  };
+}
+
 /**
  * Career batter-vs-pitcher line. A pairing that has never met returns a row
  * with `hasHistory: false` (rendered as an em-dash line) — that is expected,
@@ -113,35 +133,46 @@ export async function getVsPlayer(
     (sp) => sp.stat?.plateAppearances != null,
   )?.stat;
 
-  if (!stat) {
-    return {
-      batter,
-      pitcher,
-      hasHistory: false,
-      pa: 0,
-      h: 0,
-      hr: 0,
-      bb: 0,
-      k: 0,
-      avg: "-",
-      obp: "-",
-      slg: "-",
-    };
-  }
+  return { batter, pitcher, ...parseVsPlayerStat(stat) };
+}
 
-  return {
-    batter,
-    pitcher,
-    hasHistory: true,
-    pa: n(stat.plateAppearances) ?? 0,
-    h: n(stat.hits) ?? 0,
-    hr: n(stat.homeRuns) ?? 0,
-    bb: n(stat.baseOnBalls) ?? 0,
-    k: n(stat.strikeOuts) ?? 0,
-    avg: s(stat.avg) ?? "-",
-    obp: s(stat.obp) ?? "-",
-    slg: s(stat.slg) ?? "-",
-  };
+/**
+ * Season-by-season batter-vs-pitcher history (the MLB Stats API has no
+ * per-plate-appearance "vs one pitcher" log, only per-season aggregates).
+ * Seasons with no plate appearances against that pitcher are dropped; a failed
+ * lookup for one season doesn't drop the rest.
+ */
+export async function getVsPlayerSeasons(
+  batter: PlayerRef,
+  pitcher: PlayerRef,
+  seasons: number[],
+): Promise<VsPlayerSeasonLine[]> {
+  const settled = await Promise.allSettled(
+    seasons.map(async (season) => {
+      const res = await mlbFetch<RawStatsResponse>(
+        `/api/v1/people/${batter.id}/stats`,
+        {
+          stats: "vsPlayer",
+          group: "hitting",
+          opposingPlayerId: pitcher.id,
+          season,
+        },
+        TTL.playerStats,
+      );
+      const stat = res.stats?.[0]?.splits?.find(
+        (sp) => sp.stat?.plateAppearances != null,
+      )?.stat;
+      return { batter, pitcher, season, ...parseVsPlayerStat(stat) };
+    }),
+  );
+
+  return settled
+    .filter(
+      (r): r is PromiseFulfilledResult<VsPlayerSeasonLine> => r.status === "fulfilled",
+    )
+    .map((r) => r.value)
+    .filter((line) => line.hasHistory)
+    .sort((a, b) => b.season - a.season);
 }
 
 // --- Roster proxy (Preview games) --------------------------------------------
@@ -195,4 +226,68 @@ export async function getRosterWithSeasonStats(
 
   hitters.sort((a, b) => b.pa - a.pa);
   return hitters;
+}
+
+// --- Bullpen workload ---------------------------------------------------------
+
+interface RawGameLogSplit {
+  date?: string;
+  stat?: Record<string, unknown>;
+}
+
+interface RawGameLogResponse {
+  stats?: { splits?: RawGameLogSplit[] }[];
+}
+
+/**
+ * Recent pitch-count workload for a set of bullpen arms, derived from each
+ * pitcher's `gameLog` splits (there's no direct "recent workload" stat).
+ * `asOfDate` is the game's date (`YYYY-MM-DD`, Eastern) — the window looks back
+ * from the day before it, since bullpen arms haven't pitched in today's game yet.
+ * Individual pitcher lookups fail independently so one bad id doesn't drop the rest.
+ */
+export async function getBullpenWorkload(
+  pitcherIds: number[],
+  season: number,
+  asOfDate: string,
+): Promise<Map<number, { yesterday: number; last3: number }>> {
+  const yesterday = shiftDate(asOfDate, -1);
+  const windowStart = shiftDate(asOfDate, -3);
+
+  const settled = await Promise.allSettled(
+    pitcherIds.map(async (id) => {
+      const res = await mlbFetch<RawGameLogResponse>(
+        `/api/v1/people/${id}/stats`,
+        { stats: "gameLog", group: "pitching", season },
+        TTL.pitcherLog,
+      );
+      const splits = res.stats?.[0]?.splits ?? [];
+      let yesterdayPitches = 0;
+      let last3Pitches = 0;
+      for (const split of splits) {
+        if (!split.date || split.date < windowStart || split.date > yesterday) continue;
+        const pitches = n(split.stat?.numberOfPitches) ?? 0;
+        last3Pitches += pitches;
+        if (split.date === yesterday) yesterdayPitches += pitches;
+      }
+      return [id, { yesterday: yesterdayPitches, last3: last3Pitches }] as const;
+    }),
+  );
+
+  const workload = new Map<number, { yesterday: number; last3: number }>();
+  for (const r of settled) {
+    if (r.status === "fulfilled") workload.set(r.value[0], r.value[1]);
+  }
+  return workload;
+}
+
+/** A single person's ref, used for the vs-pitcher drill-down page header. */
+export async function getPerson(id: number): Promise<PlayerRef | null> {
+  const res = await mlbFetch<{ people?: { id: number; fullName: string }[] }>(
+    `/api/v1/people/${id}`,
+    {},
+    TTL.roster,
+  );
+  const person = res.people?.[0];
+  return person ? { id: person.id, fullName: person.fullName } : null;
 }

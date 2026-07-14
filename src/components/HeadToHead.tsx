@@ -1,5 +1,6 @@
 import Link from "next/link";
-import type { HeadToHead as HeadToHeadData } from "@/lib/mlb/types";
+import TeamLogo from "./TeamLogo";
+import type { HeadToHead as HeadToHeadData, SeriesMeeting, TeamRef } from "@/lib/mlb/types";
 
 function name(t: { abbreviation?: string; name: string }): string {
   return t.abbreviation ?? t.name;
@@ -23,6 +24,22 @@ function formatDate(iso: string): string {
   }).format(new Date(iso));
 }
 
+function TeamMini({ team, lost }: { team: TeamRef; lost: boolean }) {
+  return (
+    <span
+      className={`inline-flex min-w-0 items-center gap-1.5 ${lost ? "text-ink/50" : "font-medium"}`}
+    >
+      <TeamLogo teamId={team.id} size={16} />
+      <span className="truncate">{name(team)}</span>
+    </span>
+  );
+}
+
+function scoreText(m: SeriesMeeting): string {
+  if (m.state === "Final") return `${m.away.score ?? "-"}–${m.home.score ?? "-"}`;
+  return m.state === "Live" ? "Live" : "—";
+}
+
 export default function HeadToHead({ h2h }: { h2h: HeadToHeadData }) {
   const meetings = [...h2h.meetings].sort(
     (a, b) => new Date(a.date).getTime() - new Date(b.date).getTime(),
@@ -30,32 +47,41 @@ export default function HeadToHead({ h2h }: { h2h: HeadToHeadData }) {
 
   return (
     <div>
-      <p className="mb-3 text-sm text-neutral-600 dark:text-neutral-400">
-        {seriesSummary(h2h)}
-      </p>
+      <p className="mb-3 text-sm text-ink/70">{seriesSummary(h2h)}</p>
 
       {meetings.length > 0 && (
-        <ul className="divide-y divide-neutral-100 dark:divide-neutral-800">
+        <ul className="divide-y divide-ink/10">
           {meetings.map((m) => {
             const isFinal = m.state === "Final";
+            const awayLost =
+              isFinal && m.away.score != null && m.home.score != null
+                ? m.home.score > m.away.score
+                : false;
+            const homeLost =
+              isFinal && m.away.score != null && m.home.score != null
+                ? m.away.score > m.home.score
+                : false;
             return (
-              <li key={m.gamePk}>
+              <li
+                key={m.gamePk}
+                className="odd:bg-ink/5"
+              >
                 <Link
                   href={`/games/${m.gamePk}`}
-                  className="flex items-center justify-between gap-3 py-1.5 text-sm hover:text-sky-600 dark:hover:text-sky-400"
+                  className="flex items-center gap-3 px-2 py-2 text-sm hover:text-grass"
                 >
-                  <span className="w-14 shrink-0 text-neutral-500">
+                  <span className="w-14 shrink-0 text-ink/50">
                     {formatDate(m.date)}
                   </span>
-                  <span className="flex-1 truncate">
-                    {name(m.away.team)} @ {name(m.home.team)}
+                  <span className="flex min-w-0 flex-1 items-center gap-1.5">
+                    <TeamMini team={m.away.team} lost={awayLost} />
+                    <span className="shrink-0 text-ink/40">@</span>
+                    <TeamMini team={m.home.team} lost={homeLost} />
                   </span>
-                  <span className="nums shrink-0">
-                    {isFinal
-                      ? `${m.away.score ?? "-"}–${m.home.score ?? "-"}`
-                      : m.state === "Live"
-                        ? "Live"
-                        : "—"}
+                  <span
+                    className={`font-mono shrink-0 text-xs ${isFinal ? "font-semibold" : "text-ink/50"}`}
+                  >
+                    {scoreText(m)}
                   </span>
                 </Link>
               </li>

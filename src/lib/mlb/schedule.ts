@@ -36,6 +36,7 @@ interface RawGame {
   gamePk: number;
   gameDate: string;
   status: RawStatus;
+  venue?: { name?: string; location?: { city?: string } };
   teams: { away: RawTeamSide; home: RawTeamSide };
   linescore?: RawLinescore;
 }
@@ -78,6 +79,8 @@ function mapGame(g: RawGame): ScheduleGame {
     gameDate: g.gameDate,
     state,
     detailedState: g.status.detailedState ?? state,
+    venue: g.venue?.name,
+    venueCity: g.venue?.location?.city,
     away: {
       team: mapTeamRef(g.teams.away.team),
       score: g.teams.away.score,
@@ -121,7 +124,7 @@ export async function getSchedule(date?: string): Promise<ScheduleDay> {
     {
       sportId: 1,
       date: target,
-      hydrate: "team,linescore,probablePitcher(note),decisions",
+      hydrate: "team,linescore,probablePitcher(note),decisions,venue(location)",
     },
     isPast ? TTL.roster : TTL.live,
   );
