@@ -13,6 +13,8 @@ interface RawStatSplit {
   stat?: Record<string, unknown>;
   batter?: { id: number; fullName: string };
   pitcher?: { id: number; fullName: string };
+  /** Present on `vsPlayer` (per-season breakdown) splits; absent on `vsPlayerTotal`. */
+  season?: string;
 }
 
 interface RawStatGroup {
@@ -31,6 +33,14 @@ function pickGroup(
 ): Record<string, unknown> | undefined {
   const group = res.stats?.find((g) => g.type?.displayName === type);
   return group?.splits?.[0]?.stat;
+}
+
+/** Splits for a named stat group (e.g. `vsPlayer`'s per-season breakdown). */
+function pickGroupSplits(
+  res: RawStatsResponse,
+  type: string,
+): RawStatSplit[] | undefined {
+  return res.stats?.find((g) => g.type?.displayName === type)?.splits;
 }
 
 function n(v: unknown): number | undefined {
@@ -111,15 +121,19 @@ function parseVsPlayerStat(
 }
 
 /**
- * Career batter-vs-pitcher line. A pairing that has never met returns a row
- * with `hasHistory: false` (rendered as an em-dash line) — that is expected,
- * not an error.
+ * Fetches the raw `vsPlayer` response once. The MLB Stats API's `season` query
+ * param has no filtering effect on this stat type — every call returns the
+ * same two groups regardless of what (or whether) a season is passed: a
+ * `vsPlayerTotal` group (one split, the full career line) and a `vsPlayer`
+ * group (one split per season the pair has actually met, each carrying its
+ * own `season` field). The two groups' order in `stats[]` is not stable, so
+ * callers must select by `type.displayName`, never by array position.
  */
-export async function getVsPlayer(
+async function fetchVsPlayer(
   batter: PlayerRef,
   pitcher: PlayerRef,
-): Promise<VsPlayerLine> {
-  const res = await mlbFetch<RawStatsResponse>(
+): Promise<RawStatsResponse> {
+  return mlbFetch<RawStatsResponse>(
     `/api/v1/people/${batter.id}/stats`,
     {
       stats: "vsPlayer",
@@ -128,49 +142,43 @@ export async function getVsPlayer(
     },
     TTL.playerStats,
   );
+}
 
-  const stat = res.stats?.[0]?.splits?.find(
-    (sp) => sp.stat?.plateAppearances != null,
-  )?.stat;
-
+/**
+ * Career batter-vs-pitcher line. A pairing that has never met returns a row
+ * with `hasHistory: false` (rendered as an em-dash line) — that is expected,
+ * not an error.
+ */
+export async function getVsPlayer(
+  batter: PlayerRef,
+  pitcher: PlayerRef,
+): Promise<VsPlayerLine> {
+  const res = await fetchVsPlayer(batter, pitcher);
+  const stat = pickGroup(res, "vsPlayerTotal");
   return { batter, pitcher, ...parseVsPlayerStat(stat) };
 }
 
 /**
  * Season-by-season batter-vs-pitcher history (the MLB Stats API has no
  * per-plate-appearance "vs one pitcher" log, only per-season aggregates).
- * Seasons with no plate appearances against that pitcher are dropped; a failed
- * lookup for one season doesn't drop the rest.
+ * One request returns the full breakdown regardless of `seasons` — see
+ * {@link fetchVsPlayer} — so each requested year is matched against the
+ * breakdown split whose own `season` field equals it. Years with no plate
+ * appearances against that pitcher are dropped.
  */
 export async function getVsPlayerSeasons(
   batter: PlayerRef,
   pitcher: PlayerRef,
   seasons: number[],
 ): Promise<VsPlayerSeasonLine[]> {
-  const settled = await Promise.allSettled(
-    seasons.map(async (season) => {
-      const res = await mlbFetch<RawStatsResponse>(
-        `/api/v1/people/${batter.id}/stats`,
-        {
-          stats: "vsPlayer",
-          group: "hitting",
-          opposingPlayerId: pitcher.id,
-          season,
-        },
-        TTL.playerStats,
-      );
-      const stat = res.stats?.[0]?.splits?.find(
-        (sp) => sp.stat?.plateAppearances != null,
-      )?.stat;
-      return { batter, pitcher, season, ...parseVsPlayerStat(stat) };
-    }),
-  );
+  const res = await fetchVsPlayer(batter, pitcher);
+  const breakdown = pickGroupSplits(res, "vsPlayer") ?? [];
 
-  return settled
-    .filter(
-      (r): r is PromiseFulfilledResult<VsPlayerSeasonLine> => r.status === "fulfilled",
-    )
-    .map((r) => r.value)
+  return seasons
+    .map((season) => {
+      const stat = breakdown.find((sp) => sp.season === String(season))?.stat;
+      return { batter, pitcher, season, ...parseVsPlayerStat(stat) };
+    })
     .filter((line) => line.hasHistory)
     .sort((a, b) => b.season - a.season);
 }
@@ -258,7 +266,9 @@ export async function getBullpenWorkload(
     pitcherIds.map(async (id) => {
       const res = await mlbFetch<RawGameLogResponse>(
         `/api/v1/people/${id}/stats`,
-        { stats: "gameLog", group: "pitching", season },
+        // gameLog defaults to gameType=R (regular season) only, so a reliever's
+        // postseason outings otherwise vanish from the recent-workload window.
+        { stats: "gameLog", group: "pitching", season, gameType: "R,F,D,L,W" },
         TTL.pitcherLog,
       );
       const splits = res.stats?.[0]?.splits ?? [];
