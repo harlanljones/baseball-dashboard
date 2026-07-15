@@ -213,12 +213,27 @@ export interface VsPlayerSeasonLine extends VsPlayerLine {
   season: number;
 }
 
+/** A batter's current-season line against pitchers throwing a given hand. */
+export interface PlatoonSplitLine {
+  pa: number;
+  avg: string;
+  obp: string;
+  slg: string;
+}
+
+/** One matchup row: career vs this specific pitcher, plus the platoon split. */
+export interface MatchupRow extends VsPlayerLine {
+  platoon: PlatoonSplitLine;
+}
+
 /** A batting side's matchups against one opposing starting/probable pitcher. */
 export interface MatchupSide {
   pitcher: PlayerRef | null;
+  /** The pitcher's throwing hand, when known — drives the platoon-split columns. */
+  pitcherHand: "L" | "R" | null;
   pitchingTeam: TeamRef;
   battingTeam: TeamRef;
-  rows: VsPlayerLine[];
+  rows: MatchupRow[];
   /** True when batters came from the active-roster proxy (Preview games). */
   isProxy: boolean;
 }

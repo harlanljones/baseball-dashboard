@@ -155,6 +155,11 @@ export async function getHeadToHead(
       opponentId: teamB.id,
       startDate: `${season}-01-01`,
       endDate: `${season}-12-31`,
+      // Without this, MLB tags Spring Training games with the *upcoming*
+      // season's year, so a bare date-range query pulls exhibition games
+      // (and their sometimes-Cancelled-but-abstractGameState=Final entries)
+      // into what should be the regular-season series.
+      gameType: "R",
       hydrate: "team,linescore",
     },
     TTL.headToHead,

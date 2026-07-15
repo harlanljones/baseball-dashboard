@@ -3,7 +3,8 @@ import PlayerHeadshot from "./PlayerHeadshot";
 import { rateClass } from "@/lib/statColor";
 import type { MatchupSide } from "@/lib/mlb/types";
 
-const COLS = ["PA", "H", "HR", "BB", "K", "AVG", "OBP", "SLG"] as const;
+const CAREER_COLS = ["PA", "H", "HR", "BB", "K", "AVG", "OBP", "SLG"] as const;
+const PLATOON_COLS = ["PA", "AVG", "OBP", "SLG"] as const;
 
 function name(t: { abbreviation?: string; name: string }): string {
   return t.abbreviation ?? t.name;
@@ -46,13 +47,10 @@ export default function MatchupTable({ side }: { side: MatchupSide }) {
           </caption>
           <thead>
             <tr>
-              <th
-                scope="col"
-                className="font-display px-2 py-1 text-left text-xs font-semibold uppercase tracking-wider text-ink/50"
-              >
+              <th scope="col" className="font-display px-2 py-1 text-left text-xs font-semibold uppercase tracking-wider text-ink/50">
                 Batter
               </th>
-              {COLS.map((c) => (
+              {CAREER_COLS.map((c) => (
                 <th
                   key={c}
                   scope="col"
@@ -96,7 +94,7 @@ export default function MatchupTable({ side }: { side: MatchupSide }) {
                   </>
                 ) : (
                   <td
-                    colSpan={COLS.length}
+                    colSpan={CAREER_COLS.length}
                     className="px-2 py-1 text-right text-ink/50"
                   >
                     — no career history
@@ -107,6 +105,65 @@ export default function MatchupTable({ side }: { side: MatchupSide }) {
           </tbody>
         </table>
       </div>
+
+      {side.pitcherHand && (
+        <div className="mt-4 min-w-0">
+          <h4 className="font-display text-xs font-semibold uppercase tracking-wider text-ink/50">
+            This season vs {side.pitcherHand === "L" ? "LHP" : "RHP"}
+          </h4>
+          <div className="mt-1 overflow-x-auto">
+            <table className="nums w-full min-w-max text-sm">
+              <caption className="sr-only">
+                {name(side.battingTeam)} hitters, this season vs{" "}
+                {side.pitcherHand === "L" ? "left-handed" : "right-handed"} pitching
+              </caption>
+              <thead>
+                <tr>
+                  <th scope="col" className="font-display px-2 py-1 text-left text-xs font-semibold uppercase tracking-wider text-ink/50">
+                    Batter
+                  </th>
+                  {PLATOON_COLS.map((c) => (
+                    <th
+                      key={c}
+                      scope="col"
+                      className="font-display px-2 py-1 text-right text-xs font-semibold uppercase tracking-wider text-ink/50"
+                    >
+                      {c}
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {side.rows.map((r) => (
+                  <tr
+                    key={r.batter.id}
+                    className="border-t border-ink/10"
+                  >
+                    <td className="px-2 py-1 text-left">
+                      <Link
+                        href={`/players/${r.batter.id}/vs/${r.pitcher.id}`}
+                        className="hover:text-grass hover:underline"
+                      >
+                        {r.batter.fullName}
+                      </Link>
+                    </td>
+                    <td className="font-mono px-2 py-1 text-right">{r.platoon.pa}</td>
+                    <td className={`font-mono px-2 py-1 text-right ${rateClass("avg", r.platoon.avg, r.platoon.pa)}`}>
+                      {r.platoon.avg}
+                    </td>
+                    <td className={`font-mono px-2 py-1 text-right ${rateClass("obp", r.platoon.obp, r.platoon.pa)}`}>
+                      {r.platoon.obp}
+                    </td>
+                    <td className={`font-mono px-2 py-1 text-right ${rateClass("slg", r.platoon.slg, r.platoon.pa)}`}>
+                      {r.platoon.slg}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

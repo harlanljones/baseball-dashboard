@@ -1,5 +1,6 @@
 import { mlbFetch, shiftDate, TTL } from "./client";
 import type {
+  PlatoonSplitLine,
   PlayerRef,
   SaberHitting,
   SaberPitching,
@@ -183,6 +184,36 @@ export async function getVsPlayerSeasons(
     .sort((a, b) => b.season - a.season);
 }
 
+/**
+ * A batter's current-season line against pitchers throwing `vsHand`. Used for
+ * the game page's platoon split, alongside (not instead of) the head-to-head
+ * `vsPlayer` line — a batter can have no history against today's specific
+ * pitcher but a well-established platoon split against that arm side.
+ */
+export async function getPlatoonSplit(
+  batter: PlayerRef,
+  vsHand: "L" | "R",
+  season: number,
+): Promise<PlatoonSplitLine> {
+  const res = await mlbFetch<RawStatsResponse>(
+    `/api/v1/people/${batter.id}/stats`,
+    {
+      stats: "statSplits",
+      sitCodes: vsHand === "L" ? "vl" : "vr",
+      group: "hitting",
+      season,
+    },
+    TTL.playerStats,
+  );
+  const stat = res.stats?.[0]?.splits?.[0]?.stat;
+  return {
+    pa: n(stat?.plateAppearances) ?? 0,
+    avg: s(stat?.avg) ?? "-",
+    obp: s(stat?.obp) ?? "-",
+    slg: s(stat?.slg) ?? "-",
+  };
+}
+
 // --- Roster proxy (Preview games) --------------------------------------------
 
 interface RawRosterEntry {
@@ -300,4 +331,15 @@ export async function getPerson(id: number): Promise<PlayerRef | null> {
   );
   const person = res.people?.[0];
   return person ? { id: person.id, fullName: person.fullName } : null;
+}
+
+/** A pitcher's throwing hand, used to pick the batter platoon split to show. */
+export async function getPitchHand(id: number): Promise<"L" | "R" | null> {
+  const res = await mlbFetch<{ people?: { pitchHand?: { code?: string } }[] }>(
+    `/api/v1/people/${id}`,
+    {},
+    TTL.roster,
+  );
+  const code = res.people?.[0]?.pitchHand?.code;
+  return code === "L" || code === "R" ? code : null;
 }

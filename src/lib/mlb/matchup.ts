@@ -1,12 +1,12 @@
 import { cache } from "react";
 
-import { getRosterWithSeasonStats, getVsPlayer } from "./players";
+import { getPitchHand, getPlatoonSplit, getRosterWithSeasonStats, getVsPlayer } from "./players";
 import type {
   GameFeed,
+  MatchupRow,
   MatchupSide,
   PlayerRef,
   TeamRef,
-  VsPlayerLine,
 } from "./types";
 
 /** Max batters we look up per pitching side (a standard lineup). */
@@ -67,22 +67,29 @@ async function buildSide(
   pitchingTeam: TeamRef,
   battingTeam: TeamRef,
   pitcher: PlayerRef | null,
+  pitcherHand: "L" | "R" | null,
   batters: PlayerRef[],
   isProxy: boolean,
+  season: number,
 ): Promise<MatchupSide> {
-  let rows: VsPlayerLine[] = [];
+  let rows: MatchupRow[] = [];
   if (pitcher && batters.length > 0) {
     const settled = await Promise.allSettled(
-      batters.map((b) => getVsPlayer(b, pitcher)),
+      batters.map(async (b) => {
+        const [vsPlayer, platoon] = await Promise.all([
+          getVsPlayer(b, pitcher),
+          pitcherHand
+            ? getPlatoonSplit(b, pitcherHand, season)
+            : Promise.resolve({ pa: 0, avg: "-", obp: "-", slg: "-" }),
+        ]);
+        return { ...vsPlayer, platoon };
+      }),
     );
     rows = settled
-      .filter(
-        (r): r is PromiseFulfilledResult<VsPlayerLine> =>
-          r.status === "fulfilled",
-      )
+      .filter((r): r is PromiseFulfilledResult<MatchupRow> => r.status === "fulfilled")
       .map((r) => r.value);
   }
-  return { pitcher, pitchingTeam, battingTeam, rows, isProxy };
+  return { pitcher, pitcherHand, pitchingTeam, battingTeam, rows, isProxy };
 }
 
 /**
@@ -100,16 +107,34 @@ export async function buildMatchups(
   const awayPitcher = startingPitcherFor(feed, "away");
   const homePitcher = startingPitcherFor(feed, "home");
 
-  const [homeLineup, awayLineup] = await Promise.all([
+  const [homeLineup, awayLineup, awayPitcherHand, homePitcherHand] = await Promise.all([
     lineupFor(feed, "home", season),
     lineupFor(feed, "away", season),
+    awayPitcher ? getPitchHand(awayPitcher.id) : Promise.resolve(null),
+    homePitcher ? getPitchHand(homePitcher.id) : Promise.resolve(null),
   ]);
 
   const [awayPitching, homePitching] = await Promise.all([
     // Away team pitching -> faces the home lineup.
-    buildSide(awayTeam, homeTeam, awayPitcher, homeLineup.batters, homeLineup.isProxy),
+    buildSide(
+      awayTeam,
+      homeTeam,
+      awayPitcher,
+      awayPitcherHand,
+      homeLineup.batters,
+      homeLineup.isProxy,
+      season,
+    ),
     // Home team pitching -> faces the away lineup.
-    buildSide(homeTeam, awayTeam, homePitcher, awayLineup.batters, awayLineup.isProxy),
+    buildSide(
+      homeTeam,
+      awayTeam,
+      homePitcher,
+      homePitcherHand,
+      awayLineup.batters,
+      awayLineup.isProxy,
+      season,
+    ),
   ]);
 
   return { awayPitching, homePitching };
