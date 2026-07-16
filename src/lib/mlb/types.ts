@@ -192,6 +192,7 @@ export interface SaberHitting {
   pa?: number;           // Plate appearances
   bbPct?: string;        // Walk rate (e.g. "8.5%")
   kPct?: string;         // Strikeout rate (e.g. "12.3%")
+  xwoba?: number;        // Expected wOBA (may not be available in all API responses)
 }
 
 export interface SaberPitching {

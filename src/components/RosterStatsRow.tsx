@@ -45,7 +45,8 @@ export function HitterRow({ position, name, stats }: HitterRowProps) {
       <td className={`px-3 py-2 font-mono text-right ${statClass("wrcPlus", stats?.wrcPlus) ?? ""}`}>{int(stats?.wrcPlus)}</td>
       <td className="px-3 py-2 font-mono text-right text-ink/60">{int(stats?.pa)}</td>
       <td className={`px-3 py-2 font-mono text-right ${statClass("woba", stats?.woba) ?? ""}`}>{rate3(stats?.woba)}</td>
-      <td className="px-3 py-2 font-mono text-right text-ink/60">{rate3(stats?.woba)}</td> {/* TODO: xwOBA fallback to wOBA if unavailable */}
+      {/* xwOBA column: display xwOBA if available, fallback to wOBA if xwOBA is not in the API response */}
+      <td className="px-3 py-2 font-mono text-right text-ink/60">{rate3(stats?.xwoba ?? stats?.woba)}</td>
       <td className="px-3 py-2 font-mono text-right text-ink/60">{pct(stats?.bbPct)}</td>
       <td className="px-3 py-2 font-mono text-right text-ink/60">{pct(stats?.kPct)}</td>
     </tr>
@@ -63,7 +64,9 @@ export function PitcherRow({ position, name, stats }: PitcherRowProps) {
       <td className="px-3 py-2 font-mono text-right text-ink/60">{stats?.era ?? "—"}</td>
       <td className={`px-3 py-2 font-mono text-right ${statClass("fip", stats?.fip) ?? ""}`}>{dec2(stats?.fip)}</td>
       <td className={`px-3 py-2 font-mono text-right ${statClass("xfip", stats?.xfip) ?? ""}`}>{dec2(stats?.xfip)}</td>
-      <td className="px-3 py-2 font-mono text-right text-ink/60">{pctDec(stats?.kMinusBbPct)}</td>
+      <td className="px-3 py-2 font-mono text-right text-ink/60">
+        {stats?.kMinusBbPct != null ? `${(stats.kMinusBbPct * 100).toFixed(1)}%` : "—"}
+      </td>
     </tr>
   );
 }

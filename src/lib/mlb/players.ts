@@ -84,6 +84,7 @@ export async function getSaberHitting(
     pa,
     bbPct: pct(bb, pa),
     kPct: pct(k, pa),
+    xwoba: n(saber?.xwoba),
   };
 }
 
