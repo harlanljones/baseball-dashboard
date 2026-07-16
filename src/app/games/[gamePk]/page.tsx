@@ -12,29 +12,22 @@ import HeadToHead from "@/components/HeadToHead";
 import Linescore from "@/components/Linescore";
 import MatchupTable from "@/components/MatchupTable";
 import PlayerHeadshot from "@/components/PlayerHeadshot";
-import SaberCard, { type SaberStat } from "@/components/SaberCard";
+import RosterStatsSection from "@/components/RosterStatsSection";
 import TeamLogo from "@/components/TeamLogo";
 
 import { easternDateOf, easternToday, MlbApiError } from "@/lib/mlb/client";
-import { statClass } from "@/lib/statColor";
 import { getLiveFeed } from "@/lib/mlb/game";
 import {
   buildMatchups,
-  lineupFor,
-  startingPitcherFor,
 } from "@/lib/mlb/matchup";
 import {
   getBullpenSeasonPitching,
   getBullpenWorkload,
-  getSaberHitting,
-  getSaberPitching,
 } from "@/lib/mlb/players";
 import { getHeadToHead } from "@/lib/mlb/schedule";
 import type {
   BullpenPitcher,
   GameFeed,
-  PlayerRef,
-  SaberHitting,
   TeamBoxscore,
 } from "@/lib/mlb/types";
 
@@ -190,109 +183,6 @@ async function MatchupSection({
   );
 }
 
-function hitterStats(s: SaberHitting | null): SaberStat[] {
-  return [
-    { label: "wOBA", value: rate3(s?.woba), className: statClass("woba", s?.woba) },
-    { label: "wRC+", value: int(s?.wrcPlus), className: statClass("wrcPlus", s?.wrcPlus) },
-    { label: "WAR", value: dec1(s?.war), className: statClass("warHitter", s?.war) },
-    // BABIP is luck-driven — never graded good/bad.
-    { label: "BABIP", value: s?.babip ?? "—" },
-  ];
-}
-
-async function TeamSaber({
-  feed,
-  side,
-  season,
-}: {
-  feed: GameFeed;
-  side: "away" | "home";
-  season: number;
-}) {
-  const team = feed[side].team;
-  const pitcher = startingPitcherFor(feed, side);
-
-  const data = await safe(
-    (async () => {
-      const lineup = await lineupFor(feed, side, season);
-      const hitters = lineup.batters.slice(0, 4);
-      const [pitchingStats, hittingStats] = await Promise.all([
-        pitcher
-          ? safe(getSaberPitching(pitcher.id, season))
-          : Promise.resolve(null),
-        Promise.all(hitters.map((h) => safe(getSaberHitting(h.id, season)))),
-      ]);
-      return { hitters, pitchingStats, hittingStats, isProxy: lineup.isProxy };
-    })(),
-  );
-
-  if (!data) return <SectionError label={`${team.name} sabermetrics`} />;
-  const { hitters, pitchingStats, hittingStats, isProxy } = data;
-
-  return (
-    <div className="min-w-0">
-      <h3 className="font-display mb-2 flex items-center gap-2 text-base font-semibold">
-        <TeamLogo teamId={team.id} size={18} />
-        {team.name}
-      </h3>
-      <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-        {pitcher && (
-          <SaberCard
-            name={pitcher.fullName}
-            subtitle="Starting pitcher"
-            headshotId={pitcher.id}
-            stats={[
-              {
-                label: "WAR",
-                value: dec1(pitchingStats?.war),
-                className: statClass("warPitcher", pitchingStats?.war),
-              },
-              {
-                label: "FIP",
-                value: dec2(pitchingStats?.fip),
-                className: statClass("fip", pitchingStats?.fip),
-              },
-              {
-                label: "xFIP",
-                value: dec2(pitchingStats?.xfip),
-                className: statClass("xfip", pitchingStats?.xfip),
-              },
-              {
-                label: "ERA-",
-                value: int(pitchingStats?.eraMinus),
-                className: statClass("eraMinus", pitchingStats?.eraMinus),
-              },
-            ]}
-          />
-        )}
-        {hitters.map((h: PlayerRef, i) => (
-          <SaberCard
-            key={h.id}
-            name={h.fullName}
-            subtitle="Hitter"
-            stats={hitterStats(hittingStats[i])}
-          />
-        ))}
-      </div>
-      {isProxy && (
-        <p className="mt-2 text-xs text-ink/50">
-          Lineup not posted — showing roster leaders by PA.
-        </p>
-      )}
-    </div>
-  );
-}
-
-function SaberSection({ feed, season }: { feed: GameFeed; season: number }) {
-  // Each TeamSaber isolates its own failures, so no try/catch is needed (and
-  // one wouldn't catch errors thrown during async child rendering anyway).
-  return (
-    <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-      <TeamSaber feed={feed} side="away" season={season} />
-      <TeamSaber feed={feed} side="home" season={season} />
-    </div>
-  );
-}
 
 // --- page --------------------------------------------------------------------
 
@@ -473,7 +363,7 @@ export default async function GamePage({
       {/* 5. Sabermetrics */}
       <Section title="Sabermetric evaluations">
         <Suspense fallback={<SectionSkeleton />}>
-          <SaberSection feed={feed} season={season} />
+          <RosterStatsSection feed={feed} season={season} />
         </Suspense>
       </Section>
     </div>
