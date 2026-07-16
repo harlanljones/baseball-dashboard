@@ -15,10 +15,14 @@ async function safe<T>(p: Promise<T>): Promise<T | null> {
   }
 }
 
-function normalizePosition(rosterPos: string): string {
+function normalizePosition(rosterPos: string, role?: string): string {
+  // Pitchers are split into SP / RP based on their roster role.
+  if (rosterPos === "Pitcher") {
+    return role && /start/i.test(role) ? "SP" : "RP";
+  }
+
   // Map API position names to MLB abbreviations
   const posMap: Record<string, string> = {
-    Pitcher: "RP", // Default pitchers to RP; SP will be inferred from role if needed
     Catcher: "C",
     "First Baseman": "1B",
     "Second Baseman": "2B",
@@ -32,6 +36,25 @@ function normalizePosition(rosterPos: string): string {
     Infielder: "IF",
   };
   return posMap[rosterPos] ?? rosterPos; // Fallback to original if no mapping
+}
+
+// Spec position order: SP, RP, C, 1B, 2B, 3B, SS, LF, CF, RF (others trail).
+const POSITION_ORDER = [
+  "SP",
+  "RP",
+  "C",
+  "1B",
+  "2B",
+  "3B",
+  "SS",
+  "LF",
+  "CF",
+  "RF",
+];
+
+function positionRank(pos: string): number {
+  const idx = POSITION_ORDER.indexOf(pos);
+  return idx === -1 ? POSITION_ORDER.length : idx;
 }
 
 interface PlayerWithStats {
@@ -63,17 +86,20 @@ async function enrichRoster(
 
   for (const result of results) {
     if (result.status === "fulfilled") {
-      const { player, position, stats } = result.value;
+      const { player, position, role, stats } = result.value;
       // Only include players with stats
       if (stats) {
         enriched.push({
           player,
-          position: normalizePosition(position),
+          position: normalizePosition(position, role),
           stats,
         });
       }
     }
   }
+
+  // Sort by spec position order (SP, RP, C, 1B, 2B, 3B, SS, LF, CF, RF).
+  enriched.sort((a, b) => positionRank(a.position) - positionRank(b.position));
 
   return enriched;
 }
