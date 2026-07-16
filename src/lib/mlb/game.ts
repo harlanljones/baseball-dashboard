@@ -129,8 +129,7 @@ function mapBullpenPitcher(p: RawBoxPlayer): BullpenPitcher {
     id: p.person.id,
     name: p.person.fullName,
     ip: str(s.inningsPitched, "0.0"),
-    era: str(s.era),
-    whip: str(s.whip),
+    era: s.era ? str(s.era) : undefined,
     k: num(s.strikeOuts),
   };
 }

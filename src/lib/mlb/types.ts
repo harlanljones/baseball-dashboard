@@ -131,7 +131,7 @@ export interface BoxscorePitcher {
 }
 
 /**
- * A bullpen arm with season pitching stats. `ip`/`era`/`whip`/`k` come from a
+ * A bullpen arm with season pitching stats. `ip`/`era`/`fip`/`k` come from a
  * per-pitcher stats lookup ({@link getBullpenSeasonPitching}), not the feed's
  * embedded `seasonStats` — that field is only reliably populated for probable
  * starters while a game is in `Preview` state.
@@ -140,8 +140,8 @@ export interface BullpenPitcher {
   id: number;
   name: string;
   ip: string;
-  era: string;
-  whip: string;
+  era?: string;
+  fip?: number;
   k: number;
   /** Pitches thrown yesterday. Undefined if the workload lookup failed for this pitcher. */
   pitchesYesterday?: number;

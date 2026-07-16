@@ -7,10 +7,14 @@ import { statClass } from "@/lib/statColor";
 import { useSortableTable } from "@/lib/hooks/useSortableTable";
 import type { TeamBoxscore } from "@/lib/mlb/types";
 
-const COLS = ["IP", "ERA", "WHIP", "K"] as const;
+const COLS = ["IP", "ERA", "FIP", "K"] as const;
 
 function pitchCount(n?: number): string {
   return n == null ? "—" : String(n);
+}
+
+function formatStat(n?: number): string {
+  return n == null ? "—" : n.toFixed(2);
 }
 
 function BullpenTable({ box }: { box: TeamBoxscore }) {
@@ -59,11 +63,12 @@ function BullpenTable({ box }: { box: TeamBoxscore }) {
                   onSort={toggleSort}
                 />
                 <SortableHeaderCell
-                  label="WHIP"
-                  sortKey="whip"
+                  label="FIP"
+                  sortKey="fip"
                   currentSortKey={sort.sortKey}
                   currentDirection={sort.direction}
                   onSort={toggleSort}
+                  title="Fielding Independent Pitching"
                 />
                 <SortableHeaderCell
                   label="K"
@@ -104,10 +109,10 @@ function BullpenTable({ box }: { box: TeamBoxscore }) {
                   </td>
                   <td className="font-mono px-2 py-1 text-right">{p.ip}</td>
                   <td className={`font-mono px-2 py-1 text-right ${statClass("era", p.era)}`}>
-                    {p.era}
+                    {p.era ?? "—"}
                   </td>
-                  <td className={`font-mono px-2 py-1 text-right ${statClass("whip", p.whip)}`}>
-                    {p.whip}
+                  <td className={`font-mono px-2 py-1 text-right ${statClass("fip", p.fip)}`}>
+                    {formatStat(p.fip)}
                   </td>
                   <td className="font-mono px-2 py-1 text-right">{p.k}</td>
                   <td className="font-mono px-2 py-1 text-right">{pitchCount(p.pitchesYesterday)}</td>

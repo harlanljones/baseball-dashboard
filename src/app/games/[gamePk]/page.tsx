@@ -104,7 +104,7 @@ function SectionSkeleton() {
 function withBullpenStats(
   box: TeamBoxscore,
   workload: Map<number, { yesterday: number; last3: number }>,
-  seasonPitching: Map<number, { ip: string; era: string; whip: string; k: number }>,
+  seasonPitching: Map<number, { ip: string; era?: string; fip?: number; k: number }>,
 ): TeamBoxscore {
   return {
     ...box,

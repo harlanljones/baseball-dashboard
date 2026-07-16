@@ -440,28 +440,29 @@ export async function getBullpenWorkload(
 export async function getBullpenSeasonPitching(
   pitcherIds: number[],
   season: number,
-): Promise<Map<number, { ip: string; era: string; whip: string; k: number }>> {
+): Promise<Map<number, { ip: string; era?: string; fip?: number; k: number }>> {
   const settled = await Promise.allSettled(
     pitcherIds.map(async (id) => {
       const res = await mlbFetch<RawStatsResponse>(
         `/api/v1/people/${id}/stats`,
-        { stats: "season", group: "pitching", season },
+        { stats: "sabermetrics,season", group: "pitching", season },
         TTL.playerStats,
       );
-      const stat = res.stats?.[0]?.splits?.[0]?.stat;
+      const saber = pickGroup(res, "sabermetrics");
+      const seasonStat = pickGroup(res, "season");
       return [
         id,
         {
-          ip: s(stat?.inningsPitched) ?? "0.0",
-          era: s(stat?.era) ?? "-.--",
-          whip: s(stat?.whip) ?? "-",
-          k: n(stat?.strikeOuts) ?? 0,
+          ip: s(seasonStat?.inningsPitched) ?? "0.0",
+          era: s(seasonStat?.era),
+          fip: n(saber?.fip),
+          k: n(seasonStat?.strikeOuts) ?? 0,
         },
       ] as const;
     }),
   );
 
-  const stats = new Map<number, { ip: string; era: string; whip: string; k: number }>();
+  const stats = new Map<number, { ip: string; era?: string; fip?: number; k: number }>();
   for (const r of settled) {
     if (r.status === "fulfilled") stats.set(r.value[0], r.value[1]);
   }
