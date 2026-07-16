@@ -143,7 +143,7 @@ export default async function RosterStatsSection({
   season: number;
 }) {
   return (
-    <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+    <div className="space-y-6">
       <TeamRoster team={feed.away.team} season={season} />
       <TeamRoster team={feed.home.team} season={season} />
     </div>
