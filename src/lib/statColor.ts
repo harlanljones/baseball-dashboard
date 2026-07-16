@@ -28,6 +28,9 @@ const BANDS = {
   avg: { good: 0.3, bad: 0.21 },
   obp: { good: 0.36, bad: 0.29 },
   slg: { good: 0.48, bad: 0.35 },
+  ops: { good: 0.8, bad: 0.68 },
+  bbPct: { good: 10, bad: 6 },
+  kPct: { good: 18, bad: 26 },
 } as const;
 
 export type StatKey = keyof typeof BANDS;

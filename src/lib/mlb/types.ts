@@ -130,7 +130,12 @@ export interface BoxscorePitcher {
   era: string;
 }
 
-/** A bullpen arm with season pitching stats (from the feed's `seasonStats`). */
+/**
+ * A bullpen arm with season pitching stats. `ip`/`era`/`whip`/`k` come from a
+ * per-pitcher stats lookup ({@link getBullpenSeasonPitching}), not the feed's
+ * embedded `seasonStats` — that field is only reliably populated for probable
+ * starters while a game is in `Preview` state.
+ */
 export interface BullpenPitcher {
   id: number;
   name: string;
@@ -213,17 +218,34 @@ export interface VsPlayerSeasonLine extends VsPlayerLine {
   season: number;
 }
 
-/** A batter's current-season line against pitchers throwing a given hand. */
-export interface PlatoonSplitLine {
+/**
+ * A batter's current-season rate line for a situational split (platoon, or
+ * home/road). MLB's Stats API doesn't expose wRC+/wOBA (or OPS+, which it
+ * doesn't have at all) filtered by situation — the sabermetrics stat group
+ * ignores `sitCodes` and always returns full-season values — so OBP/OPS plus
+ * walk/strikeout rate stand in as the best available situational read.
+ */
+export interface SplitLine {
   pa: number;
-  avg: string;
   obp: string;
-  slg: string;
+  ops: string;
+  bbPct: string;
+  kPct: string;
 }
 
 /** One matchup row: career vs this specific pitcher, plus the platoon split. */
 export interface MatchupRow extends VsPlayerLine {
-  platoon: PlatoonSplitLine;
+  platoon: SplitLine;
+}
+
+/**
+ * A batting side's home/road split, shown in place of vs-pitcher matchup rows
+ * when no probable starter has been announced yet.
+ */
+export interface HomeAwaySplitRow {
+  batter: PlayerRef;
+  isHome: boolean;
+  split: SplitLine;
 }
 
 /** A batting side's matchups against one opposing starting/probable pitcher. */
@@ -236,4 +258,6 @@ export interface MatchupSide {
   rows: MatchupRow[];
   /** True when batters came from the active-roster proxy (Preview games). */
   isProxy: boolean;
+  /** Home/road split rows for the batting team — populated only when `pitcher` is null. */
+  noPitcherRows: HomeAwaySplitRow[];
 }

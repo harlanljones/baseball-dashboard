@@ -1,8 +1,15 @@
 import { cache } from "react";
 
-import { getPitchHand, getPlatoonSplit, getRosterWithSeasonStats, getVsPlayer } from "./players";
+import {
+  getHomeAwaySplit,
+  getPitchHand,
+  getPlatoonSplit,
+  getRosterWithSeasonStats,
+  getVsPlayer,
+} from "./players";
 import type {
   GameFeed,
+  HomeAwaySplitRow,
   MatchupRow,
   MatchupSide,
   PlayerRef,
@@ -70,9 +77,12 @@ async function buildSide(
   pitcherHand: "L" | "R" | null,
   batters: PlayerRef[],
   isProxy: boolean,
+  battingTeamIsHome: boolean,
   season: number,
 ): Promise<MatchupSide> {
   let rows: MatchupRow[] = [];
+  let noPitcherRows: HomeAwaySplitRow[] = [];
+
   if (pitcher && batters.length > 0) {
     const settled = await Promise.allSettled(
       batters.map(async (b) => {
@@ -80,7 +90,7 @@ async function buildSide(
           getVsPlayer(b, pitcher),
           pitcherHand
             ? getPlatoonSplit(b, pitcherHand, season)
-            : Promise.resolve({ pa: 0, avg: "-", obp: "-", slg: "-" }),
+            : Promise.resolve({ pa: 0, obp: "-", ops: "-", bbPct: "-", kPct: "-" }),
         ]);
         return { ...vsPlayer, platoon };
       }),
@@ -88,8 +98,23 @@ async function buildSide(
     rows = settled
       .filter((r): r is PromiseFulfilledResult<MatchupRow> => r.status === "fulfilled")
       .map((r) => r.value);
+  } else if (!pitcher && batters.length > 0) {
+    // No probable starter yet — fall back to each batter's home/road split
+    // (matching where they'll actually be hitting in this game) instead of a
+    // vs-pitcher table.
+    const settled = await Promise.allSettled(
+      batters.map(async (b) => ({
+        batter: b,
+        isHome: battingTeamIsHome,
+        split: await getHomeAwaySplit(b, battingTeamIsHome, season),
+      })),
+    );
+    noPitcherRows = settled
+      .filter((r): r is PromiseFulfilledResult<HomeAwaySplitRow> => r.status === "fulfilled")
+      .map((r) => r.value);
   }
-  return { pitcher, pitcherHand, pitchingTeam, battingTeam, rows, isProxy };
+
+  return { pitcher, pitcherHand, pitchingTeam, battingTeam, rows, isProxy, noPitcherRows };
 }
 
 /**
@@ -123,6 +148,7 @@ export async function buildMatchups(
       awayPitcherHand,
       homeLineup.batters,
       homeLineup.isProxy,
+      /* battingTeamIsHome */ true,
       season,
     ),
     // Home team pitching -> faces the away lineup.
@@ -133,6 +159,7 @@ export async function buildMatchups(
       homePitcherHand,
       awayLineup.batters,
       awayLineup.isProxy,
+      /* battingTeamIsHome */ false,
       season,
     ),
   ]);

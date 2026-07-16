@@ -24,6 +24,7 @@ import {
   startingPitcherFor,
 } from "@/lib/mlb/matchup";
 import {
+  getBullpenSeasonPitching,
   getBullpenWorkload,
   getSaberHitting,
   getSaberPitching,
@@ -107,19 +108,22 @@ function SectionSkeleton() {
 
 // --- async sections ----------------------------------------------------------
 
-function withWorkload(
+function withBullpenStats(
   box: TeamBoxscore,
   workload: Map<number, { yesterday: number; last3: number }>,
+  seasonPitching: Map<number, { ip: string; era: string; whip: string; k: number }>,
 ): TeamBoxscore {
   return {
     ...box,
-    bullpen: box.bullpen.map(
-      (p): BullpenPitcher => ({
+    bullpen: box.bullpen.map((p): BullpenPitcher => {
+      const stats = seasonPitching.get(p.id);
+      return {
         ...p,
+        ...(stats ?? {}),
         pitchesYesterday: workload.get(p.id)?.yesterday,
         pitchesLast3: workload.get(p.id)?.last3,
-      }),
-    ),
+      };
+    }),
   };
 }
 
@@ -131,29 +135,26 @@ async function BullpenSection({
   season: number;
 }) {
   const gameDate = easternDateOf(feed.startTime || new Date());
-  const workload = await safe(
+  const awayIds = feed.boxscore.away.bullpen.map((p) => p.id);
+  const homeIds = feed.boxscore.home.bullpen.map((p) => p.id);
+
+  const fetched = await safe(
     Promise.all([
-      getBullpenWorkload(
-        feed.boxscore.away.bullpen.map((p) => p.id),
-        season,
-        gameDate,
-      ),
-      getBullpenWorkload(
-        feed.boxscore.home.bullpen.map((p) => p.id),
-        season,
-        gameDate,
-      ),
+      getBullpenWorkload(awayIds, season, gameDate),
+      getBullpenWorkload(homeIds, season, gameDate),
+      getBullpenSeasonPitching(awayIds, season),
+      getBullpenSeasonPitching(homeIds, season),
     ]),
   );
 
-  if (!workload) {
+  if (!fetched) {
     return <Bullpen away={feed.boxscore.away} home={feed.boxscore.home} />;
   }
-  const [awayWorkload, homeWorkload] = workload;
+  const [awayWorkload, homeWorkload, awaySeasonPitching, homeSeasonPitching] = fetched;
   return (
     <Bullpen
-      away={withWorkload(feed.boxscore.away, awayWorkload)}
-      home={withWorkload(feed.boxscore.home, homeWorkload)}
+      away={withBullpenStats(feed.boxscore.away, awayWorkload, awaySeasonPitching)}
+      home={withBullpenStats(feed.boxscore.home, homeWorkload, homeSeasonPitching)}
     />
   );
 }

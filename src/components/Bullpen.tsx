@@ -1,6 +1,8 @@
 import PlayerHeadshot from "./PlayerHeadshot";
 import TeamLogo from "./TeamLogo";
+import SortableHeaderCell from "./SortableHeaderCell";
 import { statClass } from "@/lib/statColor";
+import { useSortableTable } from "@/lib/hooks/useSortableTable";
 import type { TeamBoxscore } from "@/lib/mlb/types";
 
 const COLS = ["IP", "ERA", "WHIP", "K"] as const;
@@ -10,6 +12,12 @@ function pitchCount(n?: number): string {
 }
 
 function BullpenTable({ box }: { box: TeamBoxscore }) {
+  const { sorted, sort, toggleSort } = useSortableTable({
+    data: box.bullpen,
+    defaultSortKey: "ip" as keyof (typeof box.bullpen)[0],
+    defaultDirection: "desc",
+  });
+
   // min-w-0 lets the overflow-x-auto table scroll instead of stretching the grid column.
   return (
     <div className="min-w-0">
@@ -34,33 +42,54 @@ function BullpenTable({ box }: { box: TeamBoxscore }) {
                 >
                   Pitcher
                 </th>
-                {COLS.map((c) => (
-                  <th
-                    key={c}
-                    scope="col"
-                    className="font-display px-2 py-1 text-right text-xs font-semibold uppercase tracking-wider text-ink/50"
-                  >
-                    {c}
-                  </th>
-                ))}
-                <th
-                  scope="col"
+                <SortableHeaderCell
+                  label="IP"
+                  sortKey="ip"
+                  currentSortKey={sort.sortKey}
+                  currentDirection={sort.direction}
+                  onSort={toggleSort}
+                />
+                <SortableHeaderCell
+                  label="ERA"
+                  sortKey="era"
+                  currentSortKey={sort.sortKey}
+                  currentDirection={sort.direction}
+                  onSort={toggleSort}
+                />
+                <SortableHeaderCell
+                  label="WHIP"
+                  sortKey="whip"
+                  currentSortKey={sort.sortKey}
+                  currentDirection={sort.direction}
+                  onSort={toggleSort}
+                />
+                <SortableHeaderCell
+                  label="K"
+                  sortKey="k"
+                  currentSortKey={sort.sortKey}
+                  currentDirection={sort.direction}
+                  onSort={toggleSort}
+                />
+                <SortableHeaderCell
+                  label="PY"
+                  sortKey="pitchesYesterday"
+                  currentSortKey={sort.sortKey}
+                  currentDirection={sort.direction}
+                  onSort={toggleSort}
                   title="Pitches thrown yesterday"
-                  className="font-display px-2 py-1 text-right text-xs font-semibold uppercase tracking-wider text-ink/50"
-                >
-                  PY
-                </th>
-                <th
-                  scope="col"
+                />
+                <SortableHeaderCell
+                  label="P3D"
+                  sortKey="pitchesLast3"
+                  currentSortKey={sort.sortKey}
+                  currentDirection={sort.direction}
+                  onSort={toggleSort}
                   title="Pitches thrown over the last 3 days"
-                  className="font-display px-2 py-1 text-right text-xs font-semibold uppercase tracking-wider text-ink/50"
-                >
-                  P3D
-                </th>
+                />
               </tr>
             </thead>
             <tbody>
-              {box.bullpen.map((p) => (
+              {sorted.map((p) => (
                 <tr
                   key={p.id}
                   className="border-t border-ink/10"
