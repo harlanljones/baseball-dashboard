@@ -32,8 +32,8 @@ function pctClass(val?: string): string {
 
 function kMinusBbPctClass(val?: number): string {
   if (val == null) return "";
-  // K%-BB% ranges roughly -5 to +10; good is 3+, bad is -3 or lower
-  return val >= 3 ? GOOD_CLASS : val <= -3 ? BAD_CLASS : "";
+  // K%-BB% good: 15%+ (elite 20%+), bad: 5% or lower (negative = more walks than Ks)
+  return val >= 0.15 ? GOOD_CLASS : val <= 0.05 ? BAD_CLASS : "";
 }
 
 interface HitterRowProps {
