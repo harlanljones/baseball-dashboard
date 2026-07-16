@@ -57,8 +57,7 @@ function s(v: unknown): string | undefined {
 // --- Sabermetrics ------------------------------------------------------------
 
 /**
- * Hitter sabermetrics (wOBA / wRC+ / WAR) plus BABIP, which lives in the plain
- * season group rather than the sabermetrics group — so we fetch both at once.
+ * Hitter sabermetrics (wOBA / wRC+ / WAR) plus BABIP and season stats (PA, BB%, K%).
  */
 export async function getSaberHitting(
   personId: number,
@@ -72,11 +71,19 @@ export async function getSaberHitting(
   const saber = pickGroup(res, "sabermetrics");
   const seasonStat = pickGroup(res, "season");
   if (!saber && !seasonStat) return null;
+
+  const pa = n(seasonStat?.plateAppearances) ?? 0;
+  const bb = n(seasonStat?.baseOnBalls) ?? 0;
+  const k = n(seasonStat?.strikeOuts) ?? 0;
+
   return {
     woba: n(saber?.woba),
     wrcPlus: n(saber?.wRcPlus),
     war: n(saber?.war),
     babip: s(seasonStat?.babip),
+    pa,
+    bbPct: pct(bb, pa),
+    kPct: pct(k, pa),
   };
 }
 
