@@ -1,3 +1,5 @@
+"use client";
+
 import Link from "next/link";
 import PlayerHeadshot from "./PlayerHeadshot";
 import SortableHeaderCell from "./SortableHeaderCell";

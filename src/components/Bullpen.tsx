@@ -1,3 +1,5 @@
+"use client";
+
 import PlayerHeadshot from "./PlayerHeadshot";
 import TeamLogo from "./TeamLogo";
 import SortableHeaderCell from "./SortableHeaderCell";
