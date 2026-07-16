@@ -107,6 +107,42 @@ export async function getSaberPitching(
   };
 }
 
+/**
+ * Pitcher sabermetrics (WAR / FIP / xFIP / ERA-) plus season stats (IP / ERA / BB% / K%).
+ */
+export async function getSaberPitchingWithSeasonStats(
+  personId: number,
+  season: number,
+): Promise<SaberPitching | null> {
+  const res = await mlbFetch<RawStatsResponse>(
+    `/api/v1/people/${personId}/stats`,
+    { stats: "sabermetrics,season", group: "pitching", season },
+    TTL.playerStats,
+  );
+  const saber = pickGroup(res, "sabermetrics");
+  const seasonStat = pickGroup(res, "season");
+  if (!saber && !seasonStat) return null;
+
+  const bb = n(seasonStat?.baseOnBalls) ?? 0;
+  const k = n(seasonStat?.strikeOuts) ?? 0;
+  const bf = n(seasonStat?.battersFaced) ?? 1; // Avoid division by zero
+
+  const bbPctVal = bf > 0 ? bb / bf : 0;
+  const kPctVal = bf > 0 ? k / bf : 0;
+
+  return {
+    war: n(saber?.war),
+    fip: n(saber?.fip),
+    xfip: n(saber?.xfip),
+    eraMinus: n(saber?.eraMinus),
+    ip: s(seasonStat?.inningsPitched),
+    era: s(seasonStat?.era),
+    bbPct: pct(bb, bf),
+    kPct: pct(k, bf),
+    kMinusBbPct: kPctVal - bbPctVal, // Raw decimal for sorting
+  };
+}
+
 // --- Batter vs pitcher -------------------------------------------------------
 
 function parseVsPlayerStat(
@@ -260,6 +296,7 @@ interface RawRosterEntry {
     stats?: RawStatGroup[];
   };
   position?: { type?: string };
+  role?: { name?: string };
 }
 
 interface RawRosterResponse {
@@ -302,6 +339,36 @@ export async function getRosterWithSeasonStats(
 
   hitters.sort((a, b) => b.pa - a.pa);
   return hitters;
+}
+
+/** Active roster with position info for all players (hitters + pitchers). */
+export interface RosterPlayer {
+  player: PlayerRef;
+  position: string; // e.g. "C", "Pitcher", "Outfielder", "Infielder"
+  role?: string; // e.g. "Starter", "Relief" (if available in roster endpoint)
+}
+
+/**
+ * Full active roster (hitters + pitchers) with basic position info.
+ * Does not fetch stats — only IDs, names, positions.
+ */
+export async function getActiveRoster(teamId: number): Promise<RosterPlayer[]> {
+  const res = await mlbFetch<RawRosterResponse>(
+    `/api/v1/teams/${teamId}/roster`,
+    { rosterType: "active" },
+    TTL.roster,
+  );
+
+  const players: RosterPlayer[] = [];
+  for (const entry of res.roster ?? []) {
+    players.push({
+      player: { id: entry.person.id, fullName: entry.person.fullName },
+      position: entry.position?.type ?? "Unknown",
+      role: entry.role?.name,
+    });
+  }
+
+  return players;
 }
 
 // --- Bullpen workload ---------------------------------------------------------
