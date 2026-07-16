@@ -189,6 +189,9 @@ export interface SaberHitting {
   wrcPlus?: number;
   war?: number;
   babip?: string;
+  pa?: number;           // Plate appearances
+  bbPct?: string;        // Walk rate (e.g. "8.5%")
+  kPct?: string;         // Strikeout rate (e.g. "12.3%")
 }
 
 export interface SaberPitching {
@@ -196,6 +199,11 @@ export interface SaberPitching {
   fip?: number;
   xfip?: number;
   eraMinus?: number;
+  ip?: string;           // Innings pitched (e.g. "123.1")
+  era?: string;          // Earned run average (e.g. "3.45")
+  bbPct?: string;        // Walk rate (e.g. "8.5%")
+  kPct?: string;         // Strikeout rate (e.g. "12.3%")
+  kMinusBbPct?: number;  // K% - BB% (raw decimal for sorting)
 }
 
 export interface VsPlayerLine {
