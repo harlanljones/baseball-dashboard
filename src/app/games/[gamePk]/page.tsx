@@ -12,6 +12,7 @@ import GameStatusBadge from "@/components/GameStatusBadge";
 import HeadToHead from "@/components/HeadToHead";
 import Linescore from "@/components/Linescore";
 import MatchupTable from "@/components/MatchupTable";
+import GameLogSection from "@/components/GameLogSection";
 import PlayerHeadshot from "@/components/PlayerHeadshot";
 import RosterStatsSection from "@/components/RosterStatsSection";
 import TeamLogo from "@/components/TeamLogo";
@@ -353,8 +354,21 @@ export default async function GamePage({
         <Section title="Boxscore">
           <div className="space-y-4">
             <Linescore feed={feed} />
-            <BoxscoreTables away={feed.boxscore.away} home={feed.boxscore.home} />
+            <BoxscoreTables
+              away={feed.boxscore.away}
+              home={feed.boxscore.home}
+              isLive={feed.state === "Live"}
+            />
           </div>
+        </Section>
+      )}
+
+      {/* Game log */}
+      {scored && !isDisrupted && (
+        <Section title="Game log">
+          <Suspense fallback={<SectionSkeleton />}>
+            <GameLogSection feed={feed} />
+          </Suspense>
         </Section>
       )}
 
