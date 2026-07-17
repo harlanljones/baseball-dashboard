@@ -83,34 +83,38 @@ interface RawFeed {
   };
 }
 
-interface RawRunner {
-  home_teamRuns?: number;
-  away_teamRuns?: number;
-}
-
 interface RawResult {
   eventType?: string;
   description?: string;
+  awayScore?: number;
+  homeScore?: number;
+  rbi?: number;
 }
 
 interface RawAbout {
   inning?: number;
-  halfInning?: string; // "Top" or "Bottom"
+  halfInning?: string; // "top" or "bottom" (lowercase in actual API)
 }
 
 interface RawPlay {
   about?: RawAbout;
   result?: RawResult;
-  runners?: RawRunner[];
   matchup?: {
     batter?: RawPersonRef;
     pitcher?: RawPersonRef;
   };
 }
 
+interface RawPlaysObject {
+  allPlays?: RawPlay[];
+  currentPlay?: RawPlay;
+  scoringPlays?: number[];
+  playsByInning?: Record<string, unknown>;
+}
+
 interface RawFeedWithPlays extends RawFeed {
   liveData: RawFeed["liveData"] & {
-    plays?: RawPlay[];
+    plays?: RawPlaysObject;
   };
 }
 
@@ -247,10 +251,17 @@ function isSignificantPlay(play: RawPlay): boolean {
     "balk",
   ];
 
-  return (
-    significant.some((s) => eventType === s || eventType.includes(s)) &&
-    mapEventType(eventType) !== null
-  );
+  const isSignificant = significant.some((s) => eventType === s || eventType.includes(s)) &&
+    mapEventType(eventType) !== null;
+
+  if (!isSignificant) return false;
+
+  // Gate singles/doubles/triples on RBI
+  if (["single", "double", "triple"].includes(eventType)) {
+    return play.result?.rbi ? true : false;
+  }
+
+  return true;
 }
 
 // --- Public API --------------------------------------------------------------
@@ -348,22 +359,27 @@ export async function getGamePlays(gamePk: number): Promise<ScoringPlay[]> {
     TTL.live,
   );
 
-  if (!feed.liveData.plays) return [];
+  // BUG FIX 1: liveData.plays is an object with allPlays, not an array
+  const allPlays = feed.liveData.plays?.allPlays;
+  if (!allPlays) return [];
 
-  const plays = feed.liveData.plays
+  const plays = allPlays
     .filter(isSignificantPlay)
     .map((play): ScoringPlay | null => {
       const eventType = mapEventType(play.result?.eventType);
       if (!eventType) return null;
 
-      // Find the final score after this play
-      const finalRunner = play.runners?.[play.runners.length - 1];
-      const awayScore = finalRunner?.away_teamRuns ?? 0;
-      const homeScore = finalRunner?.home_teamRuns ?? 0;
+      // BUG FIX 2: Scores come from play.result, not from runners
+      const awayScore = play.result?.awayScore ?? 0;
+      const homeScore = play.result?.homeScore ?? 0;
+
+      // BUG FIX 3: halfInning is lowercase in the API ("top"/"bottom")
+      const halfInning = play.about?.halfInning?.toLowerCase() ?? "bottom";
+      const ordinal = halfInning === "top" ? "Top" : "Bottom";
 
       return {
         inning: play.about?.inning ?? 0,
-        ordinal: play.about?.halfInning === "Top" ? "Top" : "Bottom",
+        ordinal,
         batter: play.matchup?.batter
           ? { id: play.matchup.batter.id, fullName: play.matchup.batter.fullName }
           : undefined,
