@@ -18,7 +18,7 @@ export default function GameLog({ plays }: { plays: ScoringPlay[] }) {
   // Render inning cards in order
   const inningKeys = Array.from(grouped.keys()).sort((a, b) => {
     const [aInning, aOrdinal] = a.split("-");
-    const [bInning, bOrdinal] = b.split("-");
+    const [bInning] = b.split("-");
     const ainningNum = parseInt(aInning, 10);
     const binningNum = parseInt(bInning, 10);
     if (ainningNum !== binningNum) return ainningNum - binningNum;
