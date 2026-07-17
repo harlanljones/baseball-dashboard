@@ -52,7 +52,8 @@ interface RawFeed {
   gameData: {
     status: { abstractGameState?: string; detailedState?: string };
     datetime?: { dateTime?: string };
-    venue?: { name?: string; location?: { city?: string } };
+    venue?: { id?: number; name?: string; location?: { city?: string } };
+    weather?: { condition?: string; temp?: string; wind?: string };
     teams: {
       away: { id: number; name: string; abbreviation?: string };
       home: { id: number; name: string; abbreviation?: string };
@@ -221,6 +222,10 @@ export async function getLiveFeed(gamePk: number): Promise<GameFeed> {
     startTime: gd.datetime?.dateTime ?? "",
     venue: gd.venue?.name,
     venueCity: gd.venue?.location?.city,
+    venueId: gd.venue?.id,
+    weather: gd.weather
+      ? { condition: gd.weather.condition, tempF: gd.weather.temp, wind: gd.weather.wind }
+      : undefined,
     away: { team: mapRef(away), score: ld.linescore.teams.away.runs },
     home: { team: mapRef(home), score: ld.linescore.teams.home.runs },
     linescore: {

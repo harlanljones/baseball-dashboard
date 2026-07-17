@@ -170,6 +170,10 @@ export interface GameFeed {
   venue?: string;
   /** Ballpark's city, e.g. "Pittsburgh". */
   venueCity?: string;
+  /** MLB Stats API venue id — keys src/lib/weather's ballpark table. */
+  venueId?: number;
+  /** MLB's own gametime weather snapshot (present once a game is close to/at first pitch). */
+  weather?: { condition?: string; tempF?: string; wind?: string };
   away: { team: TeamRef; score?: number };
   home: { team: TeamRef; score?: number };
   linescore: Linescore;

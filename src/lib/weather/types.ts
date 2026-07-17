@@ -36,6 +36,7 @@ export interface WindRelative {
 export interface WeatherHour {
   timeISO: string;
   tempF: number;
+  humidityPct: number;
   sky: Sky;
   skyLabel: string;
   cloudCoverPct: number;
