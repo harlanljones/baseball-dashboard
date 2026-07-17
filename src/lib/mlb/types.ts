@@ -170,6 +170,10 @@ export interface GameFeed {
   venue?: string;
   /** Ballpark's city, e.g. "Pittsburgh". */
   venueCity?: string;
+  /** MLB Stats API venue id — keys src/lib/weather's ballpark table. */
+  venueId?: number;
+  /** MLB's own gametime weather snapshot (present once a game is close to/at first pitch). */
+  weather?: { condition?: string; tempF?: string; wind?: string };
   away: { team: TeamRef; score?: number };
   home: { team: TeamRef; score?: number };
   linescore: Linescore;
@@ -269,4 +273,33 @@ export interface MatchupSide {
   isProxy: boolean;
   /** Home/road split rows for the batting team — populated only when `pitcher` is null. */
   noPitcherRows: HomeAwaySplitRow[];
+}
+
+// ---------------------------------------------------------------------------
+// Game log (play-by-play events)
+// ---------------------------------------------------------------------------
+
+export type ScoringPlayEventType =
+  | "home_run"
+  | "single"
+  | "double"
+  | "triple"
+  | "stolen_base"
+  | "caught_stealing"
+  | "error"
+  | "sacrifice_bunt"
+  | "sacrifice_fly"
+  | "wild_pitch"
+  | "passed_ball"
+  | "balk";
+
+export interface ScoringPlay {
+  inning: number;           // 1-based
+  ordinal: string;          // "Top" | "Bottom"
+  batter?: PlayerRef;       // Who was batting
+  pitcher?: PlayerRef;      // Who was pitching
+  description: string;      // Event description from API
+  eventType: ScoringPlayEventType;
+  awayScore: number;        // Score after this play
+  homeScore: number;
 }

@@ -7,10 +7,12 @@ import AutoRefresh from "@/components/AutoRefresh";
 import LocalTime from "@/components/LocalTime";
 import BoxscoreTables from "@/components/BoxscoreTables";
 import Bullpen from "@/components/Bullpen";
+import BallparkWeather from "@/components/BallparkWeather";
 import GameStatusBadge from "@/components/GameStatusBadge";
 import HeadToHead from "@/components/HeadToHead";
 import Linescore from "@/components/Linescore";
 import MatchupTable from "@/components/MatchupTable";
+import GameLogSection from "@/components/GameLogSection";
 import PlayerHeadshot from "@/components/PlayerHeadshot";
 import RosterStatsSection from "@/components/RosterStatsSection";
 import TeamLogo from "@/components/TeamLogo";
@@ -25,6 +27,7 @@ import {
   getBullpenWorkload,
 } from "@/lib/mlb/players";
 import { getHeadToHead } from "@/lib/mlb/schedule";
+import { getGameWeather } from "@/lib/weather/report";
 import type {
   BullpenPitcher,
   GameFeed,
@@ -183,6 +186,18 @@ async function MatchupSection({
   );
 }
 
+async function WeatherSection({ feed }: { feed: GameFeed }) {
+  const weather = await safe(
+    getGameWeather({
+      venueId: feed.venueId,
+      startTimeISO: feed.startTime,
+      observed: feed.weather ?? null,
+    }),
+  );
+  if (!weather) return <SectionError label="ballpark weather" />;
+  return <BallparkWeather weather={weather} />;
+}
+
 
 // --- page --------------------------------------------------------------------
 
@@ -325,13 +340,35 @@ export default async function GamePage({
         </p>
       )}
 
+      {/* Ballpark weather */}
+      {!isDisrupted && (isPreview || feed.state === "Live") && (
+        <Section title="Ballpark weather">
+          <Suspense fallback={<SectionSkeleton />}>
+            <WeatherSection feed={feed} />
+          </Suspense>
+        </Section>
+      )}
+
       {/* 1. Linescore + boxscore (from the feed) */}
       {scored && !isDisrupted && (
         <Section title="Boxscore">
           <div className="space-y-4">
             <Linescore feed={feed} />
-            <BoxscoreTables away={feed.boxscore.away} home={feed.boxscore.home} />
+            <BoxscoreTables
+              away={feed.boxscore.away}
+              home={feed.boxscore.home}
+              isLive={feed.state === "Live"}
+            />
           </div>
+        </Section>
+      )}
+
+      {/* Game log */}
+      {scored && !isDisrupted && (
+        <Section title="Game log">
+          <Suspense fallback={<SectionSkeleton />}>
+            <GameLogSection feed={feed} />
+          </Suspense>
         </Section>
       )}
 

@@ -7,6 +7,8 @@ import type {
   GameFeed,
   InningLine,
   PlayerRef,
+  ScoringPlay,
+  ScoringPlayEventType,
   TeamBoxscore,
   TeamRef,
 } from "./types";
@@ -52,7 +54,8 @@ interface RawFeed {
   gameData: {
     status: { abstractGameState?: string; detailedState?: string };
     datetime?: { dateTime?: string };
-    venue?: { name?: string; location?: { city?: string } };
+    venue?: { id?: number; name?: string; location?: { city?: string } };
+    weather?: { condition?: string; temp?: string; wind?: string };
     teams: {
       away: { id: number; name: string; abbreviation?: string };
       home: { id: number; name: string; abbreviation?: string };
@@ -77,6 +80,41 @@ interface RawFeed {
       loser?: RawPersonRef;
       save?: RawPersonRef;
     };
+  };
+}
+
+interface RawResult {
+  eventType?: string;
+  description?: string;
+  awayScore?: number;
+  homeScore?: number;
+  rbi?: number;
+}
+
+interface RawAbout {
+  inning?: number;
+  halfInning?: string; // "top" or "bottom" (lowercase in actual API)
+}
+
+interface RawPlay {
+  about?: RawAbout;
+  result?: RawResult;
+  matchup?: {
+    batter?: RawPersonRef;
+    pitcher?: RawPersonRef;
+  };
+}
+
+interface RawPlaysObject {
+  allPlays?: RawPlay[];
+  currentPlay?: RawPlay;
+  scoringPlays?: number[];
+  playsByInning?: Record<string, unknown>;
+}
+
+interface RawFeedWithPlays extends RawFeed {
+  liveData: RawFeed["liveData"] & {
+    plays?: RawPlaysObject;
   };
 }
 
@@ -173,6 +211,59 @@ function collectNames(...teams: RawBoxTeam[]): Record<number, string> {
   return names;
 }
 
+function mapEventType(rawType: string | undefined): ScoringPlayEventType | null {
+  if (!rawType) return null;
+
+  // Map raw MLB event types to our types
+  if (rawType === "home_run") return "home_run";
+  if (rawType === "single") return "single";
+  if (rawType === "double") return "double";
+  if (rawType === "triple") return "triple";
+  if (rawType.includes("stolen_base")) return "stolen_base";
+  if (rawType.includes("caught_stealing")) return "caught_stealing";
+  if (rawType === "error") return "error";
+  if (rawType === "sacrifice_bunt") return "sacrifice_bunt";
+  if (rawType === "sacrifice_fly") return "sacrifice_fly";
+  if (rawType === "wild_pitch") return "wild_pitch";
+  if (rawType === "passed_ball") return "passed_ball";
+  if (rawType === "balk") return "balk";
+
+  return null;
+}
+
+function isSignificantPlay(play: RawPlay): boolean {
+  const eventType = play.result?.eventType;
+  if (!eventType) return false;
+
+  // Check if it's one of our significant event types
+  const significant = [
+    "home_run",
+    "single",
+    "double",
+    "triple",
+    "stolen_base",
+    "caught_stealing",
+    "error",
+    "sacrifice_bunt",
+    "sacrifice_fly",
+    "wild_pitch",
+    "passed_ball",
+    "balk",
+  ];
+
+  const isSignificant = significant.some((s) => eventType === s || eventType.includes(s)) &&
+    mapEventType(eventType) !== null;
+
+  if (!isSignificant) return false;
+
+  // Gate singles/doubles/triples on RBI
+  if (["single", "double", "triple"].includes(eventType)) {
+    return play.result?.rbi ? true : false;
+  }
+
+  return true;
+}
+
 // --- Public API --------------------------------------------------------------
 
 /**
@@ -221,6 +312,10 @@ export async function getLiveFeed(gamePk: number): Promise<GameFeed> {
     startTime: gd.datetime?.dateTime ?? "",
     venue: gd.venue?.name,
     venueCity: gd.venue?.location?.city,
+    venueId: gd.venue?.id,
+    weather: gd.weather
+      ? { condition: gd.weather.condition, tempF: gd.weather.temp, wind: gd.weather.wind }
+      : undefined,
     away: { team: mapRef(away), score: ld.linescore.teams.away.runs },
     home: { team: mapRef(home), score: ld.linescore.teams.home.runs },
     linescore: {
@@ -251,4 +346,53 @@ export async function getLiveFeed(gamePk: number): Promise<GameFeed> {
       : undefined,
     playerNames: collectNames(ld.boxscore.teams.away, ld.boxscore.teams.home),
   };
+}
+
+/**
+ * Fetch significant plays (scoring events, steals, errors, etc.) for a game.
+ * Returns plays grouped by inning and half.
+ */
+export async function getGamePlays(gamePk: number): Promise<ScoringPlay[]> {
+  const feed = await mlbFetch<RawFeedWithPlays>(
+    `/api/v1.1/game/${gamePk}/feed/live`,
+    {},
+    TTL.live,
+  );
+
+  // BUG FIX 1: liveData.plays is an object with allPlays, not an array
+  const allPlays = feed.liveData.plays?.allPlays;
+  if (!allPlays) return [];
+
+  const plays = allPlays
+    .filter(isSignificantPlay)
+    .map((play): ScoringPlay | null => {
+      const eventType = mapEventType(play.result?.eventType);
+      if (!eventType) return null;
+
+      // BUG FIX 2: Scores come from play.result, not from runners
+      const awayScore = play.result?.awayScore ?? 0;
+      const homeScore = play.result?.homeScore ?? 0;
+
+      // BUG FIX 3: halfInning is lowercase in the API ("top"/"bottom")
+      const halfInning = play.about?.halfInning?.toLowerCase() ?? "bottom";
+      const ordinal = halfInning === "top" ? "Top" : "Bottom";
+
+      return {
+        inning: play.about?.inning ?? 0,
+        ordinal,
+        batter: play.matchup?.batter
+          ? { id: play.matchup.batter.id, fullName: play.matchup.batter.fullName }
+          : undefined,
+        pitcher: play.matchup?.pitcher
+          ? { id: play.matchup.pitcher.id, fullName: play.matchup.pitcher.fullName }
+          : undefined,
+        description: play.result?.description ?? "",
+        eventType,
+        awayScore,
+        homeScore,
+      };
+    })
+    .filter((p): p is ScoringPlay => p !== null);
+
+  return plays;
 }

@@ -20,6 +20,8 @@ export const TTL = {
   roster: 24 * 60 * 60,
   /** Pitcher game logs, used to derive recent-workload (pitch counts). */
   pitcherLog: 3 * 60 * 60,
+  /** Weather forecasts — update every 15 minutes. */
+  weather: 15 * 60,
 } as const;
 
 /** Thrown when the MLB API responds with a non-2xx status. */

@@ -16,7 +16,12 @@ function Th({ children, first }: { children: React.ReactNode; first?: boolean })
   );
 }
 
-function TeamBox({ box }: { box: TeamBoxscore }) {
+function TeamBox({ box, isLive }: { box: TeamBoxscore; isLive?: boolean }) {
+  // When game is live, exclude pitchers from batting table
+  const displayBatters = isLive
+    ? box.batters.filter((b) => !box.pitcherIds.includes(b.id))
+    : box.batters;
+
   // min-w-0 lets the overflow-x-auto tables scroll instead of stretching the grid column.
   return (
     <div className="min-w-0">
@@ -37,7 +42,7 @@ function TeamBox({ box }: { box: TeamBoxscore }) {
             </tr>
           </thead>
           <tbody>
-            {box.batters.map((b) => (
+            {displayBatters.map((b) => (
               <tr
                 key={b.id}
                 className="border-t border-ink/10"
@@ -104,14 +109,16 @@ function TeamBox({ box }: { box: TeamBoxscore }) {
 export default function BoxscoreTables({
   away,
   home,
+  isLive,
 }: {
   away: TeamBoxscore;
   home: TeamBoxscore;
+  isLive?: boolean;
 }) {
   return (
     <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-      <TeamBox box={away} />
-      <TeamBox box={home} />
+      <TeamBox box={away} isLive={isLive} />
+      <TeamBox box={home} isLive={isLive} />
     </div>
   );
 }
