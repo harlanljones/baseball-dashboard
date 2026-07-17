@@ -7,6 +7,7 @@ import AutoRefresh from "@/components/AutoRefresh";
 import LocalTime from "@/components/LocalTime";
 import BoxscoreTables from "@/components/BoxscoreTables";
 import Bullpen from "@/components/Bullpen";
+import BallparkWeather from "@/components/BallparkWeather";
 import GameStatusBadge from "@/components/GameStatusBadge";
 import HeadToHead from "@/components/HeadToHead";
 import Linescore from "@/components/Linescore";
@@ -25,6 +26,7 @@ import {
   getBullpenWorkload,
 } from "@/lib/mlb/players";
 import { getHeadToHead } from "@/lib/mlb/schedule";
+import { getGameWeather } from "@/lib/weather/report";
 import type {
   BullpenPitcher,
   GameFeed,
@@ -183,6 +185,18 @@ async function MatchupSection({
   );
 }
 
+async function WeatherSection({ feed }: { feed: GameFeed }) {
+  const weather = await safe(
+    getGameWeather({
+      venueId: feed.venueId,
+      startTimeISO: feed.startTime,
+      observed: feed.weather ?? null,
+    }),
+  );
+  if (!weather) return <SectionError label="ballpark weather" />;
+  return <BallparkWeather weather={weather} />;
+}
+
 
 // --- page --------------------------------------------------------------------
 
@@ -323,6 +337,15 @@ export default async function GamePage({
         <p className="rounded-md border border-clay/40 bg-clay/10 px-3 py-2 text-sm text-clay">
           This game is {feed.detailedState.toLowerCase()}.
         </p>
+      )}
+
+      {/* Ballpark weather */}
+      {!isDisrupted && (isPreview || feed.state === "Live") && (
+        <Section title="Ballpark weather">
+          <Suspense fallback={<SectionSkeleton />}>
+            <WeatherSection feed={feed} />
+          </Suspense>
+        </Section>
       )}
 
       {/* 1. Linescore + boxscore (from the feed) */}
