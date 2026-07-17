@@ -1,10 +1,13 @@
 import type { Ballpark } from "./types";
 
+// Keys are MLB Stats API venue IDs (verified against GET /api/v1/venues/{id} and
+// GET /api/v1/teams?sportId=1 — venue IDs are reassigned when parks are renamed or
+// teams relocate, so don't assume a memorized ID is still current).
 // CF bearings are best-effort estimates rounded to the nearest 5°, researched from public
 // stadium-orientation and elevation sources
 export const BALLPARKS: Record<number, Ballpark> = {
   // AL East
-  2608: {
+  2: {
     name: "Oriole Park at Camden Yards",
     lat: 39.2852,
     lon: -76.6216,
@@ -28,7 +31,7 @@ export const BALLPARKS: Record<number, Ballpark> = {
     roof: "open",
     elevationFt: 55,
   },
-  3039: {
+  3: {
     name: "Fenway Park",
     lat: 42.3467,
     lon: -71.0972,
@@ -53,7 +56,7 @@ export const BALLPARKS: Record<number, Ballpark> = {
     roof: "open",
     elevationFt: 680,
   },
-  116: {
+  2394: {
     name: "Comerica Park",
     lat: 42.3391,
     lon: -83.0481,
@@ -62,7 +65,7 @@ export const BALLPARKS: Record<number, Ballpark> = {
     elevationFt: 645,
   },
   4: {
-    name: "U.S. Cellular Field",
+    name: "Rate Field",
     lat: 41.8299,
     lon: -87.6338,
     cfBearingDeg: 45,
@@ -77,7 +80,7 @@ export const BALLPARKS: Record<number, Ballpark> = {
     roof: "open",
     elevationFt: 750,
   },
-  142: {
+  3312: {
     name: "Target Field",
     lat: 44.9819,
     lon: -93.2787,
@@ -86,7 +89,7 @@ export const BALLPARKS: Record<number, Ballpark> = {
     elevationFt: 815,
   },
   // AL West
-  6: {
+  5325: {
     name: "Globe Life Field",
     lat: 32.7457,
     lon: -97.0835,
@@ -94,23 +97,23 @@ export const BALLPARKS: Record<number, Ballpark> = {
     roof: "retractable",
     elevationFt: 540,
   },
-  2: {
-    name: "Minute Maid Park",
+  2392: {
+    name: "Daikin Park",
     lat: 29.757,
     lon: -95.3555,
     cfBearingDeg: 68,
     roof: "retractable",
     elevationFt: 30,
   },
-  10: {
-    name: "Oakland Coliseum",
-    lat: 37.7516,
-    lon: -122.2008,
-    cfBearingDeg: 58,
+  2529: {
+    name: "Sutter Health Park",
+    lat: 38.5805,
+    lon: -121.5135,
+    cfBearingDeg: 330,
     roof: "open",
-    elevationFt: 25,
+    elevationFt: 30,
   },
-  11: {
+  680: {
     name: "T-Mobile Park",
     lat: 47.5911,
     lon: -122.3326,
@@ -119,7 +122,7 @@ export const BALLPARKS: Record<number, Ballpark> = {
     elevationFt: 20,
   },
   1: {
-    name: "Angel Stadium of Anaheim",
+    name: "Angel Stadium",
     lat: 33.7434,
     lon: -117.8678,
     cfBearingDeg: 48,
@@ -135,7 +138,7 @@ export const BALLPARKS: Record<number, Ballpark> = {
     roof: "open",
     elevationFt: 35,
   },
-  2601: {
+  2681: {
     name: "Citizens Bank Park",
     lat: 39.9061,
     lon: -75.1665,
@@ -151,7 +154,7 @@ export const BALLPARKS: Record<number, Ballpark> = {
     roof: "open",
     elevationFt: 20,
   },
-  144: {
+  4705: {
     name: "Truist Park",
     lat: 33.8917,
     lon: -84.4677,
@@ -159,7 +162,7 @@ export const BALLPARKS: Record<number, Ballpark> = {
     roof: "open",
     elevationFt: 1050,
   },
-  146: {
+  4169: {
     name: "loanDepot park",
     lat: 25.7858,
     lon: -80.2196,
@@ -176,7 +179,7 @@ export const BALLPARKS: Record<number, Ballpark> = {
     roof: "open",
     elevationFt: 490,
   },
-  17: {
+  32: {
     name: "American Family Field",
     lat: 43.0281,
     lon: -87.9711,
@@ -184,7 +187,7 @@ export const BALLPARKS: Record<number, Ballpark> = {
     roof: "retractable",
     elevationFt: 635,
   },
-  112: {
+  17: {
     name: "Wrigley Field",
     lat: 41.9484,
     lon: -87.6553,
@@ -192,7 +195,7 @@ export const BALLPARKS: Record<number, Ballpark> = {
     roof: "open",
     elevationFt: 615,
   },
-  27: {
+  31: {
     name: "PNC Park",
     lat: 40.4474,
     lon: -80.0073,
@@ -200,7 +203,7 @@ export const BALLPARKS: Record<number, Ballpark> = {
     roof: "open",
     elevationFt: 750,
   },
-  138: {
+  2889: {
     name: "Busch Stadium",
     lat: 38.6226,
     lon: -90.1928,
@@ -217,7 +220,7 @@ export const BALLPARKS: Record<number, Ballpark> = {
     roof: "retractable",
     elevationFt: 1100,
   },
-  25: {
+  2680: {
     name: "PETCO Park",
     lat: 32.7078,
     lon: -117.1577,
@@ -225,7 +228,7 @@ export const BALLPARKS: Record<number, Ballpark> = {
     roof: "open",
     elevationFt: 25,
   },
-  24: {
+  2395: {
     name: "Oracle Park",
     lat: 37.7786,
     lon: -122.3893,

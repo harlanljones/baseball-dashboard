@@ -41,3 +41,26 @@ export default function LocalTime({
   if (!iso) return null;
   return <time dateTime={iso}>{text}</time>;
 }
+
+function formatHour(iso: string, timeZone?: string): string {
+  return new Intl.DateTimeFormat("en-US", {
+    ...(timeZone ? { timeZone } : {}),
+    hour: "numeric",
+    hour12: true,
+  }).format(new Date(iso));
+}
+
+/**
+ * Just the hour (e.g. "2 AM") of a timestamp, in the same viewer-local time
+ * zone as `LocalTime` — SSR renders US Eastern for a deterministic snapshot,
+ * then hydrates to the viewer's own time zone.
+ */
+export function LocalHour({ iso }: { iso: string }) {
+  const text = useSyncExternalStore(
+    subscribe,
+    () => formatHour(iso),
+    () => formatHour(iso, "America/New_York"),
+  );
+
+  return <time dateTime={iso}>{text}</time>;
+}

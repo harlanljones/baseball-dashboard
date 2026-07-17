@@ -19,26 +19,32 @@ export interface HourlyForecastPoint {
 /**
  * Fetch hourly weather forecast from Open-Meteo API.
  *
- * @param lat      Latitude of the location
- * @param lon      Longitude of the location
- * @param dateISO  Date in YYYY-MM-DD format (game's local date)
+ * @param lat          Latitude of the location
+ * @param lon          Longitude of the location
+ * @param startDateISO Start date in YYYY-MM-DD format (UTC calendar date)
+ * @param endDateISO   End date in YYYY-MM-DD format (UTC calendar date), defaults to startDateISO
  * @returns Object containing elevation in feet and array of hourly forecast points
  * @throws Error if the API returns non-2xx status
  */
 export async function fetchHourlyForecast(
   lat: number,
   lon: number,
-  dateISO: string,
+  startDateISO: string,
+  endDateISO: string = startDateISO,
 ): Promise<{ elevationFt: number; hours: HourlyForecastPoint[] }> {
   const url = new URL("https://api.open-meteo.com/v1/forecast");
 
   url.searchParams.set("latitude", String(lat));
   url.searchParams.set("longitude", String(lon));
-  url.searchParams.set("timezone", "auto");
+  // Request UTC-labeled hours so they compare directly against the game's UTC
+  // start time — "auto" (venue-local) timestamps carry no offset marker, and
+  // string/Date comparison against a UTC ISO string silently breaks whenever
+  // the venue's local calendar date differs from the UTC calendar date.
+  url.searchParams.set("timezone", "UTC");
   url.searchParams.set("temperature_unit", "fahrenheit");
   url.searchParams.set("wind_speed_unit", "mph");
-  url.searchParams.set("start_date", dateISO);
-  url.searchParams.set("end_date", dateISO);
+  url.searchParams.set("start_date", startDateISO);
+  url.searchParams.set("end_date", endDateISO);
   url.searchParams.set(
     "hourly",
     "temperature_2m,relative_humidity_2m,wind_speed_10m,wind_direction_10m,wind_gusts_10m,cloud_cover,precipitation_probability,weather_code",
@@ -59,9 +65,11 @@ export async function fetchHourlyForecast(
   // Convert elevation from meters to feet (1 meter = 3.28084 feet)
   const elevationFt = Math.round((data.elevation ?? 0) * 3.28084);
 
-  // Zip parallel arrays into HourlyForecastPoint objects
-  const hours = data.hourly.time.map((timeISO: string, idx: number) => ({
-    timeISO,
+  // Zip parallel arrays into HourlyForecastPoint objects. Open-Meteo's
+  // timezone=UTC times have no "Z" suffix — append one so timeISO is an
+  // unambiguous UTC ISO string for both string comparison and Date parsing.
+  const hours = data.hourly.time.map((time: string, idx: number) => ({
+    timeISO: `${time}Z`,
     tempF: data.hourly.temperature_2m[idx],
     humidityPct: data.hourly.relative_humidity_2m[idx],
     windSpeedMph: data.hourly.wind_speed_10m[idx],

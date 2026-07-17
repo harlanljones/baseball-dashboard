@@ -1,4 +1,5 @@
 import type { GameWeather } from "@/lib/weather/types";
+import { LocalHour } from "@/components/LocalTime";
 import type React from "react";
 
 /**
@@ -436,18 +437,13 @@ function HourlyCell({
   };
   deemphasize?: boolean;
 }) {
-  const date = new Date(hour.timeISO);
-  const hourStr = date.toLocaleString("en-US", {
-    hour: "numeric",
-    hour12: true,
-    timeZone: "UTC",
-  });
-
   return (
     <div
       className={`flex flex-none flex-col items-center gap-1.5 rounded-md border border-ink/10 bg-paper p-2 min-w-max ${deemphasize ? "opacity-60" : ""}`}
     >
-      <div className="font-mono text-xs font-semibold text-ink">{hourStr}</div>
+      <div className="font-mono text-xs font-semibold text-ink">
+        <LocalHour iso={hour.timeISO} />
+      </div>
       <div>
         <WindArrow
           rotationDeg={hour.wind.plateRelativeDeg}

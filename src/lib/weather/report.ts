@@ -1,4 +1,4 @@
-import { easternDateOf } from "@/lib/mlb/client";
+import { shiftDate } from "@/lib/mlb/client";
 import { getBallpark } from "./ballparks";
 import type { GameWeather, WeatherHour } from "./types";
 import type { HourlyForecastPoint } from "./openMeteo";
@@ -41,12 +41,15 @@ export async function getGameWeather(args: {
     };
   }
 
-  // Step 2: Derive game's local date and fetch forecast
-  const gameDate = easternDateOf(args.startTimeISO);
+  // Step 2: Derive the game's UTC calendar date and fetch forecast.
+  // Fetch a 2-day UTC window (game day + next day) so games starting late in
+  // the UTC day still have enough following hours for the 4-bucket selection.
+  const gameDateUTC = args.startTimeISO.slice(0, 10);
   const { hours: forecastHours } = await fetchHourlyForecast(
     ballpark.lat,
     ballpark.lon,
-    gameDate,
+    gameDateUTC,
+    shiftDate(gameDateUTC, 1),
   );
 
   // Step 3: Select hourly buckets: closest at-or-after startTimeISO, plus next 3
