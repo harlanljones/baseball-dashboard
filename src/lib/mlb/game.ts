@@ -7,6 +7,8 @@ import type {
   GameFeed,
   InningLine,
   PlayerRef,
+  ScoringPlay,
+  ScoringPlayEventType,
   TeamBoxscore,
   TeamRef,
 } from "./types";
@@ -78,6 +80,37 @@ interface RawFeed {
       loser?: RawPersonRef;
       save?: RawPersonRef;
     };
+  };
+}
+
+interface RawRunner {
+  home_teamRuns?: number;
+  away_teamRuns?: number;
+}
+
+interface RawResult {
+  eventType?: string;
+  description?: string;
+}
+
+interface RawAbout {
+  inning?: number;
+  halfInning?: string; // "Top" or "Bottom"
+}
+
+interface RawPlay {
+  about?: RawAbout;
+  result?: RawResult;
+  runners?: RawRunner[];
+  matchup?: {
+    batter?: RawPersonRef;
+    pitcher?: RawPersonRef;
+  };
+}
+
+interface RawFeedWithPlays extends RawFeed {
+  liveData: RawFeed["liveData"] & {
+    plays?: RawPlay[];
   };
 }
 
@@ -174,6 +207,52 @@ function collectNames(...teams: RawBoxTeam[]): Record<number, string> {
   return names;
 }
 
+function mapEventType(rawType: string | undefined): ScoringPlayEventType | null {
+  if (!rawType) return null;
+
+  // Map raw MLB event types to our types
+  if (rawType === "home_run") return "home_run";
+  if (rawType === "single") return "single";
+  if (rawType === "double") return "double";
+  if (rawType === "triple") return "triple";
+  if (rawType.includes("stolen_base")) return "stolen_base";
+  if (rawType.includes("caught_stealing")) return "caught_stealing";
+  if (rawType === "error") return "error";
+  if (rawType === "sacrifice_bunt") return "sacrifice_bunt";
+  if (rawType === "sacrifice_fly") return "sacrifice_fly";
+  if (rawType === "wild_pitch") return "wild_pitch";
+  if (rawType === "passed_ball") return "passed_ball";
+  if (rawType === "balk") return "balk";
+
+  return null;
+}
+
+function isSignificantPlay(play: RawPlay): boolean {
+  const eventType = play.result?.eventType;
+  if (!eventType) return false;
+
+  // Check if it's one of our significant event types
+  const significant = [
+    "home_run",
+    "single",
+    "double",
+    "triple",
+    "stolen_base",
+    "caught_stealing",
+    "error",
+    "sacrifice_bunt",
+    "sacrifice_fly",
+    "wild_pitch",
+    "passed_ball",
+    "balk",
+  ];
+
+  return (
+    significant.some((s) => eventType === s || eventType.includes(s)) &&
+    mapEventType(eventType) !== null
+  );
+}
+
 // --- Public API --------------------------------------------------------------
 
 /**
@@ -256,4 +335,48 @@ export async function getLiveFeed(gamePk: number): Promise<GameFeed> {
       : undefined,
     playerNames: collectNames(ld.boxscore.teams.away, ld.boxscore.teams.home),
   };
+}
+
+/**
+ * Fetch significant plays (scoring events, steals, errors, etc.) for a game.
+ * Returns plays grouped by inning and half.
+ */
+export async function getGamePlays(gamePk: number): Promise<ScoringPlay[]> {
+  const feed = await mlbFetch<RawFeedWithPlays>(
+    `/api/v1.1/game/${gamePk}/feed/live`,
+    {},
+    TTL.live,
+  );
+
+  if (!feed.liveData.plays) return [];
+
+  const plays = feed.liveData.plays
+    .filter(isSignificantPlay)
+    .map((play): ScoringPlay | null => {
+      const eventType = mapEventType(play.result?.eventType);
+      if (!eventType) return null;
+
+      // Find the final score after this play
+      const finalRunner = play.runners?.[play.runners.length - 1];
+      const awayScore = finalRunner?.away_teamRuns ?? 0;
+      const homeScore = finalRunner?.home_teamRuns ?? 0;
+
+      return {
+        inning: play.about?.inning ?? 0,
+        ordinal: play.about?.halfInning === "Top" ? "Top" : "Bottom",
+        batter: play.matchup?.batter
+          ? { id: play.matchup.batter.id, fullName: play.matchup.batter.fullName }
+          : undefined,
+        pitcher: play.matchup?.pitcher
+          ? { id: play.matchup.pitcher.id, fullName: play.matchup.pitcher.fullName }
+          : undefined,
+        description: play.result?.description ?? "",
+        eventType,
+        awayScore,
+        homeScore,
+      };
+    })
+    .filter((p): p is ScoringPlay => p !== null);
+
+  return plays;
 }
