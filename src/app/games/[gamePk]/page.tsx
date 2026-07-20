@@ -12,6 +12,7 @@ import GameStatusBadge from "@/components/GameStatusBadge";
 import HeadToHead from "@/components/HeadToHead";
 import Linescore from "@/components/Linescore";
 import MatchupTable from "@/components/MatchupTable";
+import ProbableStartersSection from "@/components/ProbableStartersSection";
 import GameLogSection from "@/components/GameLogSection";
 import PlayerHeadshot from "@/components/PlayerHeadshot";
 import RosterStatsSection from "@/components/RosterStatsSection";
@@ -43,21 +44,6 @@ function seasonOf(feed: GameFeed): number {
 
 function teamName(t: { abbreviation?: string; name: string }): string {
   return t.abbreviation ?? t.name;
-}
-
-/** Format a rate stat like wOBA as `.462` (three decimals, no leading zero). */
-function rate3(n?: number): string {
-  if (n == null) return "—";
-  return n.toFixed(3).replace(/^0(?=\.)/, "");
-}
-function int(n?: number): string {
-  return n == null ? "—" : String(Math.round(n));
-}
-function dec1(n?: number): string {
-  return n == null ? "—" : n.toFixed(1);
-}
-function dec2(n?: number): string {
-  return n == null ? "—" : n.toFixed(2);
 }
 
 async function safe<T>(p: Promise<T>): Promise<T | null> {
@@ -338,6 +324,15 @@ export default async function GamePage({
         <p className="rounded-md border border-clay/40 bg-clay/10 px-3 py-2 text-sm text-clay">
           This game is {feed.detailedState.toLowerCase()}.
         </p>
+      )}
+
+      {/* Probable starters */}
+      {!isDisrupted && isPreview && (
+        <Section title="Probable starters">
+          <Suspense fallback={<SectionSkeleton />}>
+            <ProbableStartersSection feed={feed} season={season} />
+          </Suspense>
+        </Section>
       )}
 
       {/* Ballpark weather */}

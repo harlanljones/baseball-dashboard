@@ -1,5 +1,7 @@
 import { mlbFetch, shiftDate, TTL } from "./client";
 import type {
+  PitcherRecentForm,
+  PitcherSplitLine,
   PlayerRef,
   SaberHitting,
   SaberPitching,
@@ -286,6 +288,92 @@ export async function getHomeAwaySplit(
   season: number,
 ): Promise<SplitLine> {
   return fetchSituationalSplit(batter, isHome ? "h" : "a", season);
+}
+
+/**
+ * A pitcher's rate line for one MLB Stats API `sitCodes` split (`h`/`a` for
+ * home/road, `vl`/`vr` for vs-hand). `era` is only present on `h`/`a` splits —
+ * MLB's API doesn't compute ERA broken out by opposing batter hand.
+ */
+function parsePitcherSplitStat(stat?: Record<string, unknown>): PitcherSplitLine {
+  const bf = n(stat?.battersFaced) ?? 0;
+  const bb = n(stat?.baseOnBalls) ?? 0;
+  const k = n(stat?.strikeOuts) ?? 0;
+  return {
+    ip: s(stat?.inningsPitched) ?? "0.0",
+    era: s(stat?.era),
+    bbPct: pct(bb, bf),
+    kPct: pct(k, bf),
+  };
+}
+
+/**
+ * A pitcher's current-season line for one `sitCodes` split. Mirrors
+ * {@link fetchSituationalSplit} but for the `pitching` stat group.
+ */
+async function fetchPitcherSituationalSplit(
+  pitcherId: number,
+  sitCode: string,
+  season: number,
+): Promise<PitcherSplitLine> {
+  const res = await mlbFetch<RawStatsResponse>(
+    `/api/v1/people/${pitcherId}/stats`,
+    { stats: "statSplits", sitCodes: sitCode, group: "pitching", season },
+    TTL.playerStats,
+  );
+  return parsePitcherSplitStat(res.stats?.[0]?.splits?.[0]?.stat);
+}
+
+/**
+ * A probable starter's current-season home or road split. Used on the game
+ * page's probable-starters card, picking whichever split matches this game.
+ */
+export async function getPitcherHomeAwaySplit(
+  pitcherId: number,
+  isHome: boolean,
+  season: number,
+): Promise<PitcherSplitLine> {
+  return fetchPitcherSituationalSplit(pitcherId, isHome ? "h" : "a", season);
+}
+
+/**
+ * A probable starter's current-season split facing left- or right-handed
+ * batters.
+ */
+export async function getPitcherPlatoonSplit(
+  pitcherId: number,
+  vsBatterHand: "L" | "R",
+  season: number,
+): Promise<PitcherSplitLine> {
+  return fetchPitcherSituationalSplit(
+    pitcherId,
+    vsBatterHand === "L" ? "vl" : "vr",
+    season,
+  );
+}
+
+/**
+ * A pitcher's trailing-`days`-day form as of `asOfDate`, excluding `asOfDate`
+ * itself — same day-before convention as {@link getBullpenWorkload}, since a
+ * probable starter obviously hasn't pitched in today's not-yet-played game.
+ */
+export async function getPitcherRecentForm(
+  pitcherId: number,
+  asOfDate: string,
+  days = 30,
+): Promise<PitcherRecentForm> {
+  const endDate = shiftDate(asOfDate, -1);
+  const startDate = shiftDate(endDate, -(days - 1));
+  const res = await mlbFetch<RawStatsResponse>(
+    `/api/v1/people/${pitcherId}/stats`,
+    { stats: "byDateRange", startDate, endDate, group: "pitching" },
+    TTL.pitcherLog,
+  );
+  const stat = res.stats?.[0]?.splits?.[0]?.stat;
+  return {
+    ...parsePitcherSplitStat(stat),
+    starts: n(stat?.gamesStarted) ?? 0,
+  };
 }
 
 // --- Roster proxy (Preview games) --------------------------------------------

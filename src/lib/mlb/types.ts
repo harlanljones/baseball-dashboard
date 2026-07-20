@@ -211,6 +211,19 @@ export interface SaberPitching {
   kMinusBbPct?: number;  // K% - BB% (raw decimal for sorting)
 }
 
+/** A pitcher's rate line for one situational split (home/road or vs-hand). */
+export interface PitcherSplitLine {
+  ip: string;   // "0.0" when no innings in the split
+  era?: string; // absent for vs-hand splits — MLB's API doesn't compute ERA by opposing batter hand
+  bbPct?: string;
+  kPct?: string;
+}
+
+/** A pitcher's trailing-N-day form as of some reference date. */
+export interface PitcherRecentForm extends PitcherSplitLine {
+  starts: number; // gamesStarted in the window — 0 means "didn't pitch," used to gate a fallback message
+}
+
 export interface VsPlayerLine {
   batter: PlayerRef;
   pitcher: PlayerRef;
