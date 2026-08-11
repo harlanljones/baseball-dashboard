@@ -27,29 +27,28 @@ export async function findOddsEvent(
 ): Promise<string | null> {
   if (!getOddsApiKey()) return null;
 
-  let events: RawOddsEvent[];
   try {
-    events = await oddsFetch<RawOddsEvent[]>(
+    const events = await oddsFetch<RawOddsEvent[]>(
       "/v4/sports/baseball_mlb/events",
       {},
       TTL.odds,
     );
+
+    const matches = events.filter(
+      (e) =>
+        teamsMatch(e.home_team, homeTeamName) &&
+        teamsMatch(e.away_team, awayTeamName),
+    );
+    if (matches.length === 0) return null;
+
+    const startMs = new Date(startTimeISO).getTime();
+    matches.sort(
+      (a, b) =>
+        Math.abs(new Date(a.commence_time).getTime() - startMs) -
+        Math.abs(new Date(b.commence_time).getTime() - startMs),
+    );
+    return matches[0].id;
   } catch {
     return null;
   }
-
-  const matches = events.filter(
-    (e) =>
-      teamsMatch(e.home_team, homeTeamName) &&
-      teamsMatch(e.away_team, awayTeamName),
-  );
-  if (matches.length === 0) return null;
-
-  const startMs = new Date(startTimeISO).getTime();
-  matches.sort(
-    (a, b) =>
-      Math.abs(new Date(a.commence_time).getTime() - startMs) -
-      Math.abs(new Date(b.commence_time).getTime() - startMs),
-  );
-  return matches[0].id;
 }
