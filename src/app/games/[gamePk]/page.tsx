@@ -332,7 +332,11 @@ export default async function GamePage({
         </p>
       )}
 
-      <div className="grid grid-cols-1 gap-5 lg:grid-cols-[1fr_320px] lg:items-start">
+      <div
+        className={`grid grid-cols-1 gap-5 lg:items-start ${
+          !isDisrupted && isPreview ? "lg:grid-cols-[1fr_320px]" : ""
+        }`}
+      >
         <div className="space-y-5">
           {/* Probable starters */}
           {!isDisrupted && isPreview && (
