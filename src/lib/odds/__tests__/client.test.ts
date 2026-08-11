@@ -58,4 +58,23 @@ describe("oddsFetch", () => {
       OddsApiError,
     );
   });
+
+  it("redacts the API key from the thrown error's url and message on a non-2xx response", async () => {
+    vi.stubEnv("ODDS_API_KEY", "super-secret-key");
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue({ ok: false, status: 429, json: async () => ({}) }),
+    );
+
+    try {
+      await oddsFetch("/v4/sports/baseball_mlb/events", { regions: "us" });
+      expect.unreachable("expected oddsFetch to throw");
+    } catch (err) {
+      expect(err).toBeInstanceOf(OddsApiError);
+      const apiErr = err as OddsApiError;
+      expect(apiErr.url).not.toContain("super-secret-key");
+      expect(apiErr.message).not.toContain("super-secret-key");
+      expect(apiErr.url).toContain("regions=us");
+    }
+  });
 });

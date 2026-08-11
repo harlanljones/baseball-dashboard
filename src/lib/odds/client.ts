@@ -29,6 +29,13 @@ export function getOddsApiKey(): string | null {
   return process.env.ODDS_API_KEY || null;
 }
 
+/** Returns `url` with the `apiKey` query param stripped, so it's safe to log or embed in an error. */
+function redactApiKey(url: URL): string {
+  const redacted = new URL(url.toString());
+  redacted.searchParams.delete("apiKey");
+  return redacted.toString();
+}
+
 type Params = Record<string, string | number | boolean | undefined | null>;
 
 /**
@@ -62,7 +69,7 @@ export async function oddsFetch<T>(
   });
 
   if (!res.ok) {
-    throw new OddsApiError(res.status, url.toString());
+    throw new OddsApiError(res.status, redactApiKey(url));
   }
   return (await res.json()) as T;
 }

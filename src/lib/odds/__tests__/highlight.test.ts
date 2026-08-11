@@ -17,11 +17,15 @@ function prop(overrides: Partial<PlayerProp>): PlayerProp {
   };
 }
 
-function windWeather(category: "out" | "in" | "calm", tempF: number): GameWeather {
+function windWeather(
+  category: "out" | "in" | "calm",
+  tempF: number,
+  roof: GameWeather["roof"] = "open",
+): GameWeather {
   return {
     ballpark: null,
     elevationFt: null,
-    roof: null,
+    roof,
     hours: [],
     tempRangeF: null,
     humidityPct: null,
@@ -195,6 +199,66 @@ describe("scoreProp — weather nudge", () => {
       windWeather("out", 70),
     );
     expect(result.tier).toBe("lean-over");
+  });
+
+  it("does not nudge under a dome even when wind would otherwise blow out", () => {
+    const result = scoreProp(
+      prop({ marketKey: "batter_home_runs", line: 0.3 }),
+      player,
+      hrStats,
+      windWeather("out", 70, "dome"),
+    );
+    expect(result.tier).toBe("lean-over"); // unmodified baseline, no nudge
+  });
+
+  it("does not nudge under a retractable-closed roof even when wind would otherwise blow out", () => {
+    const result = scoreProp(
+      prop({ marketKey: "batter_home_runs", line: 0.3 }),
+      player,
+      hrStats,
+      windWeather("out", 70, "retractable"),
+    );
+    expect(result.tier).toBe("lean-over"); // unmodified baseline, no nudge
+  });
+
+  it("does not nudge when roof state is unknown (null)", () => {
+    const result = scoreProp(
+      prop({ marketKey: "batter_home_runs", line: 0.3 }),
+      player,
+      hrStats,
+      windWeather("out", 70, null),
+    );
+    expect(result.tier).toBe("lean-over"); // unmodified baseline, no nudge
+  });
+
+  it("nudges from lean-over to strong-over on a hot day (>=85F) at an open-air park", () => {
+    const result = scoreProp(
+      prop({ marketKey: "batter_home_runs", line: 0.3 }),
+      player,
+      hrStats,
+      windWeather("calm", 90, "open"),
+    );
+    expect(result.tier).toBe("strong-over");
+  });
+
+  it("nudges from lean-over to neutral on a cold day (<=45F) at an open-air park", () => {
+    const result = scoreProp(
+      prop({ marketKey: "batter_home_runs", line: 0.3 }),
+      player,
+      hrStats,
+      windWeather("calm", 40, "open"),
+    );
+    expect(result.tier).toBe("neutral");
+  });
+
+  it("does not nudge for a hot day under a dome", () => {
+    const result = scoreProp(
+      prop({ marketKey: "batter_home_runs", line: 0.3 }),
+      player,
+      hrStats,
+      windWeather("calm", 95, "dome"),
+    );
+    expect(result.tier).toBe("lean-over"); // unmodified baseline, no nudge
   });
 
   it("does not nudge when weather has no gametime hour", () => {

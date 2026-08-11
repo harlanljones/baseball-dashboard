@@ -82,6 +82,13 @@ function tierFromRatio(seasonAvg: number, line: number): PropTier {
 }
 
 function nudgeForWeather(tier: PropTier, weather: GameWeather | null): PropTier {
+  // Indoor/retractable-closed parks (or unknown roof state): wind and temp
+  // are irrelevant or unreliable, matching BallparkWeather.tsx's `isDomed`
+  // logic (roof !== "open" hides the wind diagram there — the props sidebar
+  // shouldn't nudge on it either). Only apply the nudge for confirmed
+  // open-air parks.
+  if (weather?.roof !== "open") return tier;
+
   const hour = weather?.gametime;
   if (!hour) return tier;
 
