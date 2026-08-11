@@ -578,3 +578,90 @@ export async function getPitchHand(id: number): Promise<"L" | "R" | null> {
   const code = res.people?.[0]?.pitchHand?.code;
   return code === "L" || code === "R" ? code : null;
 }
+
+// --- Player-prop scoring stats ------------------------------------------------
+
+/** Converts MLB's innings-pitched notation ("123.1" = 123⅓, "123.2" = 123⅔) to a float. */
+export function ipToFloat(ip: string): number {
+  const [whole, frac] = ip.split(".").map(Number);
+  const fracInnings = frac === 1 ? 1 / 3 : frac === 2 ? 2 / 3 : 0;
+  return (whole || 0) + fracInnings;
+}
+
+export interface PitcherPropStats {
+  k9: number;
+  outsPerStart: number;
+  ip: number;
+  gamesStarted: number;
+}
+
+/**
+ * Season K/9 and outs-per-start for pitcher prop scoring. Returns `null` if
+ * the player has no innings pitched this season (rookies, injured, or a
+ * two-way/position player with no pitching record).
+ */
+export async function getPitcherPropStats(
+  personId: number,
+  season: number,
+): Promise<PitcherPropStats | null> {
+  const res = await mlbFetch<RawStatsResponse>(
+    `/api/v1/people/${personId}/stats`,
+    { stats: "season", group: "pitching", season },
+    TTL.playerStats,
+  );
+  const stat = pickGroup(res, "season");
+  if (!stat) return null;
+
+  const ip = ipToFloat(s(stat.inningsPitched) ?? "0.0");
+  if (ip <= 0) return null;
+
+  const k = n(stat.strikeOuts) ?? 0;
+  const gamesStarted = n(stat.gamesStarted) ?? 0;
+
+  return {
+    k9: (k * 9) / ip,
+    outsPerStart: gamesStarted > 0 ? (ip * 3) / gamesStarted : 0,
+    ip,
+    gamesStarted,
+  };
+}
+
+export interface SeasonHittingBasic {
+  avg: string;
+  obp: string;
+  slg: string;
+  h: number;
+  hr: number;
+  rbi: number;
+  bb: number;
+  totalBases: number;
+  pa: number;
+  games: number;
+}
+
+/** Season counting/rate stats for batter prop scoring. Returns `null` if the API has no season hitting record for this player. */
+export async function getSeasonHittingBasic(
+  personId: number,
+  season: number,
+): Promise<SeasonHittingBasic | null> {
+  const res = await mlbFetch<RawStatsResponse>(
+    `/api/v1/people/${personId}/stats`,
+    { stats: "season", group: "hitting", season },
+    TTL.playerStats,
+  );
+  const stat = pickGroup(res, "season");
+  if (!stat) return null;
+
+  return {
+    avg: s(stat.avg) ?? "-",
+    obp: s(stat.obp) ?? "-",
+    slg: s(stat.slg) ?? "-",
+    h: n(stat.hits) ?? 0,
+    hr: n(stat.homeRuns) ?? 0,
+    rbi: n(stat.rbi) ?? 0,
+    bb: n(stat.baseOnBalls) ?? 0,
+    totalBases: n(stat.totalBases) ?? 0,
+    pa: n(stat.plateAppearances) ?? 0,
+    games: n(stat.gamesPlayed) ?? 0,
+  };
+}
