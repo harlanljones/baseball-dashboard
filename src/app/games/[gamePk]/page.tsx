@@ -29,6 +29,8 @@ import {
 } from "@/lib/mlb/players";
 import { getHeadToHead } from "@/lib/mlb/schedule";
 import { getGameWeather } from "@/lib/weather/report";
+import type { GameWeather } from "@/lib/weather/types";
+import PropsSidebarSection from "@/components/PropsSidebarSection";
 import type {
   BullpenPitcher,
   GameFeed,
@@ -172,14 +174,7 @@ async function MatchupSection({
   );
 }
 
-async function WeatherSection({ feed }: { feed: GameFeed }) {
-  const weather = await safe(
-    getGameWeather({
-      venueId: feed.venueId,
-      startTimeISO: feed.startTime,
-      observed: feed.weather ?? null,
-    }),
-  );
+function WeatherSection({ weather }: { weather: GameWeather | null }) {
   if (!weather) return <SectionError label="ballpark weather" />;
   return <BallparkWeather weather={weather} />;
 }
@@ -236,6 +231,17 @@ export default async function GamePage({
   const isPreview = feed.state === "Preview";
   const isDisrupted = /Postponed|Suspended|Cancel/i.test(feed.detailedState);
   const d = feed.decisions;
+
+  const weather =
+    !isDisrupted && (isPreview || feed.state === "Live")
+      ? await safe(
+          getGameWeather({
+            venueId: feed.venueId,
+            startTimeISO: feed.startTime,
+            observed: feed.weather ?? null,
+          }),
+        )
+      : null;
 
   return (
     <div className="space-y-5">
@@ -326,78 +332,93 @@ export default async function GamePage({
         </p>
       )}
 
-      {/* Probable starters */}
-      {!isDisrupted && isPreview && (
-        <Section title="Probable starters">
-          <Suspense fallback={<SectionSkeleton />}>
-            <ProbableStartersSection feed={feed} season={season} />
-          </Suspense>
-        </Section>
-      )}
+      <div
+        className={`grid grid-cols-1 gap-5 lg:items-start ${
+          !isDisrupted && isPreview ? "lg:grid-cols-[1fr_320px]" : ""
+        }`}
+      >
+        <div className="space-y-5">
+          {/* Probable starters */}
+          {!isDisrupted && isPreview && (
+            <Section title="Probable starters">
+              <Suspense fallback={<SectionSkeleton />}>
+                <ProbableStartersSection feed={feed} season={season} />
+              </Suspense>
+            </Section>
+          )}
 
-      {/* Ballpark weather */}
-      {!isDisrupted && (isPreview || feed.state === "Live") && (
-        <Section title="Ballpark weather">
-          <Suspense fallback={<SectionSkeleton />}>
-            <WeatherSection feed={feed} />
-          </Suspense>
-        </Section>
-      )}
+          {/* Ballpark weather */}
+          {!isDisrupted && (isPreview || feed.state === "Live") && (
+            <Section title="Ballpark weather">
+              <WeatherSection weather={weather} />
+            </Section>
+          )}
 
-      {/* 1. Linescore + boxscore (from the feed) */}
-      {scored && !isDisrupted && (
-        <Section title="Boxscore">
-          <div className="space-y-4">
-            <Linescore feed={feed} />
-            <BoxscoreTables
-              away={feed.boxscore.away}
-              home={feed.boxscore.home}
-              isLive={feed.state === "Live"}
-            />
-          </div>
-        </Section>
-      )}
+          {/* 1. Linescore + boxscore (from the feed) */}
+          {scored && !isDisrupted && (
+            <Section title="Boxscore">
+              <div className="space-y-4">
+                <Linescore feed={feed} />
+                <BoxscoreTables
+                  away={feed.boxscore.away}
+                  home={feed.boxscore.home}
+                  isLive={feed.state === "Live"}
+                />
+              </div>
+            </Section>
+          )}
 
-      {/* Game log */}
-      {scored && !isDisrupted && (
-        <Section title="Game log">
-          <Suspense fallback={<SectionSkeleton />}>
-            <GameLogSection feed={feed} />
-          </Suspense>
-        </Section>
-      )}
+          {/* Game log */}
+          {scored && !isDisrupted && (
+            <Section title="Game log">
+              <Suspense fallback={<SectionSkeleton />}>
+                <GameLogSection feed={feed} />
+              </Suspense>
+            </Section>
+          )}
 
-      {/* 2. Bullpen (also from the feed) */}
-      {!isDisrupted &&
-        (feed.boxscore.away.bullpen.length > 0 ||
-          feed.boxscore.home.bullpen.length > 0) && (
-          <Section title={scored ? "Bullpen (available arms)" : "Bullpen"}>
+          {/* 2. Bullpen (also from the feed) */}
+          {!isDisrupted &&
+            (feed.boxscore.away.bullpen.length > 0 ||
+              feed.boxscore.home.bullpen.length > 0) && (
+              <Section title={scored ? "Bullpen (available arms)" : "Bullpen"}>
+                <Suspense fallback={<SectionSkeleton />}>
+                  <BullpenSection feed={feed} season={season} />
+                </Suspense>
+              </Section>
+            )}
+
+          {/* 3. Head-to-head */}
+          <Section title="Season series">
             <Suspense fallback={<SectionSkeleton />}>
-              <BullpenSection feed={feed} season={season} />
+              <HeadToHeadSection feed={feed} season={season} />
             </Suspense>
           </Section>
+
+          {/* 4. Batter vs pitcher */}
+          <Section title="Matchups">
+            <Suspense fallback={<SectionSkeleton />}>
+              <MatchupSection feed={feed} season={season} />
+            </Suspense>
+          </Section>
+
+          {/* 5. Sabermetrics */}
+          <Section title="Sabermetric evaluations">
+            <Suspense fallback={<SectionSkeleton />}>
+              <RosterStatsSection feed={feed} season={season} />
+            </Suspense>
+          </Section>
+        </div>
+
+        {/* Player props sidebar — Preview only; sportsbooks pull lines once a game goes live. */}
+        {!isDisrupted && isPreview && (
+          <div className="lg:sticky lg:top-4">
+            <Suspense fallback={<SectionSkeleton />}>
+              <PropsSidebarSection feed={feed} season={season} weather={weather} />
+            </Suspense>
+          </div>
         )}
-
-      {/* 3. Head-to-head */}
-      <Section title="Season series">
-        <Suspense fallback={<SectionSkeleton />}>
-          <HeadToHeadSection feed={feed} season={season} />
-        </Suspense>
-      </Section>
-
-      {/* 4. Batter vs pitcher */}
-      <Section title="Matchups">
-        <Suspense fallback={<SectionSkeleton />}>
-          <MatchupSection feed={feed} season={season} />
-        </Suspense>
-      </Section>
-
-      {/* 5. Sabermetrics */}
-      <Section title="Sabermetric evaluations">
-        <Suspense fallback={<SectionSkeleton />}>
-          <RosterStatsSection feed={feed} season={season} />
-        </Suspense>
-      </Section>
+      </div>
     </div>
   );
 }
