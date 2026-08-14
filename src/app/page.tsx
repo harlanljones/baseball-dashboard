@@ -1,6 +1,7 @@
 import Link from "next/link";
 import AutoRefresh from "@/components/AutoRefresh";
 import GameCard from "@/components/GameCard";
+import PageContainer from "@/components/PageContainer";
 import { easternToday, shiftDate } from "@/lib/mlb/client";
 import { getSchedule } from "@/lib/mlb/schedule";
 
@@ -32,7 +33,7 @@ export default async function Home({
   const next = shiftDate(date, 1);
 
   return (
-    <div>
+    <PageContainer>
       <AutoRefresh enabled={hasLiveGame} />
 
       <div className="mb-5 flex items-center justify-between gap-3">
@@ -83,6 +84,6 @@ export default async function Home({
           ))}
         </div>
       )}
-    </div>
+    </PageContainer>
   );
 }

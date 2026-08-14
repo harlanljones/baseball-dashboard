@@ -31,6 +31,7 @@ import { getHeadToHead } from "@/lib/mlb/schedule";
 import { getGameWeather } from "@/lib/weather/report";
 import type { GameWeather } from "@/lib/weather/types";
 import PropsSidebarSection from "@/components/PropsSidebarSection";
+import GameSplitPane from "@/components/GameSplitPane";
 import type {
   BullpenPitcher,
   GameFeed,
@@ -244,181 +245,179 @@ export default async function GamePage({
       : null;
 
   return (
-    <div className="space-y-5">
+    <div className="flex min-h-0 flex-1 flex-col">
       <AutoRefresh enabled={feed.state === "Live"} />
 
-      <Link
-        href="/"
-        className="inline-block text-sm text-ink/60 hover:text-ink"
-      >
-        ← All games
-      </Link>
+      <div className="space-y-5 px-4 pt-6">
+        <Link
+          href="/"
+          className="inline-block text-sm text-ink/60 hover:text-ink"
+        >
+          ← All games
+        </Link>
 
-      {/* Header */}
-      <div className="rounded-md border border-ink/10 bg-card p-4 shadow-sm">
-        <h1 className="sr-only">
-          {feed.away.team.name} at {feed.home.team.name}
-        </h1>
-        <div className="mb-3 flex items-center justify-between">
-          <GameStatusBadge game={{ state: feed.state, detailedState: feed.detailedState }} />
-          {isPreview && feed.startTime && (
-            <span className="font-mono text-sm text-ink/60">
-              <LocalTime iso={feed.startTime} weekday />
-            </span>
-          )}
-        </div>
-
-        <div className="flex items-center justify-between">
-          <span className="font-display flex items-center gap-2.5 text-xl font-semibold">
-            <TeamLogo teamId={feed.away.team.id} size={28} />
-            {feed.away.team.name}
-          </span>
-          {scored && (
-            <span className="font-mono text-xl font-semibold">
-              {feed.away.score ?? "-"}
-            </span>
-          )}
-        </div>
-        <div className="mt-1 flex items-center justify-between">
-          <span className="font-display flex items-center gap-2.5 text-xl font-semibold">
-            <TeamLogo teamId={feed.home.team.id} size={28} />
-            {feed.home.team.name}
-          </span>
-          {scored && (
-            <span className="font-mono text-xl font-semibold">
-              {feed.home.score ?? "-"}
-            </span>
-          )}
-        </div>
-
-        {feed.venue && (
-          <p className="mt-2 text-xs text-ink/50">
-            {[feed.venue, feed.venueCity].filter(Boolean).join(", ")}
-          </p>
-        )}
-
-        {feed.state === "Final" && (d?.winner || d?.loser) && (
-          <p className="mt-3 border-t border-ink/10 pt-2 text-xs text-ink/60">
-            {d?.winner && <>W: {d.winner.fullName}</>}
-            {d?.loser && <> · L: {d.loser.fullName}</>}
-            {d?.save && <> · SV: {d.save.fullName}</>}
-          </p>
-        )}
-
-        {isPreview && (feed.probablePitchers.away || feed.probablePitchers.home) && (
-          <div className="mt-3 border-t border-ink/10 pt-2 text-sm text-ink/60">
-            <span className="mr-3">Probables:</span>
-            <span className="inline-flex flex-wrap items-center gap-x-5 gap-y-1 align-middle">
-              {(["away", "home"] as const).map((side) => {
-                const pitcher = feed.probablePitchers[side];
-                return (
-                  <span key={side} className="inline-flex items-center gap-1.5">
-                    {pitcher && <PlayerHeadshot personId={pitcher.id} size={22} />}
-                    <span className="text-ink/40">
-                      {teamName(feed[side].team)}
-                    </span>
-                    {pitcher?.fullName ?? "TBD"}
-                  </span>
-                );
-              })}
-            </span>
+        {/* Header */}
+        <div className="rounded-md border border-ink/10 bg-card p-4 shadow-sm">
+          <h1 className="sr-only">
+            {feed.away.team.name} at {feed.home.team.name}
+          </h1>
+          <div className="mb-3 flex items-center justify-between">
+            <GameStatusBadge game={{ state: feed.state, detailedState: feed.detailedState }} />
+            {isPreview && feed.startTime && (
+              <span className="font-mono text-sm text-ink/60">
+                <LocalTime iso={feed.startTime} weekday />
+              </span>
+            )}
           </div>
+
+          <div className="flex items-center justify-between">
+            <span className="font-display flex items-center gap-2.5 text-xl font-semibold">
+              <TeamLogo teamId={feed.away.team.id} size={28} />
+              {feed.away.team.name}
+            </span>
+            {scored && (
+              <span className="font-mono text-xl font-semibold">
+                {feed.away.score ?? "-"}
+              </span>
+            )}
+          </div>
+          <div className="mt-1 flex items-center justify-between">
+            <span className="font-display flex items-center gap-2.5 text-xl font-semibold">
+              <TeamLogo teamId={feed.home.team.id} size={28} />
+              {feed.home.team.name}
+            </span>
+            {scored && (
+              <span className="font-mono text-xl font-semibold">
+                {feed.home.score ?? "-"}
+              </span>
+            )}
+          </div>
+
+          {feed.venue && (
+            <p className="mt-2 text-xs text-ink/50">
+              {[feed.venue, feed.venueCity].filter(Boolean).join(", ")}
+            </p>
+          )}
+
+          {feed.state === "Final" && (d?.winner || d?.loser) && (
+            <p className="mt-3 border-t border-ink/10 pt-2 text-xs text-ink/60">
+              {d?.winner && <>W: {d.winner.fullName}</>}
+              {d?.loser && <> · L: {d.loser.fullName}</>}
+              {d?.save && <> · SV: {d.save.fullName}</>}
+            </p>
+          )}
+
+          {isPreview && (feed.probablePitchers.away || feed.probablePitchers.home) && (
+            <div className="mt-3 border-t border-ink/10 pt-2 text-sm text-ink/60">
+              <span className="mr-3">Probables:</span>
+              <span className="inline-flex flex-wrap items-center gap-x-5 gap-y-1 align-middle">
+                {(["away", "home"] as const).map((side) => {
+                  const pitcher = feed.probablePitchers[side];
+                  return (
+                    <span key={side} className="inline-flex items-center gap-1.5">
+                      {pitcher && <PlayerHeadshot personId={pitcher.id} size={22} />}
+                      <span className="text-ink/40">
+                        {teamName(feed[side].team)}
+                      </span>
+                      {pitcher?.fullName ?? "TBD"}
+                    </span>
+                  );
+                })}
+              </span>
+            </div>
+          )}
+        </div>
+
+        {isDisrupted && (
+          <p className="rounded-md border border-clay/40 bg-clay/10 px-3 py-2 text-sm text-clay">
+            This game is {feed.detailedState.toLowerCase()}.
+          </p>
         )}
       </div>
 
-      {isDisrupted && (
-        <p className="rounded-md border border-clay/40 bg-clay/10 px-3 py-2 text-sm text-clay">
-          This game is {feed.detailedState.toLowerCase()}.
-        </p>
-      )}
-
-      <div
-        className={`grid grid-cols-1 gap-5 lg:items-start ${
-          !isDisrupted && isPreview ? "lg:grid-cols-[1fr_320px]" : ""
-        }`}
-      >
-        <div className="space-y-5">
-          {/* Probable starters */}
-          {!isDisrupted && isPreview && (
-            <Section title="Probable starters">
-              <Suspense fallback={<SectionSkeleton />}>
-                <ProbableStartersSection feed={feed} season={season} />
-              </Suspense>
-            </Section>
-          )}
-
-          {/* Ballpark weather */}
-          {!isDisrupted && (isPreview || feed.state === "Live") && (
-            <Section title="Ballpark weather">
-              <WeatherSection weather={weather} />
-            </Section>
-          )}
-
-          {/* 1. Linescore + boxscore (from the feed) */}
-          {scored && !isDisrupted && (
-            <Section title="Boxscore">
-              <div className="space-y-4">
-                <Linescore feed={feed} />
-                <BoxscoreTables
-                  away={feed.boxscore.away}
-                  home={feed.boxscore.home}
-                  isLive={feed.state === "Live"}
-                />
-              </div>
-            </Section>
-          )}
-
-          {/* Game log */}
-          {scored && !isDisrupted && (
-            <Section title="Game log">
-              <Suspense fallback={<SectionSkeleton />}>
-                <GameLogSection feed={feed} />
-              </Suspense>
-            </Section>
-          )}
-
-          {/* 2. Bullpen (also from the feed) */}
-          {!isDisrupted &&
-            (feed.boxscore.away.bullpen.length > 0 ||
-              feed.boxscore.home.bullpen.length > 0) && (
-              <Section title={scored ? "Bullpen (available arms)" : "Bullpen"}>
+      <GameSplitPane
+        sidebar={
+          !isDisrupted && isPreview ? (
+            <Suspense fallback={<SectionSkeleton />}>
+              <PropsSidebarSection feed={feed} season={season} weather={weather} />
+            </Suspense>
+          ) : null
+        }
+        main={
+          <>
+            {/* Probable starters */}
+            {!isDisrupted && isPreview && (
+              <Section title="Probable starters">
                 <Suspense fallback={<SectionSkeleton />}>
-                  <BullpenSection feed={feed} season={season} />
+                  <ProbableStartersSection feed={feed} season={season} />
                 </Suspense>
               </Section>
             )}
 
-          {/* 3. Head-to-head */}
-          <Section title="Season series">
-            <Suspense fallback={<SectionSkeleton />}>
-              <HeadToHeadSection feed={feed} season={season} />
-            </Suspense>
-          </Section>
+            {/* Ballpark weather */}
+            {!isDisrupted && (isPreview || feed.state === "Live") && (
+              <Section title="Ballpark weather">
+                <WeatherSection weather={weather} />
+              </Section>
+            )}
 
-          {/* 4. Batter vs pitcher */}
-          <Section title="Matchups">
-            <Suspense fallback={<SectionSkeleton />}>
-              <MatchupSection feed={feed} season={season} />
-            </Suspense>
-          </Section>
+            {/* 1. Linescore + boxscore (from the feed) */}
+            {scored && !isDisrupted && (
+              <Section title="Boxscore">
+                <div className="space-y-4">
+                  <Linescore feed={feed} />
+                  <BoxscoreTables
+                    away={feed.boxscore.away}
+                    home={feed.boxscore.home}
+                    isLive={feed.state === "Live"}
+                  />
+                </div>
+              </Section>
+            )}
 
-          {/* 5. Sabermetrics */}
-          <Section title="Sabermetric evaluations">
-            <Suspense fallback={<SectionSkeleton />}>
-              <RosterStatsSection feed={feed} season={season} />
-            </Suspense>
-          </Section>
-        </div>
+            {/* Game log */}
+            {scored && !isDisrupted && (
+              <Section title="Game log">
+                <Suspense fallback={<SectionSkeleton />}>
+                  <GameLogSection feed={feed} />
+                </Suspense>
+              </Section>
+            )}
 
-        {/* Player props sidebar — Preview only; sportsbooks pull lines once a game goes live. */}
-        {!isDisrupted && isPreview && (
-          <div className="lg:sticky lg:top-4">
-            <Suspense fallback={<SectionSkeleton />}>
-              <PropsSidebarSection feed={feed} season={season} weather={weather} />
-            </Suspense>
-          </div>
-        )}
-      </div>
+            {/* 2. Bullpen (also from the feed) */}
+            {!isDisrupted &&
+              (feed.boxscore.away.bullpen.length > 0 ||
+                feed.boxscore.home.bullpen.length > 0) && (
+                <Section title={scored ? "Bullpen (available arms)" : "Bullpen"}>
+                  <Suspense fallback={<SectionSkeleton />}>
+                    <BullpenSection feed={feed} season={season} />
+                  </Suspense>
+                </Section>
+              )}
+
+            {/* 3. Head-to-head */}
+            <Section title="Season series">
+              <Suspense fallback={<SectionSkeleton />}>
+                <HeadToHeadSection feed={feed} season={season} />
+              </Suspense>
+            </Section>
+
+            {/* 4. Batter vs pitcher */}
+            <Section title="Matchups">
+              <Suspense fallback={<SectionSkeleton />}>
+                <MatchupSection feed={feed} season={season} />
+              </Suspense>
+            </Section>
+
+            {/* 5. Sabermetrics */}
+            <Section title="Sabermetric evaluations">
+              <Suspense fallback={<SectionSkeleton />}>
+                <RosterStatsSection feed={feed} season={season} />
+              </Suspense>
+            </Section>
+          </>
+        }
+      />
     </div>
   );
 }

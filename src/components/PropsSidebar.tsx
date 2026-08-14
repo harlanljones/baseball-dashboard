@@ -1,7 +1,7 @@
 import PlayerHeadshot from "@/components/PlayerHeadshot";
 import TeamLogo from "@/components/TeamLogo";
 import { GOOD_CLASS, BAD_CLASS } from "@/lib/statColor";
-import type { TeamRef } from "@/lib/mlb/types";
+import type { PlayerRef, TeamRef } from "@/lib/mlb/types";
 import type { PropMarketKey, PropTier, ScoredProp } from "@/lib/odds/types";
 
 const MARKET_LABELS: Record<PropMarketKey, string> = {
@@ -38,10 +38,16 @@ function PropRow({ prop }: { prop: ScoredProp }) {
   return (
     <div className="flex items-center justify-between gap-2 rounded-md border border-ink/10 bg-paper px-2.5 py-2">
       <div className="min-w-0">
-        <div className="truncate text-sm font-medium text-ink">
+        <div className="text-sm font-medium text-ink @2xl:text-base">
           {MARKET_LABELS[prop.marketKey]} {prop.line}
         </div>
-        <div className="mt-0.5 truncate text-xs text-ink/50">{prop.statLabel}</div>
+        <div className="mt-0.5 space-y-0.5">
+          {prop.evidence.map((line, i) => (
+            <div key={i} className="break-words text-xs leading-snug text-ink/50">
+              {line}
+            </div>
+          ))}
+        </div>
       </div>
       <div className="flex flex-shrink-0 flex-col items-end gap-0.5">
         <span className={`rounded px-1.5 py-0.5 text-xs font-semibold ${TIER_CLASS[prop.tier]}`}>
@@ -55,21 +61,23 @@ function PropRow({ prop }: { prop: ScoredProp }) {
   );
 }
 
-function PlayerGroup({
-  playerId,
-  playerName,
-  props,
-}: {
-  playerId: number;
-  playerName: string;
-  props: ScoredProp[];
-}) {
+function PlayerGroup({ group }: { group: PropPlayerGroup }) {
+  const { player, evidence, props } = group;
   return (
     <div className="space-y-1.5">
       <div className="flex items-center gap-1.5">
-        <PlayerHeadshot personId={playerId} size={20} />
-        <span className="text-sm font-semibold text-ink">{playerName}</span>
+        <PlayerHeadshot personId={player.id} size={20} />
+        <span className="text-sm font-semibold text-ink">{player.fullName}</span>
       </div>
+      {evidence.length > 0 && (
+        <div className="space-y-0.5 pl-[26px]">
+          {evidence.map((line, i) => (
+            <div key={i} className="break-words text-xs leading-snug text-ink/45">
+              {line}
+            </div>
+          ))}
+        </div>
+      )}
       <div className="space-y-1.5">
         {props.map((p, i) => (
           <PropRow key={i} prop={p} />
@@ -79,9 +87,16 @@ function PlayerGroup({
   );
 }
 
+/** One player's props for a team, plus matchup evidence shared across all of them (splits, head-to-head history). */
+export interface PropPlayerGroup {
+  player: PlayerRef;
+  evidence: string[];
+  props: ScoredProp[];
+}
+
 export interface PropTeamGroup {
   team: TeamRef;
-  props: ScoredProp[];
+  players: PropPlayerGroup[];
 }
 
 /**
@@ -102,28 +117,20 @@ export default function PropsSidebar({ groups }: { groups: PropTeamGroup[] }) {
   return (
     <div className="rounded-md border border-ink/10 bg-card p-4 shadow-sm">
       <h2 className="eyebrow mb-3 text-base">Player props</h2>
-      <div className="space-y-5">
-        {groups.map(({ team, props }) => {
-          const byPlayer = new Map<number, { name: string; props: ScoredProp[] }>();
-          for (const p of props) {
-            const g = byPlayer.get(p.player.id) ?? { name: p.player.fullName, props: [] };
-            g.props.push(p);
-            byPlayer.set(p.player.id, g);
-          }
-          return (
-            <div key={team.id} className="space-y-3">
-              <div className="flex items-center gap-1.5 border-b border-ink/10 pb-1.5">
-                <TeamLogo teamId={team.id} size={18} />
-                <span className="text-xs font-semibold uppercase tracking-wide text-ink/60">
-                  {team.abbreviation ?? team.name}
-                </span>
-              </div>
-              {[...byPlayer.entries()].map(([playerId, g]) => (
-                <PlayerGroup key={playerId} playerId={playerId} playerName={g.name} props={g.props} />
-              ))}
+      <div className="space-y-5 @2xl:grid @2xl:grid-cols-2 @2xl:items-start @2xl:gap-5 @2xl:space-y-0">
+        {groups.map(({ team, players }) => (
+          <div key={team.id} className="space-y-3">
+            <div className="flex items-center gap-1.5 border-b border-ink/10 pb-1.5">
+              <TeamLogo teamId={team.id} size={18} />
+              <span className="text-xs font-semibold uppercase tracking-wide text-ink/60">
+                {team.abbreviation ?? team.name}
+              </span>
             </div>
-          );
-        })}
+            {players.map((group) => (
+              <PlayerGroup key={group.player.id} group={group} />
+            ))}
+          </div>
+        ))}
       </div>
     </div>
   );

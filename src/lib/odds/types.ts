@@ -35,6 +35,14 @@ export interface ScoredProp {
   overPrice: number;
   underPrice: number;
   tier: PropTier;
-  /** Human-readable basis for the tier, e.g. "Season avg: 7.2 (line 6.5)" or "No stats available". */
-  statLabel: string;
+  /**
+   * Market-specific basis for the tier, ordered most-important first — e.g.
+   * `["Season avg: 7.2 (line 6.5)", "Wind blowing out favors the over"]`.
+   * Always has at least one entry (`"No stats available"` when `stats` was
+   * null). Player-level matchup context (head-to-head history, platoon
+   * split, recent form) is *not* included — it's the same across every prop
+   * a player has, so it's surfaced once per player instead; see
+   * `matchupEvidence` in `lib/odds/highlight.ts`.
+   */
+  evidence: string[];
 }

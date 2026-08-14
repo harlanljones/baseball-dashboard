@@ -1,7 +1,7 @@
 import { describe, it, expect } from "vitest";
-import { scoreProp, type StatContext } from "../highlight";
+import { matchupEvidence, scoreProp, type MatchupContext, type StatContext } from "../highlight";
 import type { PlayerProp } from "../types";
-import type { PlayerRef } from "@/lib/mlb/types";
+import type { PitcherRecentForm, PitcherSplitLine, PlayerRef, SplitLine, VsPlayerLine } from "@/lib/mlb/types";
 import type { GameWeather } from "@/lib/weather/types";
 
 const player: PlayerRef = { id: 1, fullName: "Test Player" };
@@ -145,7 +145,7 @@ describe("scoreProp — batter markets", () => {
       null,
     );
     expect(result.tier).toBe("neutral");
-    expect(result.statLabel).toBe("No stats available");
+    expect(result.evidence).toEqual(["No stats available"]);
   });
 });
 
@@ -279,5 +279,150 @@ describe("scoreProp — weather nudge", () => {
       weather,
     );
     expect(result.tier).toBe("lean-over");
+  });
+});
+
+describe("scoreProp — evidence", () => {
+  const batterStats: StatContext = {
+    kind: "batter",
+    hitsPerGame: 1.0,
+    totalBasesPerGame: 1.6,
+    hrPerGame: 0.345,
+    rbiPerGame: 0.6,
+    bbPerGame: 0.4,
+    games: 100,
+  };
+
+  it("always leads with the season avg line", () => {
+    const result = scoreProp(
+      prop({ marketKey: "batter_hits", line: 0.8 }),
+      player,
+      batterStats,
+      null,
+    );
+    expect(result.evidence[0]).toBe("Season avg: 1.0 (line 0.8)");
+  });
+
+  it("adds a weather line only when the nudge actually changes the tier", () => {
+    const hrStats: StatContext = { ...batterStats, hrPerGame: 0.345 }; // vs line 0.3 -> lean-over baseline
+    const result = scoreProp(
+      prop({ marketKey: "batter_home_runs", line: 0.3 }),
+      player,
+      hrStats,
+      windWeather("out", 70),
+    );
+    expect(result.tier).toBe("strong-over");
+    expect(result.evidence).toContain("Wind blowing out favors the over");
+  });
+
+  it("does not add a weather line for a non weather-sensitive market", () => {
+    const result = scoreProp(
+      prop({ marketKey: "batter_hits", line: 0.8 }),
+      player,
+      batterStats,
+      windWeather("out", 70),
+    );
+    expect(result.evidence.some((l) => l.startsWith("Wind blowing"))).toBe(false);
+  });
+});
+
+describe("matchupEvidence — batter", () => {
+  const pitcher: PlayerRef = { id: 2, fullName: "Gerrit Cole" };
+
+  function vsPitcher(overrides: Partial<VsPlayerLine>): VsPlayerLine {
+    return {
+      batter: player,
+      pitcher,
+      hasHistory: true,
+      pa: 10,
+      h: 4,
+      hr: 1,
+      bb: 1,
+      k: 2,
+      avg: ".400",
+      obp: ".500",
+      slg: ".700",
+      ...overrides,
+    };
+  }
+
+  function platoon(overrides: Partial<SplitLine>): SplitLine {
+    return { pa: 20, obp: ".380", ops: ".820", bbPct: "9.0%", kPct: "18.0%", ...overrides };
+  }
+
+  it("returns an empty list for a null matchup", () => {
+    expect(matchupEvidence(null)).toEqual([]);
+  });
+
+  it("adds head-to-head history when the sample is big enough", () => {
+    const matchup: MatchupContext = { kind: "batter", vsPitcher: vsPitcher({ pa: 10 }) };
+    expect(matchupEvidence(matchup)).toContain("Career vs Gerrit Cole: 4 H in 10 PA, 1 HR");
+  });
+
+  it("omits head-to-head history when the sample is too thin", () => {
+    const matchup: MatchupContext = { kind: "batter", vsPitcher: vsPitcher({ pa: 2, hasHistory: true }) };
+    expect(matchupEvidence(matchup).some((l) => l.startsWith("Career vs"))).toBe(false);
+  });
+
+  it("omits head-to-head history when the pair has never faced each other", () => {
+    const matchup: MatchupContext = {
+      kind: "batter",
+      vsPitcher: vsPitcher({ pa: 0, hasHistory: false }),
+    };
+    expect(matchupEvidence(matchup).some((l) => l.startsWith("Career vs"))).toBe(false);
+  });
+
+  it("adds the platoon split when the sample is big enough", () => {
+    const matchup: MatchupContext = {
+      kind: "batter",
+      platoon: platoon({ pa: 20 }),
+      vsHand: "R",
+    };
+    expect(matchupEvidence(matchup)).toContain("vs RHP this year: .820 OPS (20 PA)");
+  });
+
+  it("omits the platoon split when the sample is too thin", () => {
+    const matchup: MatchupContext = {
+      kind: "batter",
+      platoon: platoon({ pa: 5 }),
+      vsHand: "R",
+    };
+    expect(matchupEvidence(matchup).some((l) => l.startsWith("vs RHP"))).toBe(false);
+  });
+
+  it("can return both lines at once", () => {
+    const matchup: MatchupContext = {
+      kind: "batter",
+      vsPitcher: vsPitcher({ pa: 10 }),
+      platoon: platoon({ pa: 20 }),
+      vsHand: "R",
+    };
+    expect(matchupEvidence(matchup)).toEqual([
+      "Career vs Gerrit Cole: 4 H in 10 PA, 1 HR",
+      "vs RHP this year: .820 OPS (20 PA)",
+    ]);
+  });
+});
+
+describe("matchupEvidence — pitcher", () => {
+  it("adds recent form and home/road split", () => {
+    const recentForm: PitcherRecentForm = { ip: "24.0", era: "2.50", bbPct: "6.0%", kPct: "32.0%", starts: 4 };
+    const homeAway: PitcherSplitLine = { ip: "80.0", era: "3.10", bbPct: "7.0%", kPct: "28.0%" };
+    const matchup: MatchupContext = { kind: "pitcher", recentForm, homeAway, isHome: true };
+    const result = matchupEvidence(matchup);
+    expect(result).toContain("Last 30 days: 2.50 ERA, 32.0% K rate over 4 starts");
+    expect(result).toContain("Home starts this year: 3.10 ERA, 80.0 IP");
+  });
+
+  it("omits recent form when the pitcher hasn't started in the window", () => {
+    const recentForm: PitcherRecentForm = { ip: "0.0", bbPct: "-", kPct: "-", starts: 0 };
+    const matchup: MatchupContext = { kind: "pitcher", recentForm, isHome: true };
+    expect(matchupEvidence(matchup).some((l) => l.startsWith("Last 30 days"))).toBe(false);
+  });
+
+  it("omits the home/road split when the pitcher hasn't pitched in it", () => {
+    const homeAway: PitcherSplitLine = { ip: "0.0", bbPct: "-", kPct: "-" };
+    const matchup: MatchupContext = { kind: "pitcher", homeAway, isHome: true };
+    expect(matchupEvidence(matchup).some((l) => l.startsWith("Home starts"))).toBe(false);
   });
 });

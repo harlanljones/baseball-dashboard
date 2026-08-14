@@ -46,8 +46,8 @@ export default function RootLayout({
         >
           Skip to content
         </a>
-        <header className="sticky top-0 z-10 bg-field text-white">
-          <div className="mx-auto flex max-w-5xl items-center px-4 py-2.5">
+        <header className="sticky top-0 z-10 h-header bg-field text-white">
+          <div className="mx-auto flex h-full max-w-5xl items-center px-4">
             <Link
               href="/"
               className="flex items-center gap-2.5 focus-visible:outline-gold"
@@ -59,10 +59,10 @@ export default function RootLayout({
             </Link>
           </div>
         </header>
-        <main id="main" className="mx-auto w-full max-w-5xl flex-1 px-4 py-6">
+        <main id="main" className="flex min-h-0 w-full flex-1 flex-col">
           {children}
         </main>
-        <footer className="border-t border-ink/10 py-4 text-center text-xs text-ink/50">
+        <footer className="flex h-footer items-center justify-center border-t border-ink/10 text-center text-xs text-ink/50">
           Data: MLB Stats API · not affiliated with MLB
         </footer>
       </body>

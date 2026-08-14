@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 
+import PageContainer from "@/components/PageContainer";
 import PlayerHeadshot from "@/components/PlayerHeadshot";
 import VsPitcherLog from "@/components/VsPitcherLog";
 
@@ -67,31 +68,33 @@ export default async function VsPitcherPage({
   ]);
 
   return (
-    <div className="space-y-5">
-      <Link
-        href="/"
-        className="inline-block text-sm text-ink/60 hover:text-ink"
-      >
-        ← All games
-      </Link>
+    <PageContainer>
+      <div className="space-y-5">
+        <Link
+          href="/"
+          className="inline-block text-sm text-ink/60 hover:text-ink"
+        >
+          ← All games
+        </Link>
 
-      <div className="rounded-md border border-ink/10 bg-card p-4 shadow-sm">
-        <h1 className="font-display flex flex-wrap items-center gap-2 text-xl font-semibold">
-          <PlayerHeadshot personId={batter.id} size={28} />
-          {batter.fullName}
-          <span className="font-normal text-ink/40">vs</span>
-          <PlayerHeadshot personId={pitcher.id} size={28} />
-          {pitcher.fullName}
-        </h1>
-        <p className="mt-1 text-sm text-ink/60">
-          Season-by-season history — the MLB Stats API has no per-plate-appearance
-          log against a single pitcher, so each row is one season&rsquo;s totals.
-        </p>
+        <div className="rounded-md border border-ink/10 bg-card p-4 shadow-sm">
+          <h1 className="font-display flex flex-wrap items-center gap-2 text-xl font-semibold">
+            <PlayerHeadshot personId={batter.id} size={28} />
+            {batter.fullName}
+            <span className="font-normal text-ink/40">vs</span>
+            <PlayerHeadshot personId={pitcher.id} size={28} />
+            {pitcher.fullName}
+          </h1>
+          <p className="mt-1 text-sm text-ink/60">
+            Season-by-season history — the MLB Stats API has no per-plate-appearance
+            log against a single pitcher, so each row is one season&rsquo;s totals.
+          </p>
+        </div>
+
+        <section className="rounded-md border border-ink/10 bg-card p-4 shadow-sm">
+          <VsPitcherLog career={career} seasons={seasons} />
+        </section>
       </div>
-
-      <section className="rounded-md border border-ink/10 bg-card p-4 shadow-sm">
-        <VsPitcherLog career={career} seasons={seasons} />
-      </section>
-    </div>
+    </PageContainer>
   );
 }

@@ -12,6 +12,11 @@
   --color-clay: #a8542f;
   --color-hot: #be3e2e;
   --color-cold: #33689b;
+
+  /* Header/footer chrome height — the game page's split pane sizes itself
+     against these so its viewport-height calc stays truthful. */
+  --spacing-header: 2.875rem;
+  --spacing-footer: 3.25rem;
 }
 
 @theme inline {

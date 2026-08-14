@@ -1,6 +1,8 @@
+import PageContainer from "@/components/PageContainer";
+
 export default function Loading() {
   return (
-    <div>
+    <PageContainer>
       <div className="mb-5 h-10 w-40 animate-pulse rounded bg-ink/10" />
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
         {Array.from({ length: 6 }).map((_, i) => (
@@ -10,6 +12,6 @@ export default function Loading() {
           />
         ))}
       </div>
-    </div>
+    </PageContainer>
   );
 }
