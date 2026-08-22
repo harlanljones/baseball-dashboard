@@ -1,4 +1,4 @@
-import type { GameFeed, PlayerRef, TeamRef, VsPlayerLine, SplitLine } from "@/lib/mlb/types";
+import type { GameFeed, PitcherSplitLine, PlayerRef, TeamRef, VsPlayerLine, SplitLine } from "@/lib/mlb/types";
 import type { GameWeather } from "@/lib/weather/types";
 import { findOddsEvent } from "@/lib/odds/events";
 import { getPlayerProps } from "@/lib/odds/props";
@@ -9,10 +9,10 @@ import { easternDateOf } from "@/lib/mlb/client";
 import { buildMatchups } from "@/lib/mlb/matchup";
 import {
   getRosterWithSeasonStats,
-  getPitcherPropStats,
-  getSeasonHittingBasic,
-  getPitcherRecentForm,
-  getPitcherHomeAwaySplit,
+  getPitcherPropStatsBatch,
+  getSeasonHittingBasicBatch,
+  getPitcherRecentFormBatch,
+  getPitcherSituationalSplitBatch,
 } from "@/lib/mlb/players";
 import PropsSidebar, { type PropPlayerGroup, type PropTeamGroup } from "./PropsSidebar";
 
@@ -85,17 +85,10 @@ export default async function PropsSidebarSection({
   const pitcherIds = [...new Set(matched.filter((m) => m.isPitcher).map((m) => m.entry.player.id))];
   const batterIds = [...new Set(matched.filter((m) => !m.isPitcher).map((m) => m.entry.player.id))];
 
-  const [pitcherStatsList, batterStatsList] = await Promise.all([
-    Promise.all(
-      pitcherIds.map(async (id) => [id, await safe(getPitcherPropStats(id, season))] as const),
-    ),
-    Promise.all(
-      batterIds.map(async (id) => [id, await safe(getSeasonHittingBasic(id, season))] as const),
-    ),
+  const [pitcherStatsById, batterStatsById] = await Promise.all([
+    safe(getPitcherPropStatsBatch(pitcherIds, season)).then((m) => m ?? new Map()),
+    safe(getSeasonHittingBasicBatch(batterIds, season)).then((m) => m ?? new Map()),
   ]);
-
-  const pitcherStatsById = new Map(pitcherStatsList);
-  const batterStatsById = new Map(batterStatsList);
 
   // Matchup evidence — reuses the same lookups as the game page's "Matchups"
   // section (batter vs today's starter) and probable-starter cards (pitcher
@@ -106,21 +99,21 @@ export default async function PropsSidebarSection({
     pitcherEntries.map((e) => [e.player.id, e.team.id === feed.home.team.id]),
   );
 
-  const [matchups, pitcherRecentFormList, pitcherHomeAwayList] = await Promise.all([
+  const [matchups, pitcherRecentFormById, pitcherHomeAwayById] = await Promise.all([
     safe(buildMatchups(feed, season)),
+    safe(getPitcherRecentFormBatch(pitcherIds, gameDate)).then((m) => m ?? new Map()),
+    // Each pitcher gets whichever home/road split matches this game — group by
+    // side so the batched lookups stay one request per split code.
     Promise.all(
-      pitcherIds.map(async (id) => [id, await safe(getPitcherRecentForm(id, gameDate))] as const),
-    ),
-    Promise.all(
-      pitcherIds.map(
-        async (id) =>
-          [id, await safe(getPitcherHomeAwaySplit(id, pitcherIsHomeById.get(id) ?? false, season))] as const,
-      ),
-    ),
+      [true, false].map(async (isHome) => {
+        const ids = pitcherIds.filter((id) => (pitcherIsHomeById.get(id) ?? false) === isHome);
+        return ids.length > 0
+          ? ((await safe(getPitcherSituationalSplitBatch(ids, isHome ? "h" : "a", season))) ??
+              new Map())
+          : new Map<number, PitcherSplitLine>();
+      }),
+    ).then(([homeMap, roadMap]) => new Map([...homeMap, ...roadMap])),
   ]);
-
-  const pitcherRecentFormById = new Map(pitcherRecentFormList);
-  const pitcherHomeAwayById = new Map(pitcherHomeAwayList);
 
   const batterMatchupById = new Map<
     number,

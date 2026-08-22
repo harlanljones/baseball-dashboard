@@ -1,11 +1,11 @@
 import { cache } from "react";
 
 import {
-  getHomeAwaySplit,
+  getHomeAwaySplitBatch,
   getPitchHand,
-  getPlatoonSplit,
+  getPlatoonSplitBatch,
   getRosterWithSeasonStats,
-  getVsPlayer,
+  getVsPlayerBatch,
 } from "./players";
 import type {
   GameFeed,
@@ -13,7 +13,9 @@ import type {
   MatchupRow,
   MatchupSide,
   PlayerRef,
+  SplitLine,
   TeamRef,
+  VsPlayerLine,
 } from "./types";
 
 /** Max batters we look up per pitching side (a standard lineup). */
@@ -70,7 +72,14 @@ export const lineupFor = cache(async function lineupFor(
   };
 });
 
-async function buildSide(
+const EMPTY_SPLIT: SplitLine = { pa: 0, obp: "-", ops: "-", bbPct: "-", kPct: "-" };
+
+/**
+ * Assembles one side's table from pre-fetched batched maps:
+ * - `vsById`/`platoonById` are set when there's a probable/announced pitcher.
+ * - `homeAwayById` is set when there isn't (home/road split fallback rows).
+ */
+function assembleSide(
   pitchingTeam: TeamRef,
   battingTeam: TeamRef,
   pitcher: PlayerRef | null,
@@ -78,40 +87,28 @@ async function buildSide(
   batters: PlayerRef[],
   isProxy: boolean,
   battingTeamIsHome: boolean,
-  season: number,
-): Promise<MatchupSide> {
+  vsById: Map<number, VsPlayerLine> | null,
+  platoonById: Map<number, SplitLine>,
+  homeAwayById: Map<number, SplitLine> | null,
+): MatchupSide {
   let rows: MatchupRow[] = [];
   let noPitcherRows: HomeAwaySplitRow[] = [];
 
-  if (pitcher && batters.length > 0) {
-    const settled = await Promise.allSettled(
-      batters.map(async (b) => {
-        const [vsPlayer, platoon] = await Promise.all([
-          getVsPlayer(b, pitcher),
-          pitcherHand
-            ? getPlatoonSplit(b, pitcherHand, season)
-            : Promise.resolve({ pa: 0, obp: "-", ops: "-", bbPct: "-", kPct: "-" }),
-        ]);
-        return { ...vsPlayer, platoon };
-      }),
-    );
-    rows = settled
-      .filter((r): r is PromiseFulfilledResult<MatchupRow> => r.status === "fulfilled")
-      .map((r) => r.value);
-  } else if (!pitcher && batters.length > 0) {
+  if (pitcher && batters.length > 0 && vsById) {
+    rows = batters
+      .filter((b) => vsById.has(b.id))
+      .map((b) => ({ ...vsById.get(b.id)!, platoon: platoonById.get(b.id) ?? EMPTY_SPLIT }));
+  } else if (!pitcher && batters.length > 0 && homeAwayById) {
     // No probable starter yet — fall back to each batter's home/road split
     // (matching where they'll actually be hitting in this game) instead of a
     // vs-pitcher table.
-    const settled = await Promise.allSettled(
-      batters.map(async (b) => ({
+    noPitcherRows = batters
+      .filter((b) => homeAwayById.has(b.id))
+      .map((b) => ({
         batter: b,
         isHome: battingTeamIsHome,
-        split: await getHomeAwaySplit(b, battingTeamIsHome, season),
-      })),
-    );
-    noPitcherRows = settled
-      .filter((r): r is PromiseFulfilledResult<HomeAwaySplitRow> => r.status === "fulfilled")
-      .map((r) => r.value);
+        split: homeAwayById.get(b.id)!,
+      }));
   }
 
   return { pitcher, pitcherHand, pitchingTeam, battingTeam, rows, isProxy, noPitcherRows };
@@ -119,8 +116,10 @@ async function buildSide(
 
 /**
  * Build both batter-vs-pitcher tables for a game: the away pitcher against the
- * home lineup, and the home pitcher against the away lineup. Lookups fan out in
- * parallel and tolerate individual failures (a dropped row degrades gracefully).
+ * home lineup, and the home pitcher against the away lineup. Upstream lookups
+ * are batched — one request per (pitcher-vs, platoon-hand) query instead of one
+ * per batter — and tolerate individual misses (a dropped row degrades
+ * gracefully to an em-dash line).
  */
 export async function buildMatchups(
   feed: GameFeed,
@@ -132,37 +131,64 @@ export async function buildMatchups(
   const awayPitcher = startingPitcherFor(feed, "away");
   const homePitcher = startingPitcherFor(feed, "home");
 
-  const [homeLineup, awayLineup, awayPitcherHand, homePitcherHand] = await Promise.all([
+  const [homeLineup, awayLineup, awayHand, homeHand] = await Promise.all([
     lineupFor(feed, "home", season),
     lineupFor(feed, "away", season),
     awayPitcher ? getPitchHand(awayPitcher.id) : Promise.resolve(null),
     homePitcher ? getPitchHand(homePitcher.id) : Promise.resolve(null),
   ]);
 
-  const [awayPitching, homePitching] = await Promise.all([
+  // Away team pitching -> faces the home lineup; home pitching -> away lineup.
+  const [awaySide, homeSide] = await Promise.all([
+    Promise.all([
+      awayPitcher ? getVsPlayerBatch(homeLineup.batters, awayPitcher) : null,
+      awayPitcher && awayHand
+        ? getPlatoonSplitBatch(homeLineup.batters, awayHand, season)
+        : null,
+      !awayPitcher && homeLineup.batters.length > 0
+        ? getHomeAwaySplitBatch(homeLineup.batters, /* battingTeamIsHome */ true, season)
+        : null,
+    ]),
+    Promise.all([
+      homePitcher ? getVsPlayerBatch(awayLineup.batters, homePitcher) : null,
+      homePitcher && homeHand
+        ? getPlatoonSplitBatch(awayLineup.batters, homeHand, season)
+        : null,
+      !homePitcher && awayLineup.batters.length > 0
+        ? getHomeAwaySplitBatch(awayLineup.batters, /* battingTeamIsHome */ false, season)
+        : null,
+    ]),
+  ]);
+
+  const [awayVs, awayPlatoon, awayHomeAway] = awaySide;
+  const [homeVs, homePlatoon, homeHomeAway] = homeSide;
+
+  return {
     // Away team pitching -> faces the home lineup.
-    buildSide(
+    awayPitching: assembleSide(
       awayTeam,
       homeTeam,
       awayPitcher,
-      awayPitcherHand,
+      awayHand,
       homeLineup.batters,
       homeLineup.isProxy,
       /* battingTeamIsHome */ true,
-      season,
+      awayVs,
+      awayPlatoon ?? new Map(),
+      awayHomeAway,
     ),
     // Home team pitching -> faces the away lineup.
-    buildSide(
+    homePitching: assembleSide(
       homeTeam,
       awayTeam,
       homePitcher,
-      homePitcherHand,
+      homeHand,
       awayLineup.batters,
       awayLineup.isProxy,
       /* battingTeamIsHome */ false,
-      season,
+      homeVs,
+      homePlatoon ?? new Map(),
+      homeHomeAway,
     ),
-  ]);
-
-  return { awayPitching, homePitching };
+  };
 }

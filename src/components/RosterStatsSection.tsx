@@ -1,8 +1,8 @@
 import type { GameFeed, SaberHitting, SaberPitching, TeamRef } from "@/lib/mlb/types";
 import {
   getActiveRoster,
-  getSaberHitting,
-  getSaberPitchingWithSeasonStats,
+  getSaberHittingBatch,
+  getSaberPitchingWithSeasonStatsBatch,
   type RosterPlayer,
 } from "@/lib/mlb/players";
 import RosterStatsTable from "./RosterStatsTable";
@@ -68,33 +68,25 @@ async function enrichRoster(
   season: number,
   isHitter: boolean,
 ): Promise<PlayerWithStats[]> {
-  const enriched: PlayerWithStats[] = [];
+  const ids = roster.map((r) => r.player.id);
 
-  const results = await Promise.allSettled(
-    roster.map(async (r) => {
-      if (isHitter) {
-        const stats = await safe(getSaberHitting(r.player.id, season));
-        return { ...r, stats };
-      } else {
-        const stats = await safe(
-          getSaberPitchingWithSeasonStats(r.player.id, season),
-        );
-        return { ...r, stats };
-      }
-    }),
+  // One batched request per stat group instead of one per player.
+  const statsById = await safe(
+    isHitter
+      ? getSaberHittingBatch(ids, season)
+      : getSaberPitchingWithSeasonStatsBatch(ids, season),
   );
+  if (!statsById) return [];
 
-  for (const result of results) {
-    if (result.status === "fulfilled") {
-      const { player, position, role, stats } = result.value;
-      // Only include players with stats
-      if (stats) {
-        enriched.push({
-          player,
-          position: normalizePosition(position, role),
-          stats,
-        });
-      }
+  const enriched: PlayerWithStats[] = [];
+  for (const { player, position, role } of roster) {
+    const stats = statsById.get(player.id);
+    if (stats) {
+      enriched.push({
+        player,
+        position: normalizePosition(position, role),
+        stats,
+      });
     }
   }
 

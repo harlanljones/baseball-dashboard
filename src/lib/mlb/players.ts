@@ -56,6 +56,56 @@ function s(v: unknown): string | undefined {
   return v == null || v === "" ? undefined : String(v);
 }
 
+// --- Batched people-stats lookups ---------------------------------------------
+//
+// The game page fans out dozens of per-player stat lookups, and Workers
+// environments cap subrequests per invocation (50 on the free plan). Anything
+// batchable therefore goes through `/api/v1/people?personIds=...&hydrate=...`:
+// one request per distinct query for many players at once.
+//
+// Verified statsapi.mlb.com behaviors this relies on:
+// - `personIds` accepts a comma-separated list on /api/v1/people and is honored.
+// - `hydrate=stats(type=<t>,group=<g>,...)` supports types: `season`,
+//   `sabermetrics`, `statSplits`, `vsPlayer`, `gameLog`.
+// - Only the FIRST `sitCodes` value is honored — one request per split code.
+// - A `vsPlayer` hydrate returns both the `vsPlayerTotal` (career) group and
+//   the per-season `vsPlayer` breakdown for every requested batter.
+
+interface RawPersonEntry {
+  id?: number;
+  fullName?: string;
+  stats?: RawStatGroup[];
+}
+
+interface RawPeopleResponse {
+  people?: RawPersonEntry[];
+}
+
+const PEOPLE_BATCH_SIZE = 25;
+
+async function fetchPeopleStats(
+  personIds: number[],
+  hydrate: string,
+  ttl: number = TTL.playerStats,
+): Promise<Map<number, RawStatGroup[]>> {
+  const unique = [...new Set(personIds)].filter(
+    (id) => Number.isInteger(id) && id > 0,
+  );
+  const byId = new Map<number, RawStatGroup[]>();
+  for (let i = 0; i < unique.length; i += PEOPLE_BATCH_SIZE) {
+    const chunk = unique.slice(i, i + PEOPLE_BATCH_SIZE);
+    const res = await mlbFetch<RawPeopleResponse>(
+      "/api/v1/people",
+      { personIds: chunk.join(","), hydrate },
+      ttl,
+    );
+    for (const person of res.people ?? []) {
+      if (person.id != null) byId.set(person.id, person.stats ?? []);
+    }
+  }
+  return byId;
+}
+
 // --- Sabermetrics ------------------------------------------------------------
 
 /**
@@ -144,6 +194,85 @@ export async function getSaberPitchingWithSeasonStats(
     kPct: pct(k, bf),
     kMinusBbPct: kPctVal - bbPctVal, // Raw decimal for sorting
   };
+}
+
+/**
+ * Batched {@link getSaberHitting}: one request per stat group for the whole
+ * set of hitters. Players without a usable record are simply absent from the
+ * returned map (callers treat a miss like the single-player `null`).
+ */
+export async function getSaberHittingBatch(
+  personIds: number[],
+  season: number,
+): Promise<Map<number, SaberHitting>> {
+  const [saberById, seasonById] = await Promise.all([
+    fetchPeopleStats(personIds, `stats(type=sabermetrics,season=${season},group=hitting)`),
+    fetchPeopleStats(personIds, `stats(type=season,season=${season},group=hitting)`),
+  ]);
+
+  const byId = new Map<number, SaberHitting>();
+  for (const [id, groups] of seasonById) {
+    const saber = pickGroup({ stats: saberById.get(id) ?? [] }, "sabermetrics");
+    const seasonStat = pickGroup({ stats: groups }, "season");
+    if (!saber && !seasonStat) continue;
+
+    const pa = n(seasonStat?.plateAppearances) ?? 0;
+    const bb = n(seasonStat?.baseOnBalls) ?? 0;
+    const k = n(seasonStat?.strikeOuts) ?? 0;
+
+    byId.set(id, {
+      woba: n(saber?.woba),
+      wrcPlus: n(saber?.wRcPlus),
+      war: n(saber?.war),
+      babip: s(seasonStat?.babip),
+      pa,
+      bbPct: pct(bb, pa),
+      kPct: pct(k, pa),
+      xwoba: n(saber?.xwoba),
+    });
+  }
+  return byId;
+}
+
+/**
+ * Batched {@link getSaberPitchingWithSeasonStats}: one request per stat group
+ * for the whole set of pitchers.
+ */
+export async function getSaberPitchingWithSeasonStatsBatch(
+  personIds: number[],
+  season: number,
+): Promise<Map<number, SaberPitching>> {
+  const [saberById, seasonById] = await Promise.all([
+    fetchPeopleStats(personIds, `stats(type=sabermetrics,season=${season},group=pitching)`),
+    fetchPeopleStats(personIds, `stats(type=season,season=${season},group=pitching)`),
+  ]);
+
+  const byId = new Map<number, SaberPitching>();
+  for (const [id, groups] of seasonById) {
+    const saber = pickGroup({ stats: saberById.get(id) ?? [] }, "sabermetrics");
+    const seasonStat = pickGroup({ stats: groups }, "season");
+    if (!saber && !seasonStat) continue;
+
+    const bb = n(seasonStat?.baseOnBalls) ?? 0;
+    const k = n(seasonStat?.strikeOuts) ?? 0;
+    const bf = n(seasonStat?.battersFaced) ?? 1; // Avoid division by zero
+
+    const bbPctVal = bf > 0 ? bb / bf : 0;
+    const kPctVal = bf > 0 ? k / bf : 0;
+
+    byId.set(id, {
+      war: n(saber?.war),
+      fip: n(saber?.fip),
+      xfip: n(saber?.xfip),
+      eraMinus: n(saber?.eraMinus),
+      ip: s(seasonStat?.inningsPitched),
+      era: s(seasonStat?.era),
+      bbPct: pct(bb, bf),
+      kPct: pct(k, bf),
+      kMinusBbPct: kPctVal - bbPctVal, // Raw decimal for sorting
+    });
+  }
+  return byId;
 }
 
 // --- Batter vs pitcher -------------------------------------------------------
@@ -290,6 +419,80 @@ export async function getHomeAwaySplit(
   return fetchSituationalSplit(batter, isHome ? "h" : "a", season);
 }
 
+const EMPTY_SPLIT: SplitLine = { pa: 0, obp: "-", ops: "-", bbPct: "-", kPct: "-" };
+
+/**
+ * Batched {@link getVsPlayer}: career lines for many batters against one
+ * pitcher in a single request.
+ */
+export async function getVsPlayerBatch(
+  batters: PlayerRef[],
+  pitcher: PlayerRef,
+): Promise<Map<number, VsPlayerLine>> {
+  if (batters.length === 0) return new Map();
+  const statsById = await fetchPeopleStats(
+    batters.map((b) => b.id),
+    `stats(type=vsPlayer,opposingPlayerId=${pitcher.id},group=hitting)`,
+  );
+
+  const byId = new Map<number, VsPlayerLine>();
+  for (const batter of batters) {
+    const groups = statsById.get(batter.id) ?? [];
+    const total = pickGroup({ stats: groups }, "vsPlayerTotal");
+    byId.set(batter.id, { batter, pitcher, ...parseVsPlayerStat(total) });
+  }
+  return byId;
+}
+
+/**
+ * Batched {@link getPlatoonSplit}: one request for every batter's line against
+ * a single arm side (the MLB API only honors the first `sitCodes` value, so
+ * both hands require two calls).
+ */
+export async function getPlatoonSplitBatch(
+  batters: PlayerRef[],
+  vsHand: "L" | "R",
+  season: number,
+): Promise<Map<number, SplitLine>> {
+  if (batters.length === 0) return new Map();
+  const sitCode = vsHand === "L" ? "vl" : "vr";
+  const statsById = await fetchPeopleStats(
+    batters.map((b) => b.id),
+    `stats(type=statSplits,sitCodes=${sitCode},season=${season},group=hitting)`,
+  );
+
+  const byId = new Map<number, SplitLine>();
+  for (const batter of batters) {
+    const stat = (statsById.get(batter.id) ?? [])[0]?.splits?.[0]?.stat;
+    byId.set(batter.id, stat ? parseSplitStat(stat) : EMPTY_SPLIT);
+  }
+  return byId;
+}
+
+/**
+ * Batched {@link getHomeAwaySplit}: one request for every batter's home or
+ * road line.
+ */
+export async function getHomeAwaySplitBatch(
+  batters: PlayerRef[],
+  isHome: boolean,
+  season: number,
+): Promise<Map<number, SplitLine>> {
+  if (batters.length === 0) return new Map();
+  const sitCode = isHome ? "h" : "a";
+  const statsById = await fetchPeopleStats(
+    batters.map((b) => b.id),
+    `stats(type=statSplits,sitCodes=${sitCode},season=${season},group=hitting)`,
+  );
+
+  const byId = new Map<number, SplitLine>();
+  for (const batter of batters) {
+    const stat = (statsById.get(batter.id) ?? [])[0]?.splits?.[0]?.stat;
+    byId.set(batter.id, stat ? parseSplitStat(stat) : EMPTY_SPLIT);
+  }
+  return byId;
+}
+
 /**
  * A pitcher's rate line for one MLB Stats API `sitCodes` split (`h`/`a` for
  * home/road, `vl`/`vr` for vs-hand). `era` is only present on `h`/`a` splits —
@@ -325,6 +528,29 @@ async function fetchPitcherSituationalSplit(
 }
 
 /**
+ * Batched pitcher situational splits: one request for every pitcher's line for
+ * a single `sitCodes` split (`h`/`a` for home/road, `vl`/`vr` for vs-hand).
+ */
+export async function getPitcherSituationalSplitBatch(
+  pitcherIds: number[],
+  sitCode: string,
+  season: number,
+): Promise<Map<number, PitcherSplitLine>> {
+  if (pitcherIds.length === 0) return new Map();
+  const statsById = await fetchPeopleStats(
+    pitcherIds,
+    `stats(type=statSplits,sitCodes=${sitCode},season=${season},group=pitching)`,
+  );
+
+  const byId = new Map<number, PitcherSplitLine>();
+  for (const id of new Set(pitcherIds)) {
+    const stat = (statsById.get(id) ?? [])[0]?.splits?.[0]?.stat;
+    byId.set(id, parsePitcherSplitStat(stat));
+  }
+  return byId;
+}
+
+/**
  * A probable starter's current-season home or road split. Used on the game
  * page's probable-starters card, picking whichever split matches this game.
  */
@@ -356,24 +582,91 @@ export async function getPitcherPlatoonSplit(
  * A pitcher's trailing-`days`-day form as of `asOfDate`, excluding `asOfDate`
  * itself — same day-before convention as {@link getBullpenWorkload}, since a
  * probable starter obviously hasn't pitched in today's not-yet-played game.
+ *
+ * Derived from the batched `gameLog` fetch shared with {@link getBullpenWorkload}
+ * (the MLB API's hydrate layer doesn't support the `byDateRange` stat type), so
+ * both sections share one upstream request per pitcher set.
  */
+export async function getPitcherRecentFormBatch(
+  pitcherIds: number[],
+  asOfDate: string,
+  days = 30,
+): Promise<Map<number, PitcherRecentForm>> {
+  if (pitcherIds.length === 0) return new Map();
+  const logsById = await getGameLogsBatch(pitcherIds, new Date(asOfDate).getUTCFullYear());
+
+  const endDate = shiftDate(asOfDate, -1);
+  const windowStart = shiftDate(endDate, -(days - 1));
+
+  const byId = new Map<number, PitcherRecentForm>();
+  for (const id of new Set(pitcherIds)) {
+    byId.set(id, summarizeGameLogWindow(logsById.get(id) ?? [], windowStart, endDate));
+  }
+  return byId;
+}
+
+/** Single-pitcher form line, backed by the batched gameLog lookup. */
 export async function getPitcherRecentForm(
   pitcherId: number,
   asOfDate: string,
   days = 30,
 ): Promise<PitcherRecentForm> {
-  const endDate = shiftDate(asOfDate, -1);
-  const startDate = shiftDate(endDate, -(days - 1));
-  const res = await mlbFetch<RawStatsResponse>(
-    `/api/v1/people/${pitcherId}/stats`,
-    { stats: "byDateRange", startDate, endDate, group: "pitching" },
-    TTL.pitcherLog,
+  const byId = await getPitcherRecentFormBatch([pitcherId], asOfDate, days);
+  return (
+    byId.get(pitcherId) ?? {
+      ip: "0.0",
+      bbPct: "-",
+      kPct: "-",
+      starts: 0,
+    }
   );
-  const stat = res.stats?.[0]?.splits?.[0]?.stat;
+}
+
+/**
+ * Aggregates a season gameLog into one {@link PitcherRecentForm} line for the
+ * games played between `windowStart` and `endDate` (inclusive).
+ */
+function summarizeGameLogWindow(
+  splits: RawGameLogSplit[],
+  windowStart: string,
+  endDate: string,
+): PitcherRecentForm {
+  let outs = 0;
+  let earnedRuns = 0;
+  let battersFaced = 0;
+  let baseOnBalls = 0;
+  let strikeOuts = 0;
+  let starts = 0;
+
+  for (const split of splits) {
+    if (!split.date || split.date < windowStart || split.date > endDate) continue;
+    outs += outsOfInningsPitched(s(split.stat?.inningsPitched) ?? "0.0");
+    earnedRuns += n(split.stat?.earnedRuns) ?? 0;
+    battersFaced += n(split.stat?.battersFaced) ?? 0;
+    baseOnBalls += n(split.stat?.baseOnBalls) ?? 0;
+    strikeOuts += n(split.stat?.strikeOuts) ?? 0;
+    if ((n(split.stat?.gamesStarted) ?? 0) > 0) starts += 1;
+  }
+
+  const ip = inningsPitchedFromOuts(outs);
   return {
-    ...parsePitcherSplitStat(stat),
-    starts: n(stat?.gamesStarted) ?? 0,
+    ip,
+    era: outs > 0 ? ((earnedRuns * 9) / (outs / 3)).toFixed(2) : undefined,
+    bbPct: pct(baseOnBalls, battersFaced),
+    kPct: pct(strikeOuts, battersFaced),
+    starts,
   };
+}
+
+/** Converts MLB's innings notation ("6.1" = 6⅓, "6.2" = 6⅔) to outs. */
+function outsOfInningsPitched(ip: string): number {
+  const [whole, frac] = ip.split(".").map(Number);
+  return (whole || 0) * 3 + (frac === 1 ? 1 : frac === 2 ? 2 : 0);
+}
+
+/** Converts outs back to MLB innings notation ("20" → "6.2"). */
+function inningsPitchedFromOuts(outs: number): string {
+  return `${Math.floor(outs / 3)}.${outs % 3}`;
 }
 
 // --- Roster proxy (Preview games) --------------------------------------------
@@ -467,8 +760,28 @@ interface RawGameLogSplit {
   stat?: Record<string, unknown>;
 }
 
-interface RawGameLogResponse {
-  stats?: { splits?: RawGameLogSplit[] }[];
+/**
+ * Season gameLog pitching splits for many pitchers in a single request.
+ * Note: the hydrate layer doesn't accept `gameType`, so this is regular-season
+ * only (the per-pitcher endpoint's default) — postseason appearances won't
+ * appear in workload/form windows.
+ */
+async function getGameLogsBatch(
+  pitcherIds: number[],
+  season: number,
+): Promise<Map<number, RawGameLogSplit[]>> {
+  if (pitcherIds.length === 0) return new Map();
+  const statsById = await fetchPeopleStats(
+    pitcherIds,
+    `stats(type=gameLog,season=${season},group=pitching)`,
+    TTL.pitcherLog,
+  );
+
+  const byId = new Map<number, RawGameLogSplit[]>();
+  for (const id of new Set(pitcherIds)) {
+    byId.set(id, (statsById.get(id) ?? [])[0]?.splits ?? []);
+  }
+  return byId;
 }
 
 /**
@@ -476,7 +789,6 @@ interface RawGameLogResponse {
  * pitcher's `gameLog` splits (there's no direct "recent workload" stat).
  * `asOfDate` is the game's date (`YYYY-MM-DD`, Eastern) — the window looks back
  * from the day before it, since bullpen arms haven't pitched in today's game yet.
- * Individual pitcher lookups fail independently so one bad id doesn't drop the rest.
  */
 export async function getBullpenWorkload(
   pitcherIds: number[],
@@ -485,74 +797,51 @@ export async function getBullpenWorkload(
 ): Promise<Map<number, { yesterday: number; last3: number }>> {
   const yesterday = shiftDate(asOfDate, -1);
   const windowStart = shiftDate(asOfDate, -3);
-
-  const settled = await Promise.allSettled(
-    pitcherIds.map(async (id) => {
-      const res = await mlbFetch<RawGameLogResponse>(
-        `/api/v1/people/${id}/stats`,
-        // gameLog defaults to gameType=R (regular season) only, so a reliever's
-        // postseason outings otherwise vanish from the recent-workload window.
-        { stats: "gameLog", group: "pitching", season, gameType: "R,F,D,L,W" },
-        TTL.pitcherLog,
-      );
-      const splits = res.stats?.[0]?.splits ?? [];
-      let yesterdayPitches = 0;
-      let last3Pitches = 0;
-      for (const split of splits) {
-        if (!split.date || split.date < windowStart || split.date > yesterday) continue;
-        const pitches = n(split.stat?.numberOfPitches) ?? 0;
-        last3Pitches += pitches;
-        if (split.date === yesterday) yesterdayPitches += pitches;
-      }
-      return [id, { yesterday: yesterdayPitches, last3: last3Pitches }] as const;
-    }),
-  );
+  const logsById = await getGameLogsBatch(pitcherIds, season);
 
   const workload = new Map<number, { yesterday: number; last3: number }>();
-  for (const r of settled) {
-    if (r.status === "fulfilled") workload.set(r.value[0], r.value[1]);
+  for (const id of new Set(pitcherIds)) {
+    let yesterdayPitches = 0;
+    let last3Pitches = 0;
+    for (const split of logsById.get(id) ?? []) {
+      if (!split.date || split.date < windowStart || split.date > yesterday) continue;
+      const pitches = n(split.stat?.numberOfPitches) ?? 0;
+      last3Pitches += pitches;
+      if (split.date === yesterday) yesterdayPitches += pitches;
+    }
+    workload.set(id, { yesterday: yesterdayPitches, last3: last3Pitches });
   }
   return workload;
 }
 
 /**
- * Real season pitching lines for a set of bullpen arms, fetched per-pitcher
- * from `/people/{id}/stats`. The `feed/live` boxscore's embedded
- * `seasonStats.pitching` looks like a season line but, for `Preview`-state
- * games, MLB's API only populates it for the two probable starters — every
- * other bullpen pitcher gets a zeroed stub. This hits the same reliable
- * per-player endpoint `getSaberPitching`/`getRosterWithSeasonStats` already
- * use instead of trusting that embedded field. Individual pitcher lookups
- * fail independently so one bad id doesn't drop the rest.
+ * Real season pitching lines for a set of bullpen arms. The `feed/live`
+ * boxscore's embedded `seasonStats.pitching` looks like a season line but, for
+ * `Preview`-state games, MLB's API only populates it for the two probable
+ * starters — every other bullpen pitcher gets a zeroed stub. This hits the
+ * same reliable stats endpoints `getSaberPitching`/`getRosterWithSeasonStats`
+ * already use instead of trusting that embedded field.
  */
 export async function getBullpenSeasonPitching(
   pitcherIds: number[],
   season: number,
 ): Promise<Map<number, { ip: string; era?: string; fip?: number; k: number }>> {
-  const settled = await Promise.allSettled(
-    pitcherIds.map(async (id) => {
-      const res = await mlbFetch<RawStatsResponse>(
-        `/api/v1/people/${id}/stats`,
-        { stats: "sabermetrics,season", group: "pitching", season },
-        TTL.playerStats,
-      );
-      const saber = pickGroup(res, "sabermetrics");
-      const seasonStat = pickGroup(res, "season");
-      return [
-        id,
-        {
-          ip: s(seasonStat?.inningsPitched) ?? "0.0",
-          era: s(seasonStat?.era),
-          fip: n(saber?.fip),
-          k: n(seasonStat?.strikeOuts) ?? 0,
-        },
-      ] as const;
-    }),
-  );
+  const [seasonById, saberById] = await Promise.all([
+    fetchPeopleStats(pitcherIds, `stats(type=season,season=${season},group=pitching)`),
+    fetchPeopleStats(pitcherIds, `stats(type=sabermetrics,season=${season},group=pitching)`),
+  ]);
 
   const stats = new Map<number, { ip: string; era?: string; fip?: number; k: number }>();
-  for (const r of settled) {
-    if (r.status === "fulfilled") stats.set(r.value[0], r.value[1]);
+  for (const id of new Set(pitcherIds)) {
+    const seasonStat = pickGroup({ stats: seasonById.get(id) ?? [] }, "season");
+    if (!seasonStat) continue;
+    const saber = pickGroup({ stats: saberById.get(id) ?? [] }, "sabermetrics");
+    stats.set(id, {
+      ip: s(seasonStat?.inningsPitched) ?? "0.0",
+      era: s(seasonStat?.era),
+      fip: n(saber?.fip),
+      k: n(seasonStat?.strikeOuts) ?? 0,
+    });
   }
   return stats;
 }
@@ -664,4 +953,71 @@ export async function getSeasonHittingBasic(
     pa: n(stat.plateAppearances) ?? 0,
     games: n(stat.gamesPlayed) ?? 0,
   };
+}
+
+/**
+ * Batched {@link getPitcherPropStats}: one request for every prop pitcher.
+ * Players with no innings this season are omitted (callers treat a miss like
+ * the single-player `null`).
+ */
+export async function getPitcherPropStatsBatch(
+  personIds: number[],
+  season: number,
+): Promise<Map<number, PitcherPropStats>> {
+  if (personIds.length === 0) return new Map();
+  const statsById = await fetchPeopleStats(
+    personIds,
+    `stats(type=season,season=${season},group=pitching)`,
+  );
+
+  const byId = new Map<number, PitcherPropStats>();
+  for (const id of new Set(personIds)) {
+    const stat = pickGroup({ stats: statsById.get(id) ?? [] }, "season");
+    if (!stat) continue;
+    const ip = ipToFloat(s(stat.inningsPitched) ?? "0.0");
+    if (ip <= 0) continue;
+    const k = n(stat.strikeOuts) ?? 0;
+    const gamesStarted = n(stat.gamesStarted) ?? 0;
+    byId.set(id, {
+      k9: (k * 9) / ip,
+      outsPerStart: gamesStarted > 0 ? (ip * 3) / gamesStarted : 0,
+      ip,
+      gamesStarted,
+    });
+  }
+  return byId;
+}
+
+/**
+ * Batched {@link getSeasonHittingBasic}: one request for every prop batter.
+ * Players without a season hitting record are omitted.
+ */
+export async function getSeasonHittingBasicBatch(
+  personIds: number[],
+  season: number,
+): Promise<Map<number, SeasonHittingBasic>> {
+  if (personIds.length === 0) return new Map();
+  const statsById = await fetchPeopleStats(
+    personIds,
+    `stats(type=season,season=${season},group=hitting)`,
+  );
+
+  const byId = new Map<number, SeasonHittingBasic>();
+  for (const id of new Set(personIds)) {
+    const stat = pickGroup({ stats: statsById.get(id) ?? [] }, "season");
+    if (!stat) continue;
+    byId.set(id, {
+      avg: s(stat.avg) ?? "-",
+      obp: s(stat.obp) ?? "-",
+      slg: s(stat.slg) ?? "-",
+      h: n(stat.hits) ?? 0,
+      hr: n(stat.homeRuns) ?? 0,
+      rbi: n(stat.rbi) ?? 0,
+      bb: n(stat.baseOnBalls) ?? 0,
+      totalBases: n(stat.totalBases) ?? 0,
+      pa: n(stat.plateAppearances) ?? 0,
+      games: n(stat.gamesPlayed) ?? 0,
+    });
+  }
+  return byId;
 }

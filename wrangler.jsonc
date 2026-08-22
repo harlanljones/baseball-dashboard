@@ -17,6 +17,30 @@
       "service": "baseball-dashboard"
     }
   ],
+  // R2-backed incremental cache for Next.js data/ISR caching (see
+  // open-next.config.ts). Create the bucket with:
+  //   npx wrangler r2 bucket create baseball-dashboard-cache
+  "r2_buckets": [
+    {
+      "binding": "NEXT_INC_CACHE_R2_BUCKET",
+      "bucket_name": "baseball-dashboard-cache"
+    }
+  ],
+  // Durable Object queue that dedupes time-based revalidations.
+  "durable_objects": {
+    "bindings": [
+      {
+        "name": "NEXT_CACHE_DO_QUEUE",
+        "class_name": "DOQueueHandler"
+      }
+    ]
+  },
+  "migrations": [
+    {
+      "tag": "v1",
+      "new_sqlite_classes": ["DOQueueHandler"]
+    }
+  ],
   //"images": {
   // Powers next/image optimization on Workers via Cloudflare Images
   // (may incur additional cost — see opennext.js.org/cloudflare/howtos/image).
