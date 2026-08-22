@@ -1,0 +1,28 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "baseball-dashboard",
+  "main": ".open-next/worker.js",
+  "compatibility_date": "2026-07-01",
+  "compatibility_flags": [
+    "nodejs_compat",
+    "global_fetch_strictly_public"
+  ],
+  "assets": {
+    "directory": ".open-next/assets",
+    "binding": "ASSETS"
+  },
+  "services": [
+    {
+      "binding": "WORKER_SELF_REFERENCE",
+      "service": "baseball-dashboard"
+    }
+  ],
+  //"images": {
+  // Powers next/image optimization on Workers via Cloudflare Images
+  // (may incur additional cost — see opennext.js.org/cloudflare/howtos/image).
+  //"binding": "IMAGES"
+  //},
+  "observability": {
+    "enabled": true
+  }
+}

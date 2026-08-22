@@ -1,6 +1,14 @@
 # Scaffold `baseball-dashboard` — Next.js MLB Web Dashboard
 
+> **Status: historical.** This is the original build plan (2026-07-13), kept
+> for context. The app has since grown well beyond it — live game logs,
+> bullpen tracking, ballpark weather, sortable roster tables, a player-props
+> sidebar, a head-to-head matchup route, and Cloudflare Workers deployment.
+> See [`docs/architecture.md`](docs/architecture.md) for the current state of
+> `src/` and the README for usage/deployment.
+
 ## Context
+
 
 Brand-new project in the empty directory `/mnt/c/Users/harlan/GitHub/baseball-dashboard` (only `.claude/settings.json` exists). Goal: a web dashboard where the home page shows today's MLB scores and each game page shows historical matchup stats and sabermetric player evaluations.
 

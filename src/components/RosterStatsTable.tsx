@@ -16,17 +16,11 @@ interface RosterStatsTableProps {
 
 function getSortValue(stats: SaberHitting | SaberPitching | null, column: SortColumn): number | string {
   if (!stats) return column === 'name' ? '' : -Infinity;
-  const s = stats as any;
-  if (column === 'bbPct') return parseFloat(s.bbPct || '0') || 0;
-  if (column === 'kPct') return parseFloat(s.kPct || '0') || 0;
-  if (column === 'ip') {
-    const ip = s.ip || '0';
-    return typeof ip === 'string' ? parseFloat(ip) || 0 : ip;
-  }
-  if (column === 'era') {
-    const era = s.era || '0';
-    return typeof era === 'string' ? parseFloat(era) || 0 : era;
-  }
+  const s = stats as unknown as Partial<Record<SortColumn, string | number>>;
+  if (column === 'bbPct') return parseFloat(String(s.bbPct ?? '0')) || 0;
+  if (column === 'kPct') return parseFloat(String(s.kPct ?? '0')) || 0;
+  if (column === 'ip') return parseFloat(String(s.ip ?? '0')) || 0;
+  if (column === 'era') return parseFloat(String(s.era ?? '0')) || 0;
   return s[column] ?? (column === 'name' ? '' : -Infinity);
 }
 

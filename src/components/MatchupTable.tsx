@@ -8,7 +8,6 @@ import { useSortableTable } from "@/lib/hooks/useSortableTable";
 import type { MatchupSide } from "@/lib/mlb/types";
 
 const CAREER_COLS = ["PA", "H", "HR", "BB", "K", "AVG", "OBP", "SLG"] as const;
-const SPLIT_COLS = ["PA", "OBP", "OPS", "BB%", "K%"] as const;
 
 function name(t: { abbreviation?: string; name: string }): string {
   return t.abbreviation ?? t.name;

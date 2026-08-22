@@ -37,11 +37,16 @@ yarn-error.log*
 # vercel
 .vercel
 
+# cloudflare
+/.open-next/
+/.wrangler/
+.dev.vars
+/cloudflare-env.d.ts
+worker-configuration.d.ts
+
 # typescript
 *.tsbuildinfo
 next-env.d.ts
 
 # claude code
 .claude/
-
-/CUsersharlanGitHubbaseball-dashboard

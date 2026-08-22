@@ -7,7 +7,6 @@ import { statClass } from "@/lib/statColor";
 import { useSortableTable } from "@/lib/hooks/useSortableTable";
 import type { TeamBoxscore } from "@/lib/mlb/types";
 
-const COLS = ["IP", "ERA", "FIP", "K"] as const;
 
 function pitchCount(n?: number): string {
   return n == null ? "—" : String(n);
