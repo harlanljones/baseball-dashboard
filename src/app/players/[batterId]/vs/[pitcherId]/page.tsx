@@ -10,6 +10,20 @@ import { easternToday } from "@/lib/mlb/client";
 import { getPerson, getVsPlayer, getVsPlayerSeasons } from "@/lib/mlb/players";
 import type { PlayerRef } from "@/lib/mlb/types";
 
+// Head-to-head history changes at most as often as its underlying stats
+// (TTL.playerStats, 6h), so render each pairing once and serve it from the
+// incremental cache afterwards (ISR) instead of re-rendering per request.
+// Full SSR on every request exceeds the Workers free-plan 10ms CPU budget
+// when crawlers fan out across many matchup links at once.
+export const revalidate = 21600;
+
+// An empty param list means nothing is prerendered at build time; every
+// pairing is instead rendered the first time it is visited and cached until
+// `revalidate` elapses (see generateStaticParams docs, "All paths at runtime").
+export function generateStaticParams() {
+  return [];
+}
+
 function seasonsBack(count: number): number[] {
   const current = Number(easternToday().slice(0, 4));
   return Array.from({ length: count }, (_, i) => current - i);

@@ -1,0 +1,37 @@
+name: Bug report
+description: Report reproducible incorrect behavior.
+title: "[Bug]: "
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: Do not include API keys or private vulnerability details. Follow SECURITY.md for security reports.
+  - type: textarea
+    id: description
+    attributes:
+      label: What happened?
+      description: Describe the observed behavior and what you expected instead.
+    validations:
+      required: true
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Reproduction
+      description: Include the route, date or game ID, and the smallest reliable sequence of steps.
+    validations:
+      required: true
+  - type: input
+    id: commit
+    attributes:
+      label: Version or commit
+      placeholder: Commit SHA or deployment date
+  - type: textarea
+    id: environment
+    attributes:
+      label: Environment
+      description: Browser, operating system, local or deployed runtime, and relevant non-secret configuration.
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs or screenshots
+      description: Remove credentials and personal data before attaching anything.

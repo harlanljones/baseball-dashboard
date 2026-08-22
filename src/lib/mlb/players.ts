@@ -1,4 +1,4 @@
-import { mlbFetch, shiftDate, TTL } from "./client";
+import { MlbApiError, mlbFetch, shiftDate, TTL } from "./client";
 import type {
   PitcherRecentForm,
   PitcherSplitLine,
@@ -846,15 +846,22 @@ export async function getBullpenSeasonPitching(
   return stats;
 }
 
-/** A single person's ref, used for the vs-pitcher drill-down page header. */
+/** A single person's ref, used for the vs-pitcher drill-down page header.
+ * An unknown id (upstream 404) yields `null` rather than throwing, so callers
+ * can render a 404 — crawlers probe made-up ids constantly. */
 export async function getPerson(id: number): Promise<PlayerRef | null> {
-  const res = await mlbFetch<{ people?: { id: number; fullName: string }[] }>(
-    `/api/v1/people/${id}`,
-    {},
-    TTL.roster,
-  );
-  const person = res.people?.[0];
-  return person ? { id: person.id, fullName: person.fullName } : null;
+  try {
+    const res = await mlbFetch<{ people?: { id: number; fullName: string }[] }>(
+      `/api/v1/people/${id}`,
+      {},
+      TTL.roster,
+    );
+    const person = res.people?.[0];
+    return person ? { id: person.id, fullName: person.fullName } : null;
+  } catch (err) {
+    if (err instanceof MlbApiError && err.status === 404) return null;
+    throw err;
+  }
 }
 
 /** A pitcher's throwing hand, used to pick the batter platoon split to show. */

@@ -4,12 +4,25 @@
   "description": "Live MLB scoreboard and game dashboard with sabermetric matchup stats, weather, and player props",
   "license": "MIT",
   "private": true,
+  "type": "module",
+  "packageManager": "bun@1.4.0",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/harlanljones/baseball-dashboard.git"
+  },
+  "bugs": {
+    "url": "https://github.com/harlanljones/baseball-dashboard/issues"
+  },
+  "homepage": "https://github.com/harlanljones/baseball-dashboard#readme",
   "scripts": {
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
+    "typecheck": "tsc --noEmit",
     "test": "vitest run",
+    "check": "bun run lint && bun run typecheck && bun run test && bun run build",
+    "cf:build": "opennextjs-cloudflare build",
     "preview": "opennextjs-cloudflare build && opennextjs-cloudflare preview",
     "deploy": "opennextjs-cloudflare build && opennextjs-cloudflare deploy",
     "upload": "opennextjs-cloudflare build && opennextjs-cloudflare upload",

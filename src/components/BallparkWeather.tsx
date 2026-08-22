@@ -631,6 +631,16 @@ export default function BallparkWeather({
             .join(" · ")}
         </div>
       )}
+
+      <p className="text-right text-xs text-ink/50">
+        Weather data by{" "}
+        <a
+          href="https://open-meteo.com/"
+          className="underline decoration-ink/25 underline-offset-2 transition-colors hover:text-ink"
+        >
+          Open-Meteo
+        </a>
+      </p>
     </div>
   );
 }

@@ -1,97 +1,122 @@
 # Architecture
 
-Current state of the source tree as of 2026-08-21. `PLAN.md` and
-`docs/superpowers/{plans,specs}` are the historical design record; this file
-describes what actually shipped.
+This document describes the implementation as of 2026-08-22. The source tree
+and tests remain authoritative when this overview falls behind.
 
-## Routes (`src/app`)
+## System overview
 
-| Route                              | Rendering            | Contents |
-| ---------------------------------- | -------------------- | -------- |
-| `/`                                | Dynamic per request (`?date=`) | Today's scoreboard: `GameCard` grid, off-day empty state with prev/next-day links, date override via query param. |
-| `/games/[gamePk]`                  | Dynamic              | One live-feed await, then independent `<Suspense>` sections (see below). |
-| `/players/[batterId]/vs/[pitcherId]` | Dynamic            | Career batter-vs-pitcher history. |
-| `layout.tsx`, `loading.tsx`, `error.tsx`, `not-found.tsx` | — | Shell, skeletons, retry UI at both root and game level. |
+The application is a stateless Next.js App Router project. Server Components
+fetch and shape upstream data; a small set of Client Components handles polling,
+sorting, image fallbacks, and the resizable props pane. There is no application
+database, authentication layer, or custom JSON API.
 
-### Game page sections
+```text
+Browser
+  └─ Next.js routes and Server Components
+       ├─ MLB Stats API        scores, feeds, rosters, and player stats
+       ├─ Open-Meteo           venue forecasts
+       └─ The Odds API         optional player props
+            └─ Next fetch cache → OpenNext incremental cache → Cloudflare R2
+```
 
-Header + status badge + local time, then each of these fails independently to
-an inline notice:
+## Routes
 
-- **Linescore / BoxscoreTables** — inning-by-inning and per-team batting/pitching tables.
-- **HeadToHead** — season series record plus completed meetings.
-- **ProbableStartersSection** — probables/starters with sabermetric cards.
-- **MatchupTable** (per pitching side) — career batter-vs-pitcher splits for the
-  lineup; pre-game it proxies with the active roster hydrated with season stats,
-  top 9 by PA.
-- **GameLogSection** — play-by-play / scoring log for live and final games.
-- **Bullpen** — reliever usage from the boxscore.
-- **BallparkWeather** — hourly Open-Meteo forecast at the venue, wind relative
-  to the plate; skips domed parks' weather nudge appropriately.
-- **RosterStatsSection** — sortable full-roster sabermetric tables
-  (`RosterStatsTable`, `RosterStatsRow`, `SortableHeaderCell`,
-  `useSortableTable`).
-- **PropsSidebarSection → PropsSidebar** — scored player props in a resizable
-  split pane (`GameSplitPane`, persisted width via `lib/paneWidth.ts`). Only
-  renders when `ODDS_API_KEY` is set; every data fetch inside is fail-soft.
+| Route | Rendering | Responsibility |
+| --- | --- | --- |
+| `/` | Dynamic | Daily schedule selected by `?date=YYYY-MM-DD`; defaults to the current Eastern-time date. |
+| `/games/[gamePk]` | Dynamic and streamed | Game header plus independent suspense sections for scores, matchups, players, weather, and props. |
+| `/players/[batterId]/vs/[pitcherId]` | ISR (6h) | Career batter-vs-pitcher history; empty `generateStaticParams` so pairings render on first visit and cache afterward. |
+| `loading.tsx`, `error.tsx`, `not-found.tsx` | Framework boundaries | Accessible loading, retry, and missing-resource states. |
 
-## Components (`src/components`)
+The home route uses the request-time `searchParams` API. It intentionally does
+not export `dynamic = "force-dynamic"`; in this Next.js version that setting
+would force upstream fetches to `no-store` and defeat their revalidation TTLs.
 
-Mostly server components. Client islands: `AutoRefresh` (30s
-`router.refresh()` only while a game is Live), sortable table machinery
-(`RosterStatsTable`, `MatchupTable`, `BoxscoreTables` use
-`useSortableTable`/`SortableHeaderCell`), `GameSplitPane` (drag-resizable),
-and image helpers (`TeamLogo`, `PlayerHeadshot`) that consume the
-`mlbstatic.com` remote patterns configured in `next.config.ts`.
+### Game-page composition
+
+The game page reads the live feed once, then isolates downstream work so one
+provider or statistic can fail without suppressing the rest of the page:
+
+- `Linescore` and `BoxscoreTables` render inning and team totals.
+- `HeadToHead` summarizes the current season series.
+- `ProbableStartersSection` renders starter form, splits, and sabermetrics.
+- `MatchupTable` renders career and contextual batter-vs-pitcher splits.
+- `GameLogSection` renders significant plays grouped by inning.
+- `Bullpen` combines box-score usage with recent workload.
+- `BallparkWeather` aligns an hourly venue forecast with game time and home plate.
+- `RosterStatsSection` renders sortable team-wide hitting and pitching tables.
+- `PropsSidebarSection` matches optional market data to MLB players and context.
+
+## Component boundaries
+
+Most components render on the server. Client Components are limited to
+interaction that requires browser state:
+
+- `AutoRefresh` calls `router.refresh()` every 30 seconds only while a game is live.
+- `GameSplitPane` persists the props-pane width in local storage.
+- `RosterStatsTable`, `MatchupTable`, and `BoxscoreTables` share sortable-table logic.
+- `TeamLogo` and `PlayerHeadshot` handle remote images and fallbacks.
 
 ## Data layer
 
-### `src/lib/mlb`
+### MLB (`src/lib/mlb`)
 
-- `client.ts` — `mlbFetch<T>(path, params, revalidate, tags)` wrapping Next.js
-  fetch caching; `TTL` map (live 30s, head-to-head 1h, player stats 6h,
-  rosters 24h, pitcher logs 3h, weather 15m); `MlbApiError`;
-  `easternToday`/`easternDateOf` (all "today" logic is `America/New_York`).
-- `schedule.ts` — day schedule + head-to-head season series.
-- `game.ts` — live feed (`/api/v1.1/game/{gamePk}/feed/live`) shaping.
-- `players.ts` — sabermetrics, vsPlayer stats, roster-with-season-stats,
-  pitcher prop stats / recent form / home-away splits.
-- `matchup.ts` — builds matchup rows; fans out ≤18 parallel calls with
-  `Promise.allSettled`.
-- `types.ts` — domain types shared by components.
+- `client.ts` owns the base URL, typed errors, cache TTLs, and Eastern-time helpers.
+- `schedule.ts` shapes daily schedules and season head-to-head records.
+- `game.ts` shapes live feeds and significant plays.
+- `players.ts` fetches player, roster, split, recent-form, and bullpen statistics.
+  Multi-player statistics use hydrated batch requests where the upstream API
+  supports them to avoid per-player request fan-out.
+- `matchup.ts` assembles both matchup sides from pre-fetched batch maps.
+- `types.ts` contains the domain model consumed by routes and components.
 
-### `src/lib/odds`
+### Odds (`src/lib/odds`)
 
-Mirrors the MLB client pattern against The Odds API (1h TTL):
+The Odds API path is optional and fail-closed. `client.ts` reads the server-only
+`ODDS_API_KEY` and strips it from error URLs. The remaining modules find the MLB
+event, parse player props, match player names, and rank contextually interesting
+lines. No key means no sidebar; it never blocks core game data.
 
-- `client.ts` — key lookup (`ODDS_API_KEY`, fail-closed when unset), `OddsApiError`.
-- `events.ts` — find the odds event matching an MLB game.
-- `props.ts` / `types.ts` — available player props and parsing.
-- `playerMatch.ts` — fuzzy name matching between odds and MLB rosters.
-- `highlight.ts` — scores props against matchup/stat context to rank them.
+### Weather (`src/lib/weather`)
 
-### `src/lib/weather`
+`ballparks.ts` maps venues to coordinates and roof metadata. `openMeteo.ts`
+fetches UTC hourly forecasts. `wind.ts` converts compass wind into plate-relative
+direction, and `report.ts` selects the forecast nearest game time.
 
-- `ballparks.ts` — venue id → coordinates/name/roof info.
-- `openMeteo.ts` — hourly forecast fetch.
-- `wind.ts` — wind-relative-to-plate math, WMO code → sky label, compass text.
-- `report.ts` — composes a `GameWeather` for a game.
+## Caching and resilience
 
-### Misc
+All upstream requests use Next.js fetch revalidation. Current TTLs are:
 
-- `src/lib/format.ts` — display formatting helpers.
-- `src/lib/statColor.ts` — stat-value → Tailwind class buckets used by tables.
-- `src/lib/paneWidth.ts` — split-pane width persistence (+ tests).
+| Data | TTL |
+| --- | ---: |
+| Live schedule and game feed | 30 seconds |
+| Weather | 15 minutes |
+| Head-to-head schedule | 1 hour |
+| Odds | 1 hour |
+| Pitcher game logs | 3 hours |
+| Player stats | 6 hours |
+| Rosters and past schedules | 24 hours |
 
-## Tests
+In production, OpenNext stores the incremental cache in the
+`NEXT_INC_CACHE_R2_BUCKET` R2 binding and uses the `NEXT_CACHE_DO_QUEUE` Durable
+Object to deduplicate time-based revalidation. A regional cache fronts R2.
+Independent suspense/error boundaries and `Promise.allSettled` preserve partial
+results when an upstream request fails.
 
-Vitest (`bun run test`): `src/lib/__tests__`,
-`src/lib/mlb/__tests__`, `src/lib/odds/__tests__`. Pure-function coverage for
-prop scoring/matching, prop stats math, and pane width. No component tests.
+The batter-vs-pitcher route also uses page-level ISR (`revalidate = 21600`) so
+matchup pages are not fully re-rendered on every crawler hit. That keeps Workers
+CPU usage within free-plan limits when many unknown pairings are requested.
+
+## Testing
+
+Vitest covers pure data shaping, name matching, prop scoring, batched player
+statistics, and pane-width persistence. ESLint, TypeScript, Vitest, and the
+production build run in CI. Async Server Components currently rely on build
+coverage and manual route verification rather than component-unit tests.
 
 ## Deployment
 
-Runs on Cloudflare Workers via `@opennextjs/cloudflare`
-(`wrangler.jsonc`, `open-next.config.ts`). `next dev` stays the daily driver;
-`initOpenNextCloudflareForDev()` in `next.config.ts` wires bindings for local
-dev. See README "Deploying" for commands and caveats (Images binding, R2 cache).
+OpenNext transforms the Next.js build into `.open-next/worker.js`. Wrangler
+binds static assets, the self-reference service, R2 cache, and Durable Object
+queue. See [deployment.md](deployment.md) for the required Cloudflare resources,
+first deploy, Workers Builds settings, and release checks.

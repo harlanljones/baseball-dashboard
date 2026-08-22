@@ -1,118 +1,126 @@
-# baseball-dashboard
+# Baseball Dashboard
 
-A live MLB web dashboard built with Next.js. The home page shows today's
-scoreboard (with date navigation via `?date=YYYY-MM-DD`), and each game page
-drills into the linescore, boxscore, head-to-head season series, batter-vs-pitcher
-matchup tables, sabermetric starter cards, bullpen status, ballpark weather,
-and an optional player-props sidebar.
+[![CI](https://github.com/harlanljones/baseball-dashboard/actions/workflows/ci.yml/badge.svg)](https://github.com/harlanljones/baseball-dashboard/actions/workflows/ci.yml)
+[![MIT License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+
+A live MLB scoreboard and game-day research dashboard built with Next.js. It
+combines scores, box scores, matchup history, sabermetrics, bullpen workload,
+ballpark weather, and optional player-prop context in one responsive interface.
+
+This is an independent project. It is not affiliated with, endorsed by, or
+sponsored by Major League Baseball or any MLB club.
 
 ## Features
 
-- **Today's scoreboard** — schedule for the current Eastern-time date, with
-  prev/next-day links, auto-refresh (30s) while any game is live.
-- **Game pages** (`/games/[gamePk]`) — independent sections that each degrade
-  gracefully: linescore + boxscore, season head-to-head, per-pitcher matchup
-  tables (career batter-vs-pitcher splits; active-roster proxy pre-game),
-  sabermetric cards for probables/starters and top hitters, bullpen usage,
-  and hourly ballpark weather from Open-Meteo.
-- **Matchup page** (`/players/[batterId]/vs/[pitcherId]`) — career history
-  between any two players.
-- **Player props sidebar** (optional) — scored prop suggestions from
-  [The Odds API](https://the-odds-api.com), matched against MLB stats. Fails
-  closed when no API key is configured.
-- **Sabermetrics** — wOBA, wRC+, WAR, BABIP, ERA-, FIP, xFIP from the MLB
-  Stats API's `sabermetrics` stat group.
+- **Daily scoreboard** with Eastern-time date handling, previous/next-day
+  navigation, and 30-second refreshes while a game is live.
+- **Game detail pages** with linescores, box scores, season head-to-head results,
+  probable starters, career batter-vs-pitcher splits, play-by-play, bullpen
+  workload, and sortable roster tables.
+- **Sabermetric context** including wOBA, wRC+, WAR, BABIP, ERA-, FIP, and xFIP.
+- **Ballpark weather** from Open-Meteo, including wind direction relative to home
+  plate and roof-aware presentation.
+- **Optional player props** from The Odds API. The sidebar stays hidden and the
+  rest of the game page remains available when no API key is configured.
+- **Fail-soft sections** so a single unavailable upstream endpoint does not take
+  down the entire game page.
 
-## Stack
+## Technology
 
-| Layer      | Choice                                                            |
-| ---------- | ----------------------------------------------------------------- |
-| Framework  | Next.js 16 (App Router, Turbopack), React 19, TypeScript          |
-| Styling    | Tailwind CSS v4                                                   |
-| Data       | Public MLB Stats API (no key) + Open-Meteo (no key); no database  |
-| Caching    | Next.js fetch cache with per-endpoint `revalidate` TTLs           |
-| Testing    | Vitest                                                            |
-| Deployment | Cloudflare Workers via [@opennextjs/cloudflare][opennext]         |
+| Layer | Choice |
+| --- | --- |
+| Framework | Next.js 16 App Router, React 19, TypeScript |
+| Styling | Tailwind CSS 4 |
+| Data | MLB Stats API, Open-Meteo, optional The Odds API |
+| State | Stateless application; Next.js fetch caching backed by Cloudflare R2 in production |
+| Tests | Vitest |
+| Runtime | Cloudflare Workers through `@opennextjs/cloudflare` |
+| Package manager | Bun 1.4.0 |
 
-[opennext]: https://opennext.js.org/cloudflare
+## Quick start
 
-All upstream calls are throttled through `mlbFetch` / `oddsFetch` with TTLs
-tuned per data volatility (live feed 30s → rosters 24h). "Today" is always
-computed in `America/New_York`.
-
-## Getting started
-
-Requires [bun](https://bun.sh).
+Prerequisites: [Bun](https://bun.sh/) 1.4.0 or newer and outbound access to the
+upstream data services.
 
 ```bash
-bun install
-cp .env.example .env.local   # optional — only needed for the props sidebar
-bun dev
+git clone https://github.com/harlanljones/baseball-dashboard.git
+cd baseball-dashboard
+bun install --frozen-lockfile
+cp .env.example .env.local  # optional; enables player props when populated
+bun run dev
 ```
 
-Open <http://localhost:3000>. On off-days the home page shows an empty state;
-use `/?date=2026-07-11` to browse a played date.
+Open <http://localhost:3000>. To inspect a specific date, use
+`http://localhost:3000/?date=YYYY-MM-DD`.
 
 ### Environment variables
 
-| Variable       | Required | Purpose                                                        |
-| -------------- | -------- | -------------------------------------------------------------- |
-| `ODDS_API_KEY` | No       | [The Odds API](https://the-odds-api.com) key. Hides the player-props sidebar when unset; never blocks the rest of the page. |
+| Variable | Required | Purpose |
+| --- | --- | --- |
+| `ODDS_API_KEY` | No | Server-only [The Odds API](https://the-odds-api.com/) key used by the player-props sidebar. |
 
-## Scripts
+Never commit `.env.local`, `.dev.vars`, or API credentials. The provided
+[`.env.example`](.env.example) contains the complete variable inventory.
 
-```bash
-bun dev        # Next.js dev server (Turbopack)
-bun run build  # production build
-bun run lint   # eslint
-bun run test   # vitest (unit tests in src/lib/**/__tests__)
+## Commands
 
-# Cloudflare Workers (via OpenNext)
-bun run preview      # build + serve locally in workerd
-bun run deploy       # build + deploy to your Cloudflare account
-bun run cf-typegen   # regenerate cloudflare-env.d.ts after wrangler.jsonc changes
-```
+| Command | Purpose |
+| --- | --- |
+| `bun run dev` | Start the Next.js development server. |
+| `bun run lint` | Run ESLint. |
+| `bun run typecheck` | Check TypeScript without emitting files. |
+| `bun run test` | Run the unit test suite once. |
+| `bun run build` | Create a production Next.js build. |
+| `bun run check` | Run lint, type checking, tests, and the production build. |
+| `bun run cf:build` | Produce the `.open-next` Worker bundle. |
+| `bun run preview` | Build and serve the app in the local Workers runtime. |
+| `bun run upload` | Build and upload an inactive Worker version. |
+| `bun run deploy` | Build and deploy to Cloudflare Workers. |
+| `bun run cf-typegen` | Regenerate Cloudflare binding types after config changes. |
 
-## Deploying to Cloudflare Workers
+## Project structure
 
-The app runs on Workers using the OpenNext adapter — see
-[`wrangler.jsonc`](wrangler.jsonc) and [`open-next.config.ts`](open-next.config.ts).
-
-1. Log in: `bunx wrangler login`
-2. Preview locally in the Workers runtime: `bun run preview`
-3. Deploy: `bun run deploy`
-4. If you use the props sidebar, set the secret:
-   `bunx wrangler secret put ODDS_API_KEY`
-
-Notes:
-
-- `next/image` optimization uses the Cloudflare Images `IMAGES` binding
-  (see [pricing](https://developers.cloudflare.com/images/pricing/)). To skip
-  it, remove the `images` block from `wrangler.jsonc` and set
-  `images: { unoptimized: true }` in `next.config.ts`.
-- Next's data cache is in-memory per isolate by default. To persist ISR/fetch
-  cache across isolates, add an R2 bucket named in a
-  `NEXT_INC_CACHE_R2_BUCKET` binding — see the
-  [OpenNext caching docs](https://opennext.js.org/cloudflare/caching).
-- Alternatively, connect the GitHub repo to Workers Builds for automatic
-  deploys on push.
-
-## Project layout
-
-```
+```text
 src/
-├── app/                    # App Router routes (home, /games/[gamePk], /players/x/vs/y)
-├── components/             # Server components + small client islands (AutoRefresh, sortable tables)
+├── app/          # App Router routes, loading states, and error boundaries
+├── components/   # Server components and focused client-side islands
 └── lib/
-    ├── mlb/                # MLB Stats API client, endpoints, domain types
-    ├── odds/               # The Odds API client, prop scoring/matching
-    ├── weather/            # Ballpark coordinates, Open-Meteo forecast, wind helpers
-    └── hooks/              # Shared client hooks (sortable tables)
+    ├── mlb/      # MLB client, response shaping, matchups, and player stats
+    ├── odds/     # Optional prop lookup, matching, and scoring
+    ├── weather/  # Ballpark metadata, forecasts, and wind calculations
+    └── hooks/    # Shared client hooks
 ```
 
-See [`docs/architecture.md`](docs/architecture.md) for a deeper tour of the
-current implementation, and [`PLAN.md`](PLAN.md) for the original design plan.
+## Documentation
+
+- [Documentation index](docs/README.md)
+- [Architecture](docs/architecture.md)
+- [Deployment guide](docs/deployment.md)
+- [Publishing checklist](docs/publishing.md)
+- [Data sources and operational limits](docs/data-sources.md)
+- [Contributing guide](CONTRIBUTING.md)
+- [Security policy](SECURITY.md)
+- [Changelog](CHANGELOG.md)
+
+The dated files under `docs/superpowers/` and [PLAN.md](PLAN.md) are preserved
+as historical design records. They are not the source of truth for the current
+implementation.
+
+## Data and trademarks
+
+MLB statistics come from an undocumented public API and may change without
+notice. Team names, logos, player images, statistics, and related trademarks
+belong to their respective owners. Weather data is provided by
+[Open-Meteo](https://open-meteo.com/) under CC BY 4.0. Review
+[the data-source notes](docs/data-sources.md) before operating a public or
+commercial deployment.
+
+## Contributing and security
+
+Contributions are welcome. Read [CONTRIBUTING.md](CONTRIBUTING.md) before
+opening a pull request. Please report security issues privately according to
+[SECURITY.md](SECURITY.md), not in a public issue.
 
 ## License
 
-[MIT](LICENSE)
+The source code is available under the [MIT License](LICENSE).
