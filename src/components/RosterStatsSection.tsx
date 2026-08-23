@@ -1,143 +1,99 @@
-import type { GameFeed, SaberHitting, SaberPitching, TeamRef } from "@/lib/mlb/types";
-import {
-  getActiveRoster,
-  getSaberHittingBatch,
-  getSaberPitchingWithSeasonStatsBatch,
-  type RosterPlayer,
-} from "@/lib/mlb/players";
+"use client";
+
+import { useEffect, useState } from "react";
+
+import type { SaberHitting, SaberPitching, TeamRef } from "@/lib/mlb/types";
 import RosterStatsTable from "./RosterStatsTable";
 
-async function safe<T>(p: Promise<T>): Promise<T | null> {
-  try {
-    return await p;
-  } catch {
-    return null;
-  }
-}
-
-function normalizePosition(rosterPos: string, role?: string): string {
-  // Pitchers are split into SP / RP based on their roster role.
-  if (rosterPos === "Pitcher") {
-    return role && /start/i.test(role) ? "SP" : "RP";
-  }
-
-  // Map API position names to MLB abbreviations
-  const posMap: Record<string, string> = {
-    Catcher: "C",
-    "First Baseman": "1B",
-    "Second Baseman": "2B",
-    "Third Baseman": "3B",
-    Shortstop: "SS",
-    "Left Fielder": "LF",
-    "Center Fielder": "CF",
-    "Right Fielder": "RF",
-    "Designated Hitter": "DH",
-    Outfielder: "OF",
-    Infielder: "IF",
-  };
-  return posMap[rosterPos] ?? rosterPos; // Fallback to original if no mapping
-}
-
-// Spec position order: SP, RP, C, 1B, 2B, 3B, SS, LF, CF, RF (others trail).
-const POSITION_ORDER = [
-  "SP",
-  "RP",
-  "C",
-  "1B",
-  "2B",
-  "3B",
-  "SS",
-  "LF",
-  "CF",
-  "RF",
-];
-
-function positionRank(pos: string): number {
-  const idx = POSITION_ORDER.indexOf(pos);
-  return idx === -1 ? POSITION_ORDER.length : idx;
-}
-
-interface PlayerWithStats {
+type Stats = {
   player: { id: number; fullName: string };
   position: string;
   stats: SaberHitting | SaberPitching | null;
-}
+};
 
-async function enrichRoster(
-  roster: RosterPlayer[],
-  season: number,
-  isHitter: boolean,
-): Promise<PlayerWithStats[]> {
-  const ids = roster.map((r) => r.player.id);
-
-  // One batched request per stat group instead of one per player.
-  const statsById = await safe(
-    isHitter
-      ? getSaberHittingBatch(ids, season)
-      : getSaberPitchingWithSeasonStatsBatch(ids, season),
-  );
-  if (!statsById) return [];
-
-  const enriched: PlayerWithStats[] = [];
-  for (const { player, position, role } of roster) {
-    const stats = statsById.get(player.id);
-    if (stats) {
-      enriched.push({
-        player,
-        position: normalizePosition(position, role),
-        stats,
-      });
-    }
-  }
-
-  // Sort by spec position order (SP, RP, C, 1B, 2B, 3B, SS, LF, CF, RF).
-  enriched.sort((a, b) => positionRank(a.position) - positionRank(b.position));
-
-  return enriched;
-}
-
-async function TeamRoster({
-  team,
-  season,
-}: {
+interface TeamPayload {
   team: TeamRef;
-  season: number;
-}) {
-  const roster = await safe(getActiveRoster(team.id));
-  if (!roster || roster.length === 0) {
+  hitters: Stats[] | null;
+  pitchers: Stats[] | null;
+}
+
+type State =
+  | { status: "loading" }
+  | { status: "error" }
+  | { status: "loaded"; away: TeamPayload; home: TeamPayload };
+
+function teamBody(team: TeamPayload) {
+  if (!team.hitters || !team.pitchers) {
     return <p className="text-ink/50 text-sm">No roster data available.</p>;
   }
-
-  // Split into hitters and pitchers
-  const hitterRoster = roster.filter((p) => p.position !== "Pitcher");
-  const pitcherRoster = roster.filter((p) => p.position === "Pitcher");
-
-  // Fetch stats in parallel for hitters and pitchers
-  const [hitters, pitchers] = await Promise.all([
-    enrichRoster(hitterRoster, season, true),
-    enrichRoster(pitcherRoster, season, false),
-  ]);
-
-  if (hitters.length === 0 && pitchers.length === 0) {
+  if (team.hitters.length === 0 && team.pitchers.length === 0) {
     return (
       <p className="text-ink/50 text-sm">No season stats available for this team.</p>
     );
   }
-
-  return <RosterStatsTable team={team} hitters={hitters} pitchers={pitchers} />;
+  return (
+    <RosterStatsTable
+      team={team.team}
+      hitters={team.hitters}
+      pitchers={team.pitchers}
+    />
+  );
 }
 
-export default async function RosterStatsSection({
-  feed,
-  season,
-}: {
-  feed: GameFeed;
-  season: number;
-}) {
+/**
+ * Per-team season sabermetric tables, loaded from
+ * `/api/games/[gamePk]/roster-stats`.
+ *
+ * Enriching both rosters fans out to a dozen-plus upstream MLB Stats API
+ * calls, so it runs in its own route handler — rendering it inline used to
+ * push the game page's Worker invocation over the platform's per-request
+ * subrequest limit and drop this section's data entirely.
+ */
+export default function RosterStatsSection({ gamePk }: { gamePk: number }) {
+  const [state, setState] = useState<State>({ status: "loading" });
+  const [fetchedGamePk, setFetchedGamePk] = useState(gamePk);
+  if (fetchedGamePk !== gamePk) {
+    // Adjusting state during render keeps a gamePk change from showing stale data.
+    setFetchedGamePk(gamePk);
+    setState({ status: "loading" });
+  }
+
+  useEffect(() => {
+    let cancelled = false;
+    fetch(`/api/games/${gamePk}/roster-stats`)
+      .then(async (res) => {
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        return (await res.json()) as { away: TeamPayload; home: TeamPayload };
+      })
+      .then((data) => {
+        if (!cancelled) {
+          setState({ status: "loaded", away: data.away, home: data.home });
+        }
+      })
+      .catch(() => {
+        if (!cancelled) setState({ status: "error" });
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [gamePk]);
+
+  if (state.status === "loading") {
+    return <div className="h-24 animate-pulse rounded bg-ink/10" />;
+  }
+
+  if (state.status === "error") {
+    return (
+      <p className="rounded-md border border-clay/40 bg-clay/10 px-3 py-2 text-sm text-clay">
+        Couldn’t load season stats right now.
+      </p>
+    );
+  }
+
   return (
     <div className="space-y-6">
-      <TeamRoster team={feed.away.team} season={season} />
-      <TeamRoster team={feed.home.team} season={season} />
+      {teamBody(state.away)}
+      {teamBody(state.home)}
     </div>
   );
 }

@@ -1,4 +1,6 @@
-import { mlbFetch, MlbApiError, TTL } from "./client";
+import { cache } from "react";
+
+import { easternToday, mlbFetch, MlbApiError, TTL } from "./client";
 import { mapGameState } from "./schedule";
 import type {
   BoxscoreBatter,
@@ -267,11 +269,26 @@ function isSignificantPlay(play: RawPlay): boolean {
 // --- Public API --------------------------------------------------------------
 
 /**
+ * The MLB season a game belongs to, derived from its start time (falling back
+ * to today in Eastern time when the feed carries no start time).
+ */
+export function seasonOf(feed: GameFeed): number {
+  const iso = feed.startTime || `${easternToday()}T00:00:00Z`;
+  return new Date(iso).getUTCFullYear();
+}
+
+/**
  * Full live feed for one game: status, linescore, boxscore, and probables.
  * A bad `gamePk` yields a 404 from the API (surfaced as {@link MlbApiError}),
  * which callers translate into `notFound()`.
+ *
+ * Wrapped in `React.cache` so the multiple callers within one request
+ * (`generateMetadata`, the page, and any section that needs the feed) share a
+ * single upstream fetch per rendered request.
  */
-export async function getLiveFeed(gamePk: number): Promise<GameFeed> {
+export const getLiveFeed = cache(async function getLiveFeed(
+  gamePk: number,
+): Promise<GameFeed> {
   const feed = await mlbFetch<RawFeed>(
     `/api/v1.1/game/${gamePk}/feed/live`,
     {},
@@ -346,7 +363,7 @@ export async function getLiveFeed(gamePk: number): Promise<GameFeed> {
       : undefined,
     playerNames: collectNames(ld.boxscore.teams.away, ld.boxscore.teams.home),
   };
-}
+});
 
 /**
  * Fetch significant plays (scoring events, steals, errors, etc.) for a game.

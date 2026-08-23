@@ -11,18 +11,15 @@ import BallparkWeather from "@/components/BallparkWeather";
 import GameStatusBadge from "@/components/GameStatusBadge";
 import HeadToHead from "@/components/HeadToHead";
 import Linescore from "@/components/Linescore";
-import MatchupTable from "@/components/MatchupTable";
+import MatchupsSection from "@/components/MatchupsSection";
 import ProbableStartersSection from "@/components/ProbableStartersSection";
 import GameLogSection from "@/components/GameLogSection";
 import PlayerHeadshot from "@/components/PlayerHeadshot";
 import RosterStatsSection from "@/components/RosterStatsSection";
 import TeamLogo from "@/components/TeamLogo";
 
-import { easternDateOf, easternToday, MlbApiError } from "@/lib/mlb/client";
-import { getLiveFeed } from "@/lib/mlb/game";
-import {
-  buildMatchups,
-} from "@/lib/mlb/matchup";
+import { easternDateOf, MlbApiError } from "@/lib/mlb/client";
+import { getLiveFeed, seasonOf } from "@/lib/mlb/game";
 import {
   getBullpenSeasonPitching,
   getBullpenWorkload,
@@ -39,11 +36,6 @@ import type {
 } from "@/lib/mlb/types";
 
 // --- small utilities ---------------------------------------------------------
-
-function seasonOf(feed: GameFeed): number {
-  const iso = feed.startTime || `${easternToday()}T00:00:00Z`;
-  return new Date(iso).getUTCFullYear();
-}
 
 function teamName(t: { abbreviation?: string; name: string }): string {
   return t.abbreviation ?? t.name;
@@ -156,23 +148,6 @@ async function HeadToHeadSection({
   const h2h = await safe(getHeadToHead(feed.away.team, feed.home.team, season));
   if (!h2h) return <SectionError label="the season series" />;
   return <HeadToHead h2h={h2h} />;
-}
-
-async function MatchupSection({
-  feed,
-  season,
-}: {
-  feed: GameFeed;
-  season: number;
-}) {
-  const matchups = await safe(buildMatchups(feed, season));
-  if (!matchups) return <SectionError label="matchup history" />;
-  return (
-    <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-      <MatchupTable side={matchups.awayPitching} />
-      <MatchupTable side={matchups.homePitching} />
-    </div>
-  );
 }
 
 function WeatherSection({ weather }: { weather: GameWeather | null }) {
@@ -404,16 +379,12 @@ export default async function GamePage({
 
             {/* 4. Batter vs pitcher */}
             <Section title="Matchups">
-              <Suspense fallback={<SectionSkeleton />}>
-                <MatchupSection feed={feed} season={season} />
-              </Suspense>
+              <MatchupsSection gamePk={id} />
             </Section>
 
             {/* 5. Sabermetrics */}
             <Section title="Sabermetric evaluations">
-              <Suspense fallback={<SectionSkeleton />}>
-                <RosterStatsSection feed={feed} season={season} />
-              </Suspense>
+              <RosterStatsSection gamePk={id} />
             </Section>
           </>
         }
