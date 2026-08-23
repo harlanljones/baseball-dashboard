@@ -219,96 +219,101 @@ export default async function GamePage({
         )
       : null;
 
-  return (
-    <div className="flex min-h-0 flex-1 flex-col">
-      <AutoRefresh enabled={feed.state === "Live"} />
+  // Back link + game header + disruption note. Rendered as the first children
+  // of the split pane's main column so it shares that column's centered
+  // max-width when the props sidebar is collapsed or absent.
+  const header = (
+    <>
+      <Link
+        href="/"
+        className="inline-block text-sm text-ink/60 hover:text-ink"
+      >
+        ← All games
+      </Link>
 
-      <div className="space-y-5 px-4 pt-6">
-        <Link
-          href="/"
-          className="inline-block text-sm text-ink/60 hover:text-ink"
-        >
-          ← All games
-        </Link>
-
-        {/* Header */}
-        <div className="rounded-md border border-ink/10 bg-card p-4 shadow-sm">
-          <h1 className="sr-only">
-            {feed.away.team.name} at {feed.home.team.name}
-          </h1>
-          <div className="mb-3 flex items-center justify-between">
-            <GameStatusBadge game={{ state: feed.state, detailedState: feed.detailedState }} />
-            {isPreview && feed.startTime && (
-              <span className="font-mono text-sm text-ink/60">
-                <LocalTime iso={feed.startTime} weekday />
-              </span>
-            )}
-          </div>
-
-          <div className="flex items-center justify-between">
-            <span className="font-display flex items-center gap-2.5 text-xl font-semibold">
-              <TeamLogo teamId={feed.away.team.id} size={28} />
-              {feed.away.team.name}
+      {/* Header */}
+      <div className="rounded-md border border-ink/10 bg-card p-4 shadow-sm">
+        <h1 className="sr-only">
+          {feed.away.team.name} at {feed.home.team.name}
+        </h1>
+        <div className="mb-3 flex items-center justify-between">
+          <GameStatusBadge game={{ state: feed.state, detailedState: feed.detailedState }} />
+          {isPreview && feed.startTime && (
+            <span className="font-mono text-sm text-ink/60">
+              <LocalTime iso={feed.startTime} weekday />
             </span>
-            {scored && (
-              <span className="font-mono text-xl font-semibold">
-                {feed.away.score ?? "-"}
-              </span>
-            )}
-          </div>
-          <div className="mt-1 flex items-center justify-between">
-            <span className="font-display flex items-center gap-2.5 text-xl font-semibold">
-              <TeamLogo teamId={feed.home.team.id} size={28} />
-              {feed.home.team.name}
-            </span>
-            {scored && (
-              <span className="font-mono text-xl font-semibold">
-                {feed.home.score ?? "-"}
-              </span>
-            )}
-          </div>
-
-          {feed.venue && (
-            <p className="mt-2 text-xs text-ink/50">
-              {[feed.venue, feed.venueCity].filter(Boolean).join(", ")}
-            </p>
-          )}
-
-          {feed.state === "Final" && (d?.winner || d?.loser) && (
-            <p className="mt-3 border-t border-ink/10 pt-2 text-xs text-ink/60">
-              {d?.winner && <>W: {d.winner.fullName}</>}
-              {d?.loser && <> · L: {d.loser.fullName}</>}
-              {d?.save && <> · SV: {d.save.fullName}</>}
-            </p>
-          )}
-
-          {isPreview && (feed.probablePitchers.away || feed.probablePitchers.home) && (
-            <div className="mt-3 border-t border-ink/10 pt-2 text-sm text-ink/60">
-              <span className="mr-3">Probables:</span>
-              <span className="inline-flex flex-wrap items-center gap-x-5 gap-y-1 align-middle">
-                {(["away", "home"] as const).map((side) => {
-                  const pitcher = feed.probablePitchers[side];
-                  return (
-                    <span key={side} className="inline-flex items-center gap-1.5">
-                      {pitcher && <PlayerHeadshot personId={pitcher.id} size={22} />}
-                      <span className="text-ink/40">
-                        {teamName(feed[side].team)}
-                      </span>
-                      {pitcher?.fullName ?? "TBD"}
-                    </span>
-                  );
-                })}
-              </span>
-            </div>
           )}
         </div>
 
-        {isDisrupted && (
-          <p className="rounded-md border border-clay/40 bg-clay/10 px-3 py-2 text-sm text-clay">
-            This game is {feed.detailedState.toLowerCase()}.
+        <div className="flex items-center justify-between">
+          <span className="font-display flex items-center gap-2.5 text-xl font-semibold">
+            <TeamLogo teamId={feed.away.team.id} size={28} />
+            {feed.away.team.name}
+          </span>
+          {scored && (
+            <span className="font-mono text-xl font-semibold">
+              {feed.away.score ?? "-"}
+            </span>
+          )}
+        </div>
+        <div className="mt-1 flex items-center justify-between">
+          <span className="font-display flex items-center gap-2.5 text-xl font-semibold">
+            <TeamLogo teamId={feed.home.team.id} size={28} />
+            {feed.home.team.name}
+          </span>
+          {scored && (
+            <span className="font-mono text-xl font-semibold">
+              {feed.home.score ?? "-"}
+            </span>
+          )}
+        </div>
+
+        {feed.venue && (
+          <p className="mt-2 text-xs text-ink/50">
+            {[feed.venue, feed.venueCity].filter(Boolean).join(", ")}
           </p>
         )}
+
+        {feed.state === "Final" && (d?.winner || d?.loser) && (
+          <p className="mt-3 border-t border-ink/10 pt-2 text-xs text-ink/60">
+            {d?.winner && <>W: {d.winner.fullName}</>}
+            {d?.loser && <> · L: {d.loser.fullName}</>}
+            {d?.save && <> · SV: {d.save.fullName}</>}
+          </p>
+        )}
+
+        {isPreview && (feed.probablePitchers.away || feed.probablePitchers.home) && (
+          <div className="mt-3 border-t border-ink/10 pt-2 text-sm text-ink/60">
+            <span className="mr-3">Probables:</span>
+            <span className="inline-flex flex-wrap items-center gap-x-5 gap-y-1 align-middle">
+              {(["away", "home"] as const).map((side) => {
+                const pitcher = feed.probablePitchers[side];
+                return (
+                  <span key={side} className="inline-flex items-center gap-1.5">
+                    {pitcher && <PlayerHeadshot personId={pitcher.id} size={22} />}
+                    <span className="text-ink/40">
+                      {teamName(feed[side].team)}
+                    </span>
+                    {pitcher?.fullName ?? "TBD"}
+                  </span>
+                );
+              })}
+            </span>
+          </div>
+        )}
       </div>
+
+      {isDisrupted && (
+        <p className="rounded-md border border-clay/40 bg-clay/10 px-3 py-2 text-sm text-clay">
+          This game is {feed.detailedState.toLowerCase()}.
+        </p>
+      )}
+    </>
+  );
+
+  return (
+    <div className="flex min-h-0 flex-1 flex-col">
+      <AutoRefresh enabled={feed.state === "Live"} />
 
       <GameSplitPane
         sidebar={
@@ -320,6 +325,8 @@ export default async function GamePage({
         }
         main={
           <>
+            {header}
+
             {/* Probable starters */}
             {!isDisrupted && isPreview && (
               <Section title="Probable starters">

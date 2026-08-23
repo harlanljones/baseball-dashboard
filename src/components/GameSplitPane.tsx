@@ -129,6 +129,11 @@ export default function GameSplitPane({
     }
   };
 
+  // With the props pane visible the main column is already bounded by the
+  // split; collapsed (or absent), cap it to the site's standard centered
+  // column so sections don't stretch across ultrawide viewports.
+  const capColumn = showSidebar ? "" : "mx-auto w-full max-w-5xl";
+
   return (
     <div
       ref={shellRef}
@@ -146,7 +151,7 @@ export default function GameSplitPane({
       {hasSidebar && <RestorePaneWidthScript targetId={shellId} />}
 
       <div
-        className={`min-h-0 space-y-5 px-4 py-6 ${hasSidebar ? "lg:overflow-y-auto" : ""}`}
+        className={`min-h-0 space-y-5 px-4 py-6 ${hasSidebar ? "lg:overflow-y-auto" : ""} ${capColumn}`}
       >
         {main}
         {hasSidebar && collapsed && (
