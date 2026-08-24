@@ -38,7 +38,7 @@ function findEntry(name: string, entries: RosterEntry[]): RosterEntry | null {
   return entries.find((e) => e.player.id === matched.id) ?? null;
 }
 
-export default async function PropsSidebarSection({
+export async function loadPropGroups({
   feed,
   season,
   weather,
@@ -46,14 +46,14 @@ export default async function PropsSidebarSection({
   feed: GameFeed;
   season: number;
   weather: GameWeather | null;
-}) {
+}): Promise<PropTeamGroup[]> {
   const eventId = await safe(
     findOddsEvent(feed.away.team.name, feed.home.team.name, feed.startTime),
   );
-  if (!eventId) return <PropsSidebar groups={[]} />;
+  if (!eventId) return [];
 
   const props = (await safe(getPlayerProps(eventId))) ?? [];
-  if (props.length === 0) return <PropsSidebar groups={[]} />;
+  if (props.length === 0) return [];
 
   const [awayRoster, homeRoster] = await Promise.all([
     safe(getRosterWithSeasonStats(feed.away.team.id, season)),
@@ -195,5 +195,13 @@ export default async function PropsSidebarSection({
     buildTeamGroup(feed.home.team, scoredByTeam.get(feed.home.team.id) ?? []),
   ].filter((g) => g.players.length > 0);
 
-  return <PropsSidebar groups={groups} />;
+  return groups;
+}
+
+export default async function PropsSidebarSection(props: {
+  feed: GameFeed;
+  season: number;
+  weather: GameWeather | null;
+}) {
+  return <PropsSidebar groups={await loadPropGroups(props)} />;
 }

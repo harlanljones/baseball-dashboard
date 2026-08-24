@@ -6,7 +6,14 @@ import type {
   VsPlayerLine,
 } from "@/lib/mlb/types";
 import type { GameWeather } from "@/lib/weather/types";
-import type { PlayerProp, PropMarketKey, PropTier, ScoredProp } from "./types";
+import type {
+  PlayerProp,
+  PropDirection,
+  PropFactorScores,
+  PropMarketKey,
+  PropTier,
+  ScoredProp,
+} from "./types";
 
 export interface PitcherStatContext {
   kind: "pitcher";
@@ -112,6 +119,26 @@ function tierFromRatio(seasonAvg: number, line: number): PropTier {
   return "neutral";
 }
 
+function clamp(value: number, min = 0, max = 100): number {
+  return Math.min(max, Math.max(min, value));
+}
+
+function confidenceFor(stats: StatContext): number {
+  return stats.kind === "pitcher"
+    ? clamp(58 + stats.gamesStarted * 1.8)
+    : clamp(52 + stats.games * 0.42);
+}
+
+function edgeFor(seasonAvg: number, line: number): number {
+  if (line <= 0) return 50;
+  return clamp(50 + Math.abs(seasonAvg / line - 1) * 250);
+}
+
+/** An odds-based price signal, deliberately not presented as a fair-probability estimate. */
+function marketValueFor(price: number): number {
+  return clamp(50 + price / 10);
+}
+
 /** Describes why the weather nudge fired, matching {@link nudgeForWeather}'s own thresholds. */
 function weatherEvidenceLine(weather: GameWeather | null): string | null {
   if (weather?.roof !== "open") return null;
@@ -212,10 +239,12 @@ export function scoreProp(
   const seasonAvg = stats ? seasonAvgFor(prop.marketKey, stats) : null;
 
   let tier: PropTier = "neutral";
+  let direction: PropDirection = "over";
   const evidence: string[] = [];
 
   if (seasonAvg != null) {
     tier = tierFromRatio(seasonAvg, prop.line);
+    direction = seasonAvg >= prop.line ? "over" : "under";
     evidence.push(`Season avg: ${seasonAvg.toFixed(1)} (line ${prop.line})`);
 
     if (WEATHER_SENSITIVE_MARKETS.includes(prop.marketKey)) {
@@ -230,6 +259,21 @@ export function scoreProp(
     evidence.push("No stats available");
   }
 
+  const modelConfidence = stats ? confidenceFor(stats) : null;
+  const statisticalEdge = seasonAvg != null ? edgeFor(seasonAvg, prop.line) : null;
+  const selectedPrice = direction === "over" ? prop.overPrice : prop.underPrice;
+  const marketValue = marketValueFor(selectedPrice);
+  const factors: PropFactorScores = {
+    modelConfidence,
+    statisticalEdge,
+    marketValue,
+    cumulative:
+      modelConfidence != null && statisticalEdge != null
+        ? modelConfidence * 0.4 + statisticalEdge * 0.35 + marketValue * 0.25
+        : null,
+    completeness: modelConfidence != null && statisticalEdge != null ? "complete" : "partial",
+  };
+
   return {
     player,
     marketKey: prop.marketKey,
@@ -237,6 +281,8 @@ export function scoreProp(
     overPrice: prop.overPrice,
     underPrice: prop.underPrice,
     tier,
+    direction,
+    factors,
     evidence,
   };
 }

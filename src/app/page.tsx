@@ -1,6 +1,7 @@
 import Link from "next/link";
 import AutoRefresh from "@/components/AutoRefresh";
 import GameCard from "@/components/GameCard";
+import BestLeansSection from "@/components/BestLeansSection";
 import PageContainer from "@/components/PageContainer";
 import { easternToday, shiftDate } from "@/lib/mlb/client";
 import { getSchedule } from "@/lib/mlb/schedule";
@@ -78,11 +79,14 @@ export default async function Home({
           </p>
         </div>
       ) : (
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
-          {games.map((game) => (
-            <GameCard key={game.gamePk} game={game} />
-          ))}
-        </div>
+        <>
+          <BestLeansSection games={games} />
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+            {games.map((game) => (
+              <GameCard key={game.gamePk} game={game} />
+            ))}
+          </div>
+        </>
       )}
     </PageContainer>
   );

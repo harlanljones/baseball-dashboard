@@ -27,7 +27,6 @@ import {
 import { getHeadToHead } from "@/lib/mlb/schedule";
 import { getGameWeather } from "@/lib/weather/report";
 import type { GameWeather } from "@/lib/weather/types";
-import PropsSidebarSection from "@/components/PropsSidebarSection";
 import GameSplitPane from "@/components/GameSplitPane";
 import type {
   BullpenPitcher,
@@ -236,13 +235,20 @@ export default async function GamePage({
         <h1 className="sr-only">
           {feed.away.team.name} at {feed.home.team.name}
         </h1>
-        <div className="mb-3 flex items-center justify-between">
+        <div className="mb-3 flex items-center justify-between gap-3">
           <GameStatusBadge game={{ state: feed.state, detailedState: feed.detailedState }} />
-          {isPreview && feed.startTime && (
-            <span className="font-mono text-sm text-ink/60">
-              <LocalTime iso={feed.startTime} weekday />
-            </span>
-          )}
+          <div className="flex items-center gap-4">
+            {isPreview && feed.startTime && (
+              <span className="font-mono text-sm text-ink/60">
+                <LocalTime iso={feed.startTime} weekday />
+              </span>
+            )}
+            {!isDisrupted && isPreview && (
+              <Link href={`/games/${id}/props`} className="rounded-md border border-gold/50 px-2.5 py-1 text-xs font-semibold text-gold hover:bg-gold/10">
+                Analyze player props
+              </Link>
+            )}
+          </div>
         </div>
 
         <div className="flex items-center justify-between">
@@ -316,13 +322,6 @@ export default async function GamePage({
       <AutoRefresh enabled={feed.state === "Live"} />
 
       <GameSplitPane
-        sidebar={
-          !isDisrupted && isPreview ? (
-            <Suspense fallback={<SectionSkeleton />}>
-              <PropsSidebarSection feed={feed} season={season} weather={weather} />
-            </Suspense>
-          ) : null
-        }
         main={
           <>
             {header}

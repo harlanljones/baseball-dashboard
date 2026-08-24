@@ -27,6 +27,16 @@ export type PropTier =
   | "lean-under"
   | "strong-under";
 
+export type PropDirection = "over" | "under";
+
+export interface PropFactorScores {
+  modelConfidence: number | null;
+  statisticalEdge: number | null;
+  marketValue: number | null;
+  cumulative: number | null;
+  completeness: "complete" | "partial";
+}
+
 /** A `PlayerProp` resolved to our own `PlayerRef` and scored against season stats (+ weather, for HR/TB markets). */
 export interface ScoredProp {
   player: PlayerRef;
@@ -35,6 +45,8 @@ export interface ScoredProp {
   overPrice: number;
   underPrice: number;
   tier: PropTier;
+  direction: PropDirection;
+  factors: PropFactorScores;
   /**
    * Market-specific basis for the tier, ordered most-important first — e.g.
    * `["Season avg: 7.2 (line 6.5)", "Wind blowing out favors the over"]`.

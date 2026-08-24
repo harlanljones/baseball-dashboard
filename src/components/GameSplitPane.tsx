@@ -55,7 +55,7 @@ export default function GameSplitPane({
   sidebar,
 }: {
   main: ReactNode;
-  sidebar: ReactNode | null;
+  sidebar?: ReactNode | null;
 }) {
   const shellRef = useRef<HTMLDivElement>(null);
   const shellId = useId();
@@ -70,7 +70,7 @@ export default function GameSplitPane({
   });
   const [dragging, setDragging] = useState(false);
 
-  const hasSidebar = sidebar !== null;
+  const hasSidebar = sidebar != null;
   const showSidebar = hasSidebar && !collapsed;
 
   const commitPanePct = useCallback((pct: number) => {

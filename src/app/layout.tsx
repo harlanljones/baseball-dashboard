@@ -29,6 +29,15 @@ export const metadata: Metadata = {
   description: "Today's MLB scores, matchups, and sabermetric player evaluations.",
 };
 
+const directionContract = `<!--
+THESIS: A one-game matchup board makes weighted prop comparison the primary task and refuses the old sidebar.
+OWN-WORLD: Night-game field green, gold score ticks, IBM Plex data, Barlow condensed headings, flat ruled panels.
+STORY: The visitor tunes three transparent inputs, compares both teams, and opens evidence before acting on a lean.
+FIRST VIEWPORT: Game identity and the shared 40/35/25 weight console lead into mirrored away/home prop columns with strongest scores at the seam.
+FORM: Matchup Board, surface seed 32a17f12.
+FINISH: unreviewed and undocumented is unfinished; this build ends with the finish review, the verdict, DESIGN.md, and every shipping raster carrying its provenance
+-->`;
+
 export default function RootLayout({
   children,
 }: Readonly<{
@@ -40,6 +49,11 @@ export default function RootLayout({
       className={`h-full antialiased ${display.variable} ${sans.variable} ${mono.variable}`}
     >
       <body className="min-h-full flex flex-col bg-paper text-ink">
+        <template
+          data-direction-contract="matchup-board"
+          aria-hidden="true"
+          dangerouslySetInnerHTML={{ __html: directionContract }}
+        />
         <a
           href="#main"
           className="sr-only focus:not-sr-only focus:absolute focus:left-4 focus:top-4 focus:z-50 focus:rounded-md focus:bg-card focus:px-3 focus:py-2 focus:text-sm focus:shadow"
