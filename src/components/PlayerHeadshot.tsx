@@ -15,12 +15,18 @@ export default function PlayerHeadshot({
   className?: string;
 }) {
   return (
-    <Image
-      src={`https://midfield.mlbstatic.com/v1/people/${personId}/spots/120`}
-      alt=""
-      width={size}
-      height={size}
-      className={`shrink-0 rounded-full bg-ink/10 ${className}`.trim()}
-    />
+    <span
+      aria-hidden="true"
+      className={`relative inline-block shrink-0 overflow-hidden rounded-full bg-ink/10 align-middle ${className}`.trim()}
+      style={{ width: size, height: size }}
+    >
+      <Image
+        src={`https://midfield.mlbstatic.com/v1/people/${personId}/spots/120`}
+        alt=""
+        fill
+        sizes={`${size}px`}
+        className="object-cover"
+      />
+    </span>
   );
 }

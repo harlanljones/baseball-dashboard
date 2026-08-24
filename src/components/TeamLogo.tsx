@@ -15,23 +15,26 @@ export default function TeamLogo({
   size?: number;
   className?: string;
 }) {
-  const shared = `shrink-0 ${className}`.trim();
   return (
-    <>
+    <span
+      aria-hidden="true"
+      className={`relative inline-block shrink-0 align-middle ${className}`.trim()}
+      style={{ width: size, height: size }}
+    >
       <Image
         src={`https://www.mlbstatic.com/team-logos/team-cap-on-light/${teamId}.svg`}
         alt=""
-        width={size}
-        height={size}
-        className={`${shared} dark:hidden`}
+        fill
+        sizes={`${size}px`}
+        className="object-contain dark:hidden"
       />
       <Image
         src={`https://www.mlbstatic.com/team-logos/team-cap-on-dark/${teamId}.svg`}
         alt=""
-        width={size}
-        height={size}
-        className={`${shared} hidden dark:block`}
+        fill
+        sizes={`${size}px`}
+        className="hidden object-contain dark:block"
       />
-    </>
+    </span>
   );
 }
