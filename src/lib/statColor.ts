@@ -11,6 +11,55 @@
 export const GOOD_CLASS = "bg-hot/15 text-hot";
 export const BAD_CLASS = "bg-cold/15 text-cold";
 
+export interface QuantileBand {
+  lower: number;
+  upper: number;
+}
+
+const MIN_QUANTILE_VALUES = 4;
+
+function finiteNumber(value: number | string | undefined | null): number | null {
+  const parsed = typeof value === "string" ? parseFloat(value) : value;
+  return parsed != null && Number.isFinite(parsed) ? parsed : null;
+}
+
+function quantile(sorted: number[], percentile: number): number {
+  const position = (sorted.length - 1) * percentile;
+  const lowerIndex = Math.floor(position);
+  const fraction = position - lowerIndex;
+  const lower = sorted[lowerIndex];
+  const upper = sorted[lowerIndex + 1] ?? lower;
+  return lower + (upper - lower) * fraction;
+}
+
+/** Build lower/upper-quartile cutoffs from a comparable stat population. */
+export function quantileBand(
+  values: Array<number | string | undefined | null>,
+): QuantileBand | null {
+  const sorted = values
+    .map(finiteNumber)
+    .filter((value): value is number => value != null)
+    .sort((a, b) => a - b);
+
+  if (sorted.length < MIN_QUANTILE_VALUES) return null;
+  const lower = quantile(sorted, 0.25);
+  const upper = quantile(sorted, 0.75);
+  return lower < upper ? { lower, upper } : null;
+}
+
+/** Grade a value against its population's outer quartiles. */
+export function quantileClass(
+  value: number | string | undefined | null,
+  band: QuantileBand | null,
+  higherIsBetter: boolean,
+): string {
+  const parsed = finiteNumber(value);
+  if (parsed == null || band == null) return "";
+  if (parsed <= band.lower) return higherIsBetter ? BAD_CLASS : GOOD_CLASS;
+  if (parsed >= band.upper) return higherIsBetter ? GOOD_CLASS : BAD_CLASS;
+  return "";
+}
+
 /**
  * `good`/`bad` thresholds per stat. Direction is inferred: when `good < bad`
  * (e.g. FIP), lower is better. Bands are centered on recent league averages.
