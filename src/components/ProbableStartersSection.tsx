@@ -1,4 +1,5 @@
 import ProbableStarterCard from "./ProbableStarterCard";
+import StatGradeLegend from "./StatGradeLegend";
 import { easternDateOf } from "@/lib/mlb/client";
 import {
   getPitchHand,
@@ -79,9 +80,12 @@ export default async function ProbableStartersSection({
 
   if (!away && !home) {
     return (
-      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-        <StarterCard pitcher={undefined} team={feed.away.team} isHome={false} data={NO_DATA} />
-        <StarterCard pitcher={undefined} team={feed.home.team} isHome={true} data={NO_DATA} />
+      <div className="fade-in">
+        <StatGradeLegend className="mb-4" />
+        <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+          <StarterCard pitcher={undefined} team={feed.away.team} isHome={false} data={NO_DATA} />
+          <StarterCard pitcher={undefined} team={feed.home.team} isHome={true} data={NO_DATA} />
+        </div>
       </div>
     );
   }
@@ -126,9 +130,12 @@ export default async function ProbableStartersSection({
   const [awayData, homeData] = await Promise.all([dataFor(away), dataFor(home)]);
 
   return (
-    <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-      <StarterCard pitcher={away} team={feed.away.team} isHome={false} data={awayData} />
-      <StarterCard pitcher={home} team={feed.home.team} isHome={true} data={homeData} />
+    <div className="fade-in">
+      <StatGradeLegend className="mb-4" />
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+        <StarterCard pitcher={away} team={feed.away.team} isHome={false} data={awayData} />
+        <StarterCard pitcher={home} team={feed.home.team} isHome={true} data={homeData} />
+      </div>
     </div>
   );
 }

@@ -3,6 +3,7 @@
 import PlayerHeadshot from "./PlayerHeadshot";
 import TeamLogo from "./TeamLogo";
 import SortableHeaderCell from "./SortableHeaderCell";
+import StatGradeLegend from "./StatGradeLegend";
 import { statClass } from "@/lib/statColor";
 import { useSortableTable } from "@/lib/hooks/useSortableTable";
 import type { TeamBoxscore } from "@/lib/mlb/types";
@@ -32,7 +33,7 @@ function BullpenTable({ box }: { box: TeamBoxscore }) {
       </h3>
 
       {box.bullpen.length === 0 ? (
-        <p className="text-sm text-ink/50">No bullpen listed.</p>
+        <p className="text-sm text-ink/65">No bullpen listed.</p>
       ) : (
         <div className="overflow-x-auto">
           <table className="nums w-full min-w-max text-sm">
@@ -43,7 +44,7 @@ function BullpenTable({ box }: { box: TeamBoxscore }) {
               <tr>
                 <th
                   scope="col"
-                  className="font-display px-2 py-1 text-left text-xs font-semibold uppercase tracking-wider text-ink/50"
+                  className="font-display px-2 py-1 text-left text-xs font-semibold uppercase tracking-wider text-ink/65"
                 >
                   Pitcher
                 </th>
@@ -139,9 +140,21 @@ export default function Bullpen({
   home: TeamBoxscore;
 }) {
   return (
-    <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-      <BullpenTable box={away} />
-      <BullpenTable box={home} />
+    <div className="fade-in">
+      <StatGradeLegend className="mb-4" />
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+        <BullpenTable box={away} />
+        <BullpenTable box={home} />
+      </div>
+      <p className="mt-3 max-w-xl border-t border-ink/10 pt-2 text-xs text-ink/65">
+        PY = pitches thrown yesterday · P3D = pitches over the last three days,
+        heavy counts mean the arm is likely unavailable today. Definitions for
+        every column live in the{" "}
+        <a href="/glossary" className="text-grass underline underline-offset-2 hover:text-field-deep dark:hover:text-grass">
+          glossary
+        </a>
+        .
+      </p>
     </div>
   );
 }

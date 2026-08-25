@@ -159,7 +159,7 @@ export default function GameSplitPane({
             <button
               type="button"
               onClick={() => setCollapsed(false)}
-              className="text-xs font-medium text-ink/50 hover:text-ink"
+              className="text-xs font-medium text-ink/65 hover:text-ink"
             >
               Show player props
             </button>
@@ -192,7 +192,7 @@ export default function GameSplitPane({
               type="button"
               onClick={() => setCollapsed(false)}
               aria-label="Show player props"
-              className="rounded-md border border-ink/15 bg-card px-1 py-2 text-xs text-ink/50 shadow-sm hover:text-ink"
+              className="rounded-md border border-ink/15 bg-card px-1 py-2 text-xs text-ink/65 shadow-sm hover:text-ink"
             >
               ‹
             </button>
@@ -208,7 +208,7 @@ export default function GameSplitPane({
             <button
               type="button"
               onClick={() => setCollapsed(true)}
-              className="text-xs font-medium text-ink/50 hover:text-ink"
+              className="text-xs font-medium text-ink/65 hover:text-ink"
             >
               Hide player props
             </button>

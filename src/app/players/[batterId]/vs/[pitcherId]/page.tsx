@@ -1,8 +1,8 @@
 import type { Metadata } from "next";
-import Link from "next/link";
 import { notFound } from "next/navigation";
 
 import PageContainer from "@/components/PageContainer";
+import ContextualBackLink from "@/components/ContextualBackLink";
 import PlayerHeadshot from "@/components/PlayerHeadshot";
 import VsPitcherLog from "@/components/VsPitcherLog";
 
@@ -84,22 +84,17 @@ export default async function VsPitcherPage({
   return (
     <PageContainer>
       <div className="space-y-5">
-        <Link
-          href="/"
-          className="inline-block text-sm text-ink/60 hover:text-ink"
-        >
-          ← All games
-        </Link>
+        <ContextualBackLink />
 
         <div className="rounded-md border border-ink/10 bg-card p-4 shadow-sm">
           <h1 className="font-display flex flex-wrap items-center gap-2 text-xl font-semibold">
             <PlayerHeadshot personId={batter.id} size={28} />
             {batter.fullName}
-            <span className="font-normal text-ink/40">vs</span>
+            <span className="font-normal text-ink/65">vs</span>
             <PlayerHeadshot personId={pitcher.id} size={28} />
             {pitcher.fullName}
           </h1>
-          <p className="mt-1 text-sm text-ink/60">
+          <p className="mt-1 text-sm text-ink/65">
             Season-by-season history — the MLB Stats API has no per-plate-appearance
             log against a single pitcher, so each row is one season&rsquo;s totals.
           </p>

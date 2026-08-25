@@ -42,7 +42,7 @@ export default async function Home({
           <h1 className="font-display text-3xl font-bold uppercase leading-none tracking-wide">
             {date === today ? "Today's Games" : "Games"}
           </h1>
-          <p className="mt-1 text-sm text-ink/60">{prettyDate(date)}</p>
+          <p className="mt-1 text-sm text-ink/65">{prettyDate(date)}</p>
         </div>
         <nav
           aria-label="Date navigation"
@@ -50,21 +50,21 @@ export default async function Home({
         >
           <Link
             href={`/?date=${prev}`}
-            className="whitespace-nowrap rounded-l-md px-3 py-1.5 hover:bg-field/5"
+            className="inline-flex items-center whitespace-nowrap rounded-l-md px-3.5 py-2 hover:bg-field/5"
           >
             ← Prev
           </Link>
           {date !== today && (
             <Link
               href="/"
-              className="whitespace-nowrap px-3 py-1.5 hover:bg-field/5"
+              className="inline-flex items-center whitespace-nowrap px-3.5 py-2 hover:bg-field/5"
             >
               Today
             </Link>
           )}
           <Link
             href={`/?date=${next}`}
-            className="whitespace-nowrap rounded-r-md px-3 py-1.5 hover:bg-field/5"
+            className="inline-flex items-center whitespace-nowrap rounded-r-md px-3.5 py-2 hover:bg-field/5"
           >
             Next →
           </Link>
@@ -73,10 +73,26 @@ export default async function Home({
 
       {games.length === 0 ? (
         <div className="rounded-md border border-dashed border-ink/20 py-16 text-center">
-          <p className="text-ink/70">No games scheduled for this date.</p>
-          <p className="mt-1 text-sm text-ink/50">
-            Try the previous or next day.
+          <p className="font-display text-lg font-semibold uppercase tracking-wide">
+            No games scheduled
           </p>
+          <p className="mx-auto mt-1 max-w-xl text-sm text-ink/65">
+            Even the diamond needs a day off. Try an adjacent date.
+          </p>
+          <div className="mt-4 flex items-center justify-center gap-2">
+            <Link
+              href={`/?date=${prev}`}
+              className="inline-flex items-center rounded-md border border-ink/15 bg-card px-3 py-2 text-sm shadow-sm hover:bg-field/5"
+            >
+              ← {prettyDate(prev).split(", ").slice(-2).join(", ")}
+            </Link>
+            <Link
+              href={`/?date=${next}`}
+              className="inline-flex items-center rounded-md border border-ink/15 bg-card px-3 py-2 text-sm shadow-sm hover:bg-field/5"
+            >
+              {prettyDate(next).split(", ").slice(-2).join(", ")} →
+            </Link>
+          </div>
         </div>
       ) : (
         <>

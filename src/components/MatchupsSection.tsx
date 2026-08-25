@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 
 import type { MatchupSide } from "@/lib/mlb/types";
 import MatchupTable from "./MatchupTable";
+import StatGradeLegend from "./StatGradeLegend";
 
 type State =
   | { status: "loading" }
@@ -67,9 +68,12 @@ export default function MatchupsSection({ gamePk }: { gamePk: number }) {
   }
 
   return (
-    <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-      <MatchupTable side={state.awayPitching} />
-      <MatchupTable side={state.homePitching} />
+    <div className="fade-in">
+      <StatGradeLegend className="mb-4" />
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+        <MatchupTable side={state.awayPitching} gamePk={gamePk} />
+        <MatchupTable side={state.homePitching} gamePk={gamePk} />
+      </div>
     </div>
   );
 }

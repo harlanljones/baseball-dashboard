@@ -4,6 +4,8 @@ import { useMemo, useState } from 'react';
 import type { TeamRef, SaberHitting, SaberPitching } from "@/lib/mlb/types";
 import { quantileBand, quantileClass } from "@/lib/statColor";
 import { HitterRow, PitcherRow } from "./RosterStatsRow";
+import SortableHeaderCell from "./SortableHeaderCell";
+import StatGradeLegend from "./StatGradeLegend";
 import TeamLogo from "./TeamLogo";
 
 type SortColumn = 'war' | 'wrcPlus' | 'pa' | 'woba' | 'xwoba' | 'bbPct' | 'kPct' | 'eraMinus' | 'ip' | 'era' | 'fip' | 'xfip' | 'kMinusBbPct' | 'name';
@@ -60,19 +62,16 @@ interface SortHeaderProps {
   align?: 'left' | 'right';
 }
 
-function SortHeader({ label, column, currentColumn, direction, onSort, align = 'right' }: SortHeaderProps) {
-  const isActive = currentColumn === column;
-  const icon = isActive ? (direction === 'asc' ? ' ↑' : ' ↓') : '';
-
+function SortHeader(props: SortHeaderProps) {
   return (
-    <th
-      onClick={() => onSort(column)}
-      className={`px-3 py-2 font-semibold text-xs uppercase text-ink/50 cursor-pointer hover:text-ink/70 transition-colors ${
-        align === 'left' ? 'text-left' : 'text-right'
-      } ${isActive ? 'text-ink' : ''}`}
-    >
-      {label}{icon}
-    </th>
+    <SortableHeaderCell
+      label={props.label}
+      sortKey={props.column}
+      currentSortKey={props.currentColumn}
+      currentDirection={props.direction}
+      onSort={(key) => props.onSort(key as SortColumn)}
+      align={props.align}
+    />
   );
 }
 
@@ -125,13 +124,15 @@ export default function RosterStatsTable({ team, hitters, pitchers }: RosterStat
         {team.name}
       </h3>
 
+      <StatGradeLegend />
+
       {/* Hitters table */}
       {hitters.length > 0 && (
         <div className="overflow-x-auto">
-          <table className="w-full text-sm border-collapse">
+          <table className="nums w-full text-sm border-collapse">
             <thead>
               <tr className="border-b border-ink/10 bg-card">
-                <th className="px-3 py-2 text-left font-semibold text-xs uppercase text-ink/50 w-12">Pos</th>
+                <th className="px-3 py-2 text-left font-semibold text-xs uppercase text-ink/65 w-12">Pos</th>
                 <SortHeader label="Name" column="name" currentColumn={hitterSort.column} direction={hitterSort.direction} onSort={handleHitterSort} align="left" />
                 <SortHeader label="WAR" column="war" currentColumn={hitterSort.column} direction={hitterSort.direction} onSort={handleHitterSort} />
                 <SortHeader label="wRC+" column="wrcPlus" currentColumn={hitterSort.column} direction={hitterSort.direction} onSort={handleHitterSort} />
@@ -167,10 +168,10 @@ export default function RosterStatsTable({ team, hitters, pitchers }: RosterStat
       {/* Pitchers table */}
       {pitchers.length > 0 && (
         <div className="overflow-x-auto">
-          <table className="w-full text-sm border-collapse">
+          <table className="nums w-full text-sm border-collapse">
             <thead>
               <tr className="border-b border-ink/10 bg-card">
-                <th className="px-3 py-2 text-left font-semibold text-xs uppercase text-ink/50 w-12">Pos</th>
+                <th className="px-3 py-2 text-left font-semibold text-xs uppercase text-ink/65 w-12">Pos</th>
                 <SortHeader label="Name" column="name" currentColumn={pitcherSort.column} direction={pitcherSort.direction} onSort={handlePitcherSort} align="left" />
                 <SortHeader label="WAR" column="war" currentColumn={pitcherSort.column} direction={pitcherSort.direction} onSort={handlePitcherSort} />
                 <SortHeader label="ERA-" column="eraMinus" currentColumn={pitcherSort.column} direction={pitcherSort.direction} onSort={handlePitcherSort} />

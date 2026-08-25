@@ -29,7 +29,7 @@ export default function GameLog({ plays }: { plays: ScoringPlay[] }) {
   return (
     <div className="space-y-3">
       {inningKeys.length === 0 && (
-        <p className="text-sm text-ink/60">No scoring plays yet.</p>
+        <p className="text-sm text-ink/65">No scoring plays yet.</p>
       )}
       {inningKeys.map((key) => {
         const inningPlays = grouped.get(key)!;
@@ -49,7 +49,7 @@ export default function GameLog({ plays }: { plays: ScoringPlay[] }) {
                     <span className="flex-1 text-ink/80">
                       • {play.description}
                     </span>
-                    <span className="whitespace-nowrap font-mono text-xs text-ink/60">
+                    <span className="whitespace-nowrap font-mono text-xs text-ink/65">
                       {play.awayScore}-{play.homeScore}{" "}
                       {play.awayScore > play.homeScore
                         ? "Away"

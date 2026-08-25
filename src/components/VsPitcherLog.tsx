@@ -1,4 +1,5 @@
 import { rateClass } from "@/lib/statColor";
+import StatGradeLegend from "./StatGradeLegend";
 import type { VsPlayerLine, VsPlayerSeasonLine } from "@/lib/mlb/types";
 
 const COLS = ["PA", "H", "HR", "BB", "K", "AVG", "OBP", "SLG"] as const;
@@ -8,7 +9,7 @@ function StatCells({ r }: { r: VsPlayerLine }) {
     return (
       <td
         colSpan={COLS.length}
-        className="px-2 py-1.5 text-right text-ink/50"
+        className="px-2 py-1.5 text-right text-ink/65"
       >
         — no history
       </td>
@@ -47,8 +48,10 @@ export default function VsPitcherLog({
   seasons: VsPlayerSeasonLine[];
 }) {
   return (
-    <div className="overflow-x-auto">
-      <table className="nums w-full min-w-max text-sm">
+    <div>
+      <StatGradeLegend className="mb-3" />
+      <div className="overflow-x-auto">
+        <table className="nums w-full min-w-max text-sm">
         <caption className="sr-only">
           {career.batter.fullName} vs {career.pitcher.fullName}, season-by-season history
         </caption>
@@ -56,7 +59,7 @@ export default function VsPitcherLog({
           <tr>
             <th
               scope="col"
-              className="font-display px-2 py-1.5 text-left text-xs font-semibold uppercase tracking-wider text-ink/50"
+              className="font-display px-2 py-1.5 text-left text-xs font-semibold uppercase tracking-wider text-ink/65"
             >
               Season
             </th>
@@ -64,7 +67,7 @@ export default function VsPitcherLog({
               <th
                 key={c}
                 scope="col"
-                className="font-display px-2 py-1.5 text-right text-xs font-semibold uppercase tracking-wider text-ink/50"
+                className="font-display px-2 py-1.5 text-right text-xs font-semibold uppercase tracking-wider text-ink/65"
               >
                 {c}
               </th>
@@ -80,7 +83,7 @@ export default function VsPitcherLog({
             <tr>
               <td
                 colSpan={COLS.length + 1}
-                className="px-2 py-3 text-center text-ink/50"
+                className="px-2 py-3 text-center text-ink/65"
               >
                 No season-by-season data available.
               </td>
@@ -98,6 +101,7 @@ export default function VsPitcherLog({
           )}
         </tbody>
       </table>
+      </div>
     </div>
   );
 }

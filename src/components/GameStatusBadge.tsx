@@ -3,8 +3,9 @@ import type { GameState, ScheduleGame } from "@/lib/mlb/types";
 const STYLES: Record<GameState, string> = {
   Live: "bg-gold text-field-deep",
   Final: "bg-field/10 text-grass",
-  Preview: "border border-ink/20 text-ink/70",
-  Other: "border border-clay/40 text-clay",
+  Preview: "border border-ink/20 text-ink/75",
+  // Disruptions are schedule facts, not failures — clay stays reserved for errors.
+  Other: "border border-ink/25 text-ink/75",
 };
 
 function label(game: Pick<ScheduleGame, "state" | "detailedState" | "inning">): string {

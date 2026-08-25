@@ -13,7 +13,11 @@ function name(t: { abbreviation?: string; name: string }): string {
   return t.abbreviation ?? t.name;
 }
 
-function PlatoonSplitTable({ side }: { side: MatchupSide }) {
+function vsHref(batterId: number, pitcherId: number, gamePk?: number): string {
+  return `/players/${batterId}/vs/${pitcherId}${gamePk ? `#game=${gamePk}` : ""}`;
+}
+
+function PlatoonSplitTable({ side, gamePk }: { side: MatchupSide; gamePk?: number }) {
   const { sorted, sort, toggleSort } = useSortableTable({
     data: side.rows,
     defaultSortKey: "platoon.ops" as unknown as keyof (typeof side.rows)[0],
@@ -22,7 +26,7 @@ function PlatoonSplitTable({ side }: { side: MatchupSide }) {
 
   return (
     <div className="mt-4 min-w-0">
-      <h4 className="font-display text-xs font-semibold uppercase tracking-wider text-ink/50">
+      <h4 className="font-display text-xs font-semibold uppercase tracking-wider text-ink/65">
         This season vs {side.pitcherHand === "L" ? "LHP" : "RHP"}
       </h4>
       <div className="mt-1 overflow-x-auto">
@@ -33,7 +37,7 @@ function PlatoonSplitTable({ side }: { side: MatchupSide }) {
           </caption>
           <thead>
             <tr>
-              <th scope="col" className="font-display px-2 py-1 text-left text-xs font-semibold uppercase tracking-wider text-ink/50">
+              <th scope="col" className="font-display px-2 py-1 text-left text-xs font-semibold uppercase tracking-wider text-ink/65">
                 Batter
               </th>
               <SortableHeaderCell
@@ -81,7 +85,7 @@ function PlatoonSplitTable({ side }: { side: MatchupSide }) {
               >
                 <td className="px-2 py-1 text-left">
                   <Link
-                    href={`/players/${r.batter.id}/vs/${r.pitcher.id}`}
+                    href={vsHref(r.batter.id, r.pitcher.id, gamePk)}
                     className="hover:text-grass hover:underline"
                   >
                     {r.batter.fullName}
@@ -122,7 +126,7 @@ function NoPitcherSplits({ side }: { side: MatchupSide }) {
       <h3 className="font-display text-base font-semibold">
         {name(side.pitchingTeam)} starter
       </h3>
-      <p className="mt-1 text-sm text-ink/50">
+      <p className="mt-1 text-sm text-ink/65">
         Probable pitcher TBD — showing {name(side.battingTeam)} hitters&rsquo; {splitLabel} splits
         this season.
       </p>
@@ -134,7 +138,7 @@ function NoPitcherSplits({ side }: { side: MatchupSide }) {
           </caption>
           <thead>
             <tr>
-              <th scope="col" className="font-display px-2 py-1 text-left text-xs font-semibold uppercase tracking-wider text-ink/50">
+              <th scope="col" className="font-display px-2 py-1 text-left text-xs font-semibold uppercase tracking-wider text-ink/65">
                 Batter
               </th>
               <SortableHeaderCell
@@ -200,7 +204,7 @@ function NoPitcherSplits({ side }: { side: MatchupSide }) {
   );
 }
 
-export default function MatchupTable({ side }: { side: MatchupSide }) {
+export default function MatchupTable({ side, gamePk }: { side: MatchupSide; gamePk?: number }) {
   if (!side.pitcher) {
     if (side.noPitcherRows.length === 0) {
       return (
@@ -208,7 +212,7 @@ export default function MatchupTable({ side }: { side: MatchupSide }) {
           <h3 className="font-display text-base font-semibold">
             {name(side.pitchingTeam)} starter
           </h3>
-          <p className="mt-1 text-sm text-ink/50">Probable pitcher TBD.</p>
+          <p className="mt-1 text-sm text-ink/65">Probable pitcher TBD.</p>
         </div>
       );
     }
@@ -222,13 +226,13 @@ export default function MatchupTable({ side }: { side: MatchupSide }) {
         <PlayerHeadshot personId={side.pitcher.id} size={24} />
         <span>
           {side.pitcher.fullName}{" "}
-          <span className="font-normal text-ink/50">
+          <span className="font-normal text-ink/65">
             vs {name(side.battingTeam)} hitters
           </span>
         </span>
       </h3>
       {side.isProxy && (
-        <p className="mt-0.5 text-xs text-ink/50">
+        <p className="mt-0.5 text-xs text-ink/65">
           Lineup not posted — showing likely hitters (roster leaders by PA).
         </p>
       )}
@@ -240,14 +244,14 @@ export default function MatchupTable({ side }: { side: MatchupSide }) {
           </caption>
           <thead>
             <tr>
-              <th scope="col" className="font-display px-2 py-1 text-left text-xs font-semibold uppercase tracking-wider text-ink/50">
+              <th scope="col" className="font-display px-2 py-1 text-left text-xs font-semibold uppercase tracking-wider text-ink/65">
                 Batter
               </th>
               {CAREER_COLS.map((c) => (
                 <th
                   key={c}
                   scope="col"
-                  className="font-display px-2 py-1 text-right text-xs font-semibold uppercase tracking-wider text-ink/50"
+                  className="font-display px-2 py-1 text-right text-xs font-semibold uppercase tracking-wider text-ink/65"
                 >
                   {c}
                 </th>
@@ -262,7 +266,7 @@ export default function MatchupTable({ side }: { side: MatchupSide }) {
               >
                 <td className="px-2 py-1 text-left">
                   <Link
-                    href={`/players/${r.batter.id}/vs/${r.pitcher.id}`}
+                    href={vsHref(r.batter.id, r.pitcher.id, gamePk)}
                     className="hover:text-grass hover:underline"
                   >
                     {r.batter.fullName}
@@ -288,7 +292,7 @@ export default function MatchupTable({ side }: { side: MatchupSide }) {
                 ) : (
                   <td
                     colSpan={CAREER_COLS.length}
-                    className="px-2 py-1 text-right text-ink/50"
+                    className="px-2 py-1 text-right text-ink/65"
                   >
                     — no career history
                   </td>
@@ -299,7 +303,7 @@ export default function MatchupTable({ side }: { side: MatchupSide }) {
         </table>
       </div>
 
-      {side.pitcherHand && <PlatoonSplitTable side={side} />}
+      {side.pitcherHand && <PlatoonSplitTable side={side} gamePk={gamePk} />}
     </div>
   );
 }

@@ -196,15 +196,24 @@ export default function RootLayout({
         <main id="main" className="flex min-h-0 w-full flex-1 flex-col">
           {children}
         </main>
-        <footer className="flex h-footer shrink-0 items-center justify-center border-t border-ink/10 px-4 text-center text-xs leading-4 text-ink/50">
-          MLB data · Weather by&nbsp;
-          <a
-            href="https://open-meteo.com/"
-            className="underline decoration-ink/25 underline-offset-2 transition-colors hover:text-ink"
-          >
-            Open-Meteo
-          </a>
-          &nbsp;· Unaffiliated with MLB
+        <footer className="flex h-footer shrink-0 items-center justify-center border-t border-ink/10 px-4 text-center text-xs leading-4 text-ink/65">
+          <span>
+            MLB data · Weather by&nbsp;
+            <a
+              href="https://open-meteo.com/"
+              className="underline decoration-ink/25 underline-offset-2 transition-colors hover:text-ink"
+            >
+              Open-Meteo
+            </a>
+            &nbsp;·&nbsp;
+            <Link
+              href="/glossary"
+              className="underline decoration-ink/25 underline-offset-2 transition-colors hover:text-ink"
+            >
+              Glossary
+            </Link>
+            &nbsp;· Unaffiliated with MLB
+          </span>
         </footer>
       </body>
     </html>

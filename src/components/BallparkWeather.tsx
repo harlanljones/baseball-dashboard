@@ -244,7 +244,7 @@ function WindArrow({
   };
   const viewSize = { small: "16", medium: "24", large: "32" }[size];
 
-  let colorClass = "text-ink/40";
+  let colorClass = "text-ink/65";
   if (category === "out") {
     colorClass = "text-hot";
   } else if (category === "in") {
@@ -383,7 +383,9 @@ function WindFieldDiagram({ weather }: { weather: GameWeather }) {
 }
 
 /**
- * StatTile: small card with eyebrow label and value/detail
+ * StatTile: bare label/value block. Deliberately unboxed — it sits inside the
+ * section card, and boxes-inside-boxes is exactly the nested-card noise this
+ * surface doesn't need; the grid's rhythm does the grouping.
  */
 function StatTile({
   label,
@@ -401,9 +403,7 @@ function StatTile({
   highlight?: string;
 }) {
   return (
-    <div
-      className={`rounded-md border border-ink/10 bg-card p-2.5 ${deemphasize ? "opacity-60" : ""}`}
-    >
+    <div className={deemphasize ? "opacity-60" : undefined}>
       <div className="flex items-center gap-1.5">
         {glyph && <span className="text-ink/70">{glyph}</span>}
         <div className="eyebrow text-xs">{label}</div>
@@ -411,10 +411,10 @@ function StatTile({
       <div className="mt-1">
         <div className="font-display font-semibold text-ink">{value}</div>
         {detail && (
-          <div className="mt-0.5 text-xs text-ink/50">{detail}</div>
+          <div className="mt-0.5 text-xs text-ink/65">{detail}</div>
         )}
         {highlight && (
-          <div className="mt-1 text-xs font-medium text-gold">{highlight}</div>
+          <div className="mt-1 text-xs font-medium text-gold-deep">{highlight}</div>
         )}
       </div>
     </div>
@@ -439,7 +439,7 @@ function HourlyCell({
 }) {
   return (
     <div
-      className={`flex flex-none flex-col items-center gap-1.5 rounded-md border border-ink/10 bg-paper p-2 min-w-max ${deemphasize ? "opacity-60" : ""}`}
+      className={`flex flex-none flex-col items-center gap-1.5 p-2 min-w-max ${deemphasize ? "opacity-60" : ""}`}
     >
       <div className="font-mono text-xs font-semibold text-ink">
         <LocalHour iso={hour.timeISO} />
@@ -475,7 +475,7 @@ export default function BallparkWeather({
   // Handle no-data case early
   if (weather.ballpark === null) {
     return (
-      <p className="text-sm text-ink/60">
+      <p className="text-sm text-ink/65">
         Weather data unavailable for this ballpark.
       </p>
     );
@@ -501,8 +501,8 @@ export default function BallparkWeather({
 
   return (
     <div className="space-y-4">
-      {/* Stat tile row */}
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
+      {/* Conditions that bear on play, as one unboxed strip */}
+      <div className="grid grid-cols-2 gap-x-4 gap-y-3 sm:grid-cols-4">
         {/* Ballpark type tile */}
         <StatTile
           label="Ballpark"
@@ -515,17 +515,6 @@ export default function BallparkWeather({
             ) : (
               <SunGlyph />
             )
-          }
-        />
-
-        {/* Elevation tile */}
-        <StatTile
-          label="Elevation"
-          value={`${elevationFt} ft`}
-          highlight={
-            elevationFt >= 3000
-              ? "High altitude — carries further."
-              : undefined
           }
         />
 
@@ -549,12 +538,6 @@ export default function BallparkWeather({
           deemphasize={isDomed}
         />
 
-        {/* Humidity tile */}
-        <StatTile
-          label="Humidity"
-          value={humidityPct !== null ? `${humidityPct}%` : "—"}
-        />
-
         {/* Precip tile (de-emphasize if domed) */}
         <StatTile
           label="Precip"
@@ -563,9 +546,20 @@ export default function BallparkWeather({
         />
       </div>
 
+      {/* Marginal context stays available without competing for a tile */}
+      <p className="text-xs text-ink/65">
+        {[
+          `Elevation ${elevationFt} ft`,
+          humidityPct !== null ? `Humidity ${humidityPct}%` : null,
+        ]
+          .filter(Boolean)
+          .join(" · ")}
+        {elevationFt >= 3000 ? " — high altitude carries fly balls further." : ""}
+      </p>
+
       {/* Dome/retractable note */}
       {isDomed && (
-        <div className="border-t border-ink/10 pt-2 text-xs text-ink/60">
+        <div className="border-t border-ink/10 pt-2 text-xs text-ink/65">
           {roofLabel} — outdoor conditions shown for reference; wind and sky
           won&apos;t affect play.
         </div>
@@ -601,7 +595,7 @@ export default function BallparkWeather({
       {/* Hourly timeline */}
       {weather.hours.length > 0 && (
         <div className="space-y-2 border-t border-ink/10 pt-3">
-          <div className="text-xs font-semibold uppercase tracking-wide text-ink/60">
+          <div className="text-xs font-semibold uppercase tracking-wide text-ink/65">
             Hourly
           </div>
           <div className="flex gap-2 overflow-x-auto pb-2">
@@ -618,7 +612,7 @@ export default function BallparkWeather({
 
       {/* Observed data (MLB actuals) */}
       {weather.observed && (
-        <div className="border-t border-ink/10 pt-2 text-xs text-ink/60">
+        <div className="border-t border-ink/10 pt-2 text-xs text-ink/65">
           Observed:{" "}
           {[
             weather.observed.condition,
@@ -631,16 +625,6 @@ export default function BallparkWeather({
             .join(" · ")}
         </div>
       )}
-
-      <p className="text-right text-xs text-ink/50">
-        Weather data by{" "}
-        <a
-          href="https://open-meteo.com/"
-          className="underline decoration-ink/25 underline-offset-2 transition-colors hover:text-ink"
-        >
-          Open-Meteo
-        </a>
-      </p>
     </div>
   );
 }

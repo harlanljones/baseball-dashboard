@@ -13,6 +13,13 @@
   --color-hot: #be3e2e;
   --color-cold: #33689b;
 
+  /* Text-safe accent shades. Bright gold/hot/clay sit on colored chips and
+     dark surfaces; the -deep twins keep AA contrast as text on day-game
+     paper/card (verified ≥4.5:1 against every surface they land on). */
+  --color-gold-deep: #85600e;
+  --color-hot-deep: #9c342a;
+  --color-clay-deep: #8f3f22;
+
   /* Header/footer chrome height — the game page's split pane sizes itself
      against these so its viewport-height calc stays truthful. */
   --spacing-header: 2.875rem;
@@ -27,7 +34,9 @@
   --font-display: var(--font-barlow), var(--font-plex-sans), sans-serif;
 }
 
-/* Night game: the green structure stays constant; surfaces and accents adapt. */
+/* Night game: the green structure stays constant; surfaces and accents adapt.
+   The -deep text shades flip to their bright night equivalents, which clear
+   AA comfortably against the dark field palette. */
 @media (prefers-color-scheme: dark) {
   :root {
     --color-paper: #101613;
@@ -35,14 +44,23 @@
     --color-ink: #e8eae6;
     --color-grass: #93bfa7;
     --color-gold: #e5b54e;
+    --color-gold-deep: #e5b54e;
     --color-clay: #c97a55;
+    --color-clay-deep: #d68f70;
     --color-hot: #e07b6c;
+    --color-hot-deep: #e07b6c;
     --color-cold: #82aecf;
   }
 }
 
 html {
   font-family: var(--font-sans);
+  scrollbar-color: color-mix(in srgb, var(--color-ink) 30%, transparent) transparent;
+}
+
+::selection {
+  background: var(--color-field);
+  color: var(--color-paper);
 }
 
 :focus-visible {
@@ -53,6 +71,72 @@ html {
 /* Tabular figures keep box-score and linescore columns aligned. */
 .nums {
   font-variant-numeric: tabular-nums;
+}
+
+/* Graded-stat direction markers: hot/cold cell color never carries the
+   meaning alone — each graded value also gets its triangle. Empty alt text
+   keeps screen readers on the number (the table caption + legend carry the
+   semantics in words). */
+.stat-good::before {
+  content: "▲" / "";
+  font-size: 0.6em;
+  vertical-align: 0.15em;
+  margin-right: 1px;
+  opacity: 0.75;
+}
+.stat-bad::before {
+  content: "▼" / "";
+  font-size: 0.6em;
+  vertical-align: 0.15em;
+  margin-right: 1px;
+  opacity: 0.75;
+}
+
+/* Data-resolve reveal: content that replaces a skeleton cross-fades up in,
+   one authored moment per async section (never a scatter over every tab).
+   Safe because the keyframes only set the FROM frame — the element's resting
+   state is fully visible whether or not the animation runs. */
+@keyframes fade-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+}
+.fade-in {
+  animation: fade-in 0.3s ease-out;
+}
+
+/* Live-value feedback: a score or lean that just changed pops to draw the
+   eye. Keyed remount (not state) replays it; inline-block lets it scale. */
+@keyframes score-pop {
+  0% {
+    transform: scale(1);
+  }
+  35% {
+    transform: scale(1.12);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+.score-pop {
+  display: inline-block;
+  animation: score-pop 0.42s cubic-bezier(0.22, 1, 0.36, 1);
+  will-change: transform;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+  .animate-pulse {
+    animation: none;
+    opacity: 1;
+  }
+  .fade-in,
+  .score-pop {
+    animation: none;
+  }
 }
 
 /* Section label: condensed caps with a gold scoreboard tick. */

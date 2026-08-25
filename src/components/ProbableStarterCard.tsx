@@ -22,7 +22,7 @@ function SplitRow({
 }) {
   return (
     <tr className="border-t border-ink/10">
-      <td className="py-1 pr-2 text-left text-ink/60">{label}</td>
+      <td className="py-1 pr-2 text-left text-ink/65">{label}</td>
       <td className="font-mono py-1 px-2 text-right">{split?.ip ?? "—"}</td>
       <td className={`font-mono py-1 px-2 text-right ${statClass("era", split?.era)}`}>
         {split?.era ?? "—"}
@@ -44,7 +44,7 @@ function SeasonStat({
 }) {
   return (
     <div className="min-w-0">
-      <div className="font-display text-xs font-semibold uppercase tracking-wider text-ink/50">
+      <div className="font-display text-xs font-semibold uppercase tracking-wider text-ink/65">
         {label}
       </div>
       <div className={`font-mono text-sm ${valueClass ?? ""}`}>{value}</div>
@@ -75,20 +75,20 @@ export default function ProbableStarterCard({
 }) {
   if (!pitcher) {
     return (
-      <div className="min-w-0 rounded-md border border-ink/10 p-3">
+      <div className="min-w-0">
         <h3 className="font-display mb-1 text-base font-semibold">{teamName(team)}</h3>
-        <p className="text-sm text-ink/50">Probable starter: TBD</p>
+        <p className="text-sm text-ink/65">Probable starter: TBD</p>
       </div>
     );
   }
 
   return (
-    <div className="min-w-0 rounded-md border border-ink/10 p-3">
+    <div className="min-w-0">
       <h3 className="font-display mb-2 flex items-center gap-2 text-base font-semibold">
         <PlayerHeadshot personId={pitcher.id} size={28} />
         {pitcher.fullName}
-        {hand && <span className="text-sm font-normal text-ink/50">({hand})</span>}
-        <span className="ml-auto text-sm font-normal text-ink/50">{teamName(team)}</span>
+        {hand && <span className="text-sm font-normal text-ink/65">({hand})</span>}
+        <span className="ml-auto text-sm font-normal text-ink/65">{teamName(team)}</span>
       </h3>
 
       <div className="mb-3 grid grid-cols-4 gap-2 border-b border-ink/10 pb-3">
@@ -112,13 +112,13 @@ export default function ProbableStarterCard({
         </caption>
         <thead>
           <tr>
-            <th scope="col" className="font-display py-1 pr-2 text-left text-xs font-semibold uppercase tracking-wider text-ink/50">
+            <th scope="col" className="font-display py-1 pr-2 text-left text-xs font-semibold uppercase tracking-wider text-ink/65">
               Split
             </th>
-            <th scope="col" className="font-display py-1 px-2 text-right text-xs font-semibold uppercase tracking-wider text-ink/50">IP</th>
-            <th scope="col" className="font-display py-1 px-2 text-right text-xs font-semibold uppercase tracking-wider text-ink/50">ERA</th>
-            <th scope="col" className="font-display py-1 px-2 text-right text-xs font-semibold uppercase tracking-wider text-ink/50">BB%</th>
-            <th scope="col" className="font-display py-1 pl-2 text-right text-xs font-semibold uppercase tracking-wider text-ink/50">K%</th>
+            <th scope="col" className="font-display py-1 px-2 text-right text-xs font-semibold uppercase tracking-wider text-ink/65">IP</th>
+            <th scope="col" className="font-display py-1 px-2 text-right text-xs font-semibold uppercase tracking-wider text-ink/65">ERA</th>
+            <th scope="col" className="font-display py-1 px-2 text-right text-xs font-semibold uppercase tracking-wider text-ink/65">BB%</th>
+            <th scope="col" className="font-display py-1 pl-2 text-right text-xs font-semibold uppercase tracking-wider text-ink/65">K%</th>
           </tr>
         </thead>
         <tbody>
@@ -135,7 +135,7 @@ export default function ProbableStarterCard({
           <SplitRow label="vs RHB" split={vsRight} />
           {recentForm && recentForm.starts === 0 ? (
             <tr className="border-t border-ink/10">
-              <td colSpan={5} className="py-1 text-left text-sm text-ink/50">
+              <td colSpan={5} className="py-1 text-left text-sm text-ink/65">
                 No outings in the last 30 days
               </td>
             </tr>
@@ -145,7 +145,7 @@ export default function ProbableStarterCard({
         </tbody>
       </table>
       {!season && (
-        <p className="mt-2 text-xs text-ink/50">Season stats unavailable.</p>
+        <p className="mt-2 text-xs text-ink/65">Season stats unavailable.</p>
       )}
     </div>
   );

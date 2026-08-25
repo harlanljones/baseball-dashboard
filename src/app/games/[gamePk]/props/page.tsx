@@ -63,10 +63,10 @@ export default async function PlayerPropsPage({ params }: { params: Promise<{ ga
   return (
     <div className="mx-auto w-full max-w-[1400px] px-4 py-6 sm:px-6 lg:px-8">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <Link href={`/games/${id}`} className="text-sm text-ink/60 underline-offset-4 hover:text-ink hover:underline">
+        <Link href={`/games/${id}`} className="text-sm text-ink/65 underline-offset-4 hover:text-ink hover:underline">
           Back to game overview
         </Link>
-        <Link href="/" className="text-sm text-ink/60 underline-offset-4 hover:text-ink hover:underline">All games</Link>
+        <Link href="/" className="text-sm text-ink/65 underline-offset-4 hover:text-ink hover:underline">All games</Link>
       </div>
 
       <header className="mt-4 rounded-md border border-ink/10 bg-card p-4 shadow-sm">
@@ -79,13 +79,13 @@ export default async function PlayerPropsPage({ params }: { params: Promise<{ ga
             <TeamLogo teamId={feed.away.team.id} size={32} />
             <span>{feed.away.team.name}</span>
           </div>
-          <span className="font-display text-sm uppercase tracking-[0.14em] text-ink/40">at</span>
+          <span className="font-display text-sm uppercase tracking-[0.14em] text-ink/65">at</span>
           <div className="flex items-center gap-2.5 font-display text-2xl font-semibold md:justify-end">
             <TeamLogo teamId={feed.home.team.id} size={32} />
             <span>{feed.home.team.name}</span>
           </div>
         </div>
-        <div className="mt-3 flex flex-wrap gap-x-4 gap-y-1 border-t border-ink/10 pt-3 text-xs text-ink/50">
+        <div className="mt-3 flex flex-wrap gap-x-4 gap-y-1 border-t border-ink/10 pt-3 text-xs text-ink/65">
           {feed.venue && <span>{[feed.venue, feed.venueCity].filter(Boolean).join(", ")}</span>}
           {feed.probablePitchers.away && <span>{feed.away.team.abbreviation} probable: {feed.probablePitchers.away.fullName}</span>}
           {feed.probablePitchers.home && <span>{feed.home.team.abbreviation} probable: {feed.probablePitchers.home.fullName}</span>}
@@ -93,7 +93,7 @@ export default async function PlayerPropsPage({ params }: { params: Promise<{ ga
       </header>
 
       <nav aria-label="Game detail navigation" className="mt-4 flex gap-1 border-b border-ink/10">
-        <Link href={`/games/${id}`} className="px-3 py-2 text-sm text-ink/55 hover:text-ink">Overview</Link>
+        <Link href={`/games/${id}`} className="px-3 py-2 text-sm text-ink/65 hover:text-ink">Overview</Link>
         <Link href={`/games/${id}/props`} aria-current="page" className="border-b-2 border-gold px-3 py-2 text-sm font-semibold text-ink">Player props</Link>
       </nav>
 
@@ -101,13 +101,13 @@ export default async function PlayerPropsPage({ params }: { params: Promise<{ ga
         {!isPreview ? (
           <div className="rounded-md border border-dashed border-ink/20 bg-card px-5 py-12 text-center">
             <h1 className="font-display text-xl font-semibold uppercase">Player props are closed</h1>
-            <p className="mx-auto mt-2 max-w-md text-sm text-ink/55">Prop analysis is available while the game is in preview. Return to the overview for live or final game data.</p>
+            <p className="mx-auto mt-2 max-w-md text-sm text-ink/65">Prop analysis is available while the game is in preview. Return to the overview for live or final game data.</p>
           </div>
         ) : (
           <>
             <div className="mb-4">
               <h1 className="font-display text-3xl font-bold uppercase leading-none tracking-wide">Player props</h1>
-              <p className="mt-1 text-sm text-ink/55">Compare weighted leans for this game. Scores are research signals, not guarantees.</p>
+              <p className="mt-1 max-w-xl text-sm text-ink/65">Compare weighted leans for this game. Scores are research signals, not guarantees.</p>
             </div>
             <PlayerPropsBoard groups={groups} gameHref={`/games/${id}`} />
           </>

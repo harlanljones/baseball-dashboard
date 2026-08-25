@@ -20,7 +20,7 @@ function TeamRow({
 }) {
   return (
     <div
-      className={`flex items-center justify-between gap-2 ${loser ? "text-ink/50" : ""}`}
+      className={`flex items-center justify-between gap-2 ${loser ? "text-ink/65" : ""}`}
     >
       <div className="flex min-w-0 items-baseline gap-2">
         <span className="self-center">
@@ -30,7 +30,7 @@ function TeamRow({
           {side.team.name}
         </span>
         {recordText(side) && (
-          <span className="nums shrink-0 text-xs text-ink/50">
+          <span className="nums shrink-0 text-xs text-ink/65">
             {recordText(side)}
           </span>
         )}
@@ -54,7 +54,7 @@ function ProbableRow({
   return (
     <span className="flex min-w-0 items-center gap-1.5">
       {pitcher && <PlayerHeadshot personId={pitcher.id} size={18} />}
-      <span className="shrink-0 text-ink/40">{abbr}</span>
+      <span className="shrink-0 text-ink/65">{abbr}</span>
       <span className="truncate">{pitcher?.fullName ?? "TBD"}</span>
     </span>
   );
@@ -78,7 +78,7 @@ export default function GameCard({ game }: { game: ScheduleGame }) {
       <div className="mb-2.5 flex items-center justify-between">
         <GameStatusBadge game={game} />
         {game.state === "Preview" && (
-          <span className="font-mono text-xs text-ink/60">
+          <span className="font-mono text-xs text-ink/65">
             <LocalTime iso={game.gameDate} />
           </span>
         )}
@@ -90,7 +90,7 @@ export default function GameCard({ game }: { game: ScheduleGame }) {
       </div>
 
       {(hasProbables || game.venue) && (
-        <div className="mt-3 space-y-1 border-t border-ink/10 pt-2 text-xs text-ink/60">
+        <div className="mt-3 space-y-1 border-t border-ink/10 pt-2 text-xs text-ink/65">
           {hasProbables && (
             <div className="flex flex-wrap gap-x-4 gap-y-1">
               <ProbableRow

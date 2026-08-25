@@ -11,6 +11,7 @@ import BallparkWeather from "@/components/BallparkWeather";
 import GameStatusBadge from "@/components/GameStatusBadge";
 import HeadToHead from "@/components/HeadToHead";
 import Linescore from "@/components/Linescore";
+import ScorePop from "@/components/ScorePop";
 import MatchupsSection from "@/components/MatchupsSection";
 import ProbableStartersSection from "@/components/ProbableStartersSection";
 import GameLogSection from "@/components/GameLogSection";
@@ -50,7 +51,7 @@ async function safe<T>(p: Promise<T>): Promise<T | null> {
 
 function SectionError({ label }: { label: string }) {
   return (
-    <p className="rounded-md border border-clay/40 bg-clay/10 px-3 py-2 text-sm text-clay">
+    <p className="rounded-md border border-clay/40 bg-clay/10 px-3 py-2 text-sm text-clay-deep">
       Couldn’t load {label} right now.
     </p>
   );
@@ -68,11 +69,38 @@ function Section({
   return (
     <section className="rounded-md border border-ink/10 bg-card p-4 shadow-sm">
       <div className="mb-3 flex items-baseline justify-between gap-3">
-        <h2 className="eyebrow text-base">{title}</h2>
+        <h2 className="eyebrow text-lg">{title}</h2>
         {aside}
       </div>
       {children}
     </section>
+  );
+}
+
+/**
+ * Reference-tier section (season series, game log): same card, but collapsed
+ * behind its own title so the research path isn't buried under reference data.
+ */
+function CollapsibleSection({
+  title,
+  children,
+}: {
+  title: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <details className="group rounded-md border border-ink/10 bg-card p-4 shadow-sm">
+      <summary className="flex cursor-pointer list-none items-baseline justify-between gap-3 [&::-webkit-details-marker]:hidden">
+        <h2 className="eyebrow text-base transition-colors group-hover:text-ink">{title}</h2>
+        <span
+          aria-hidden
+          className="text-ink/65 transition-transform group-open:rotate-180"
+        >
+          ▾
+        </span>
+      </summary>
+      <div className="mt-3">{children}</div>
+    </details>
   );
 }
 
@@ -225,7 +253,7 @@ export default async function GamePage({
     <>
       <Link
         href="/"
-        className="inline-block text-sm text-ink/60 hover:text-ink"
+        className="inline-block text-sm text-ink/65 hover:text-ink"
       >
         ← All games
       </Link>
@@ -239,12 +267,12 @@ export default async function GamePage({
           <GameStatusBadge game={{ state: feed.state, detailedState: feed.detailedState }} />
           <div className="flex items-center gap-4">
             {isPreview && feed.startTime && (
-              <span className="font-mono text-sm text-ink/60">
+              <span className="font-mono text-sm text-ink/65">
                 <LocalTime iso={feed.startTime} weekday />
               </span>
             )}
             {!isDisrupted && isPreview && (
-              <Link href={`/games/${id}/props`} className="rounded-md border border-gold/50 px-2.5 py-1 text-xs font-semibold text-gold hover:bg-gold/10">
+              <Link href={`/games/${id}/props`} className="rounded-md border border-gold-deep/40 px-2.5 py-1 text-xs font-semibold text-gold-deep hover:bg-gold/10">
                 Analyze player props
               </Link>
             )}
@@ -257,9 +285,7 @@ export default async function GamePage({
             {feed.away.team.name}
           </span>
           {scored && (
-            <span className="font-mono text-xl font-semibold">
-              {feed.away.score ?? "-"}
-            </span>
+            <ScorePop value={feed.away.score ?? "-"} className="font-mono text-xl font-semibold" />
           )}
         </div>
         <div className="mt-1 flex items-center justify-between">
@@ -268,20 +294,18 @@ export default async function GamePage({
             {feed.home.team.name}
           </span>
           {scored && (
-            <span className="font-mono text-xl font-semibold">
-              {feed.home.score ?? "-"}
-            </span>
+            <ScorePop value={feed.home.score ?? "-"} className="font-mono text-xl font-semibold" />
           )}
         </div>
 
         {feed.venue && (
-          <p className="mt-2 text-xs text-ink/50">
+          <p className="mt-2 text-xs text-ink/65">
             {[feed.venue, feed.venueCity].filter(Boolean).join(", ")}
           </p>
         )}
 
         {feed.state === "Final" && (d?.winner || d?.loser) && (
-          <p className="mt-3 border-t border-ink/10 pt-2 text-xs text-ink/60">
+          <p className="mt-3 border-t border-ink/10 pt-2 text-xs text-ink/65">
             {d?.winner && <>W: {d.winner.fullName}</>}
             {d?.loser && <> · L: {d.loser.fullName}</>}
             {d?.save && <> · SV: {d.save.fullName}</>}
@@ -289,7 +313,7 @@ export default async function GamePage({
         )}
 
         {isPreview && (feed.probablePitchers.away || feed.probablePitchers.home) && (
-          <div className="mt-3 border-t border-ink/10 pt-2 text-sm text-ink/60">
+          <div className="mt-3 border-t border-ink/10 pt-2 text-sm text-ink/65">
             <span className="mr-3">Probables:</span>
             <span className="inline-flex flex-wrap items-center gap-x-5 gap-y-1 align-middle">
               {(["away", "home"] as const).map((side) => {
@@ -297,7 +321,7 @@ export default async function GamePage({
                 return (
                   <span key={side} className="inline-flex items-center gap-1.5">
                     {pitcher && <PlayerHeadshot personId={pitcher.id} size={22} />}
-                    <span className="text-ink/40">
+                    <span className="text-ink/65">
                       {teamName(feed[side].team)}
                     </span>
                     {pitcher?.fullName ?? "TBD"}
@@ -310,8 +334,8 @@ export default async function GamePage({
       </div>
 
       {isDisrupted && (
-        <p className="rounded-md border border-clay/40 bg-clay/10 px-3 py-2 text-sm text-clay">
-          This game is {feed.detailedState.toLowerCase()}.
+        <p className="rounded-md border border-ink/15 bg-field/5 px-3 py-2 text-sm text-ink/75">
+          This game is {feed.detailedState.toLowerCase()}. Sections below reflect season data, not today’s result.
         </p>
       )}
     </>
@@ -356,13 +380,13 @@ export default async function GamePage({
               </Section>
             )}
 
-            {/* Game log */}
+            {/* Game log (reference tier) */}
             {scored && !isDisrupted && (
-              <Section title="Game log">
+              <CollapsibleSection title="Game log">
                 <Suspense fallback={<SectionSkeleton />}>
                   <GameLogSection feed={feed} />
                 </Suspense>
-              </Section>
+              </CollapsibleSection>
             )}
 
             {/* 2. Bullpen (also from the feed) */}
@@ -376,12 +400,12 @@ export default async function GamePage({
                 </Section>
               )}
 
-            {/* 3. Head-to-head */}
-            <Section title="Season series">
+            {/* 3. Head-to-head (reference tier) */}
+            <CollapsibleSection title="Season series">
               <Suspense fallback={<SectionSkeleton />}>
                 <HeadToHeadSection feed={feed} season={season} />
               </Suspense>
-            </Section>
+            </CollapsibleSection>
 
             {/* 4. Batter vs pitcher */}
             <Section title="Matchups">
@@ -389,7 +413,17 @@ export default async function GamePage({
             </Section>
 
             {/* 5. Sabermetrics */}
-            <Section title="Sabermetric evaluations">
+            <Section
+              title="Sabermetric evaluations"
+              aside={
+                <a
+                  href="/glossary"
+                  className="text-xs text-grass underline underline-offset-2 hover:text-field-deep dark:hover:text-grass"
+                >
+                  Glossary
+                </a>
+              }
+            >
               <RosterStatsSection gamePk={id} />
             </Section>
           </>

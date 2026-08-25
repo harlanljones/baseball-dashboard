@@ -1,4 +1,5 @@
 import TeamLogo from "./TeamLogo";
+import StatGradeLegend from "./StatGradeLegend";
 import { statClass } from "@/lib/statColor";
 import type { TeamBoxscore } from "@/lib/mlb/types";
 
@@ -9,7 +10,7 @@ function Th({ children, first }: { children: React.ReactNode; first?: boolean })
   return (
     <th
       scope="col"
-      className={`font-display px-2 py-1 text-xs font-semibold uppercase tracking-wider text-ink/50 ${first ? "text-left" : "text-right"}`}
+      className={`font-display px-2 py-1 text-xs font-semibold uppercase tracking-wider text-ink/65 ${first ? "text-left" : "text-right"}`}
     >
       {children}
     </th>
@@ -49,7 +50,7 @@ function TeamBox({ box, isLive }: { box: TeamBoxscore; isLive?: boolean }) {
               >
                 <td className="px-2 py-1 text-left">
                   {b.name}
-                  <span className="ml-1 text-xs text-ink/50">
+                  <span className="ml-1 text-xs text-ink/65">
                     {b.position}
                   </span>
                 </td>
@@ -116,9 +117,12 @@ export default function BoxscoreTables({
   isLive?: boolean;
 }) {
   return (
-    <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-      <TeamBox box={away} isLive={isLive} />
-      <TeamBox box={home} isLive={isLive} />
+    <div>
+      <StatGradeLegend className="mb-4" />
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+        <TeamBox box={away} isLive={isLive} />
+        <TeamBox box={home} isLive={isLive} />
+      </div>
     </div>
   );
 }

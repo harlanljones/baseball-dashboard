@@ -24,11 +24,11 @@ type State =
 
 function teamBody(team: TeamPayload) {
   if (!team.hitters || !team.pitchers) {
-    return <p className="text-ink/50 text-sm">No roster data available.</p>;
+    return <p className="text-ink/65 text-sm">No roster data available.</p>;
   }
   if (team.hitters.length === 0 && team.pitchers.length === 0) {
     return (
-      <p className="text-ink/50 text-sm">No season stats available for this team.</p>
+      <p className="text-ink/65 text-sm">No season stats available for this team.</p>
     );
   }
   return (
@@ -91,7 +91,7 @@ export default function RosterStatsSection({ gamePk }: { gamePk: number }) {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="fade-in space-y-6">
       {teamBody(state.away)}
       {teamBody(state.home)}
     </div>

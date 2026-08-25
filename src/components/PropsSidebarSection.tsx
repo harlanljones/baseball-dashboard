@@ -13,7 +13,7 @@ import {
   getPitcherRecentFormBatch,
   getPitcherSituationalSplitBatch,
 } from "@/lib/mlb/players";
-import PropsSidebar, { type PropPlayerGroup, type PropTeamGroup } from "./PropsSidebar";
+import type { PropPlayerGroup, PropTeamGroup } from "@/lib/odds/board";
 
 async function safe<T>(p: Promise<T>): Promise<T | null> {
   try {
@@ -193,12 +193,4 @@ export async function loadPropGroups({
   ].filter((g) => g.players.length > 0);
 
   return groups;
-}
-
-export default async function PropsSidebarSection(props: {
-  feed: GameFeed;
-  season: number;
-  weather: GameWeather | null;
-}) {
-  return <PropsSidebar groups={await loadPropGroups(props)} />;
 }

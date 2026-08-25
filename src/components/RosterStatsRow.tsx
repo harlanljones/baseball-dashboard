@@ -58,7 +58,7 @@ export function HitterRow({ position, name, stats, classes }: HitterRowProps) {
       <td className="px-3 py-2 font-medium text-ink truncate">{name}</td>
       <td className={`px-3 py-2 font-mono text-right ${classes.war}`}>{dec2(stats?.war)}</td>
       <td className={`px-3 py-2 font-mono text-right ${classes.wrcPlus}`}>{int(stats?.wrcPlus)}</td>
-      <td className="px-3 py-2 font-mono text-right text-ink/60">{int(stats?.pa)}</td>
+      <td className="px-3 py-2 font-mono text-right text-ink/65">{int(stats?.pa)}</td>
       <td className={`px-3 py-2 font-mono text-right ${classes.woba}`}>{rate3(stats?.woba)}</td>
       <td className={`px-3 py-2 font-mono text-right ${classes.xwoba}`}>{rate3(stats?.xwoba ?? stats?.woba)}</td>
       <td className={`px-3 py-2 font-mono text-right ${classes.bbPct}`}>{pct(stats?.bbPct)}</td>
@@ -74,7 +74,7 @@ export function PitcherRow({ position, name, stats, classes }: PitcherRowProps) 
       <td className="px-3 py-2 font-medium text-ink truncate">{name}</td>
       <td className={`px-3 py-2 font-mono text-right ${classes.war}`}>{dec2(stats?.war)}</td>
       <td className={`px-3 py-2 font-mono text-right ${classes.eraMinus}`}>{int(stats?.eraMinus)}</td>
-      <td className="px-3 py-2 font-mono text-right text-ink/60">{stats?.ip ?? "—"}</td>
+      <td className="px-3 py-2 font-mono text-right text-ink/65">{stats?.ip ?? "—"}</td>
       <td className={`px-3 py-2 font-mono text-right ${classes.era}`}>{stats?.era ?? "—"}</td>
       <td className={`px-3 py-2 font-mono text-right ${classes.fip}`}>{dec2(stats?.fip)}</td>
       <td className={`px-3 py-2 font-mono text-right ${classes.xfip}`}>{dec2(stats?.xfip)}</td>

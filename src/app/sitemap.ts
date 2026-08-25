@@ -7,5 +7,10 @@ export default function sitemap(): MetadataRoute.Sitemap {
       changeFrequency: "daily",
       priority: 1,
     },
+    {
+      url: "https://mlb.harlanljones.com/glossary",
+      changeFrequency: "monthly",
+      priority: 0.5,
+    },
   ];
 }

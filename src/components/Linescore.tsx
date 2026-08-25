@@ -39,11 +39,13 @@ export default function Linescore({ feed }: { feed: GameFeed }) {
               <th
                 key={i.num}
                 scope="col"
+                aria-current={i.num === currentInning ? "true" : undefined}
                 className={`w-7 px-1 py-0.5 text-center font-semibold ${
-                  i.num === currentInning ? "text-gold" : "text-white/60"
+                  i.num === currentInning ? "text-gold underline decoration-gold decoration-2 underline-offset-2" : "text-white/70"
                 }`}
               >
                 {i.num}
+                {i.num === currentInning && <span className="sr-only"> (in progress)</span>}
               </th>
             ))}
             <Gap header />

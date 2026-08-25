@@ -27,7 +27,7 @@ function formatDate(iso: string): string {
 function TeamMini({ team, lost }: { team: TeamRef; lost: boolean }) {
   return (
     <span
-      className={`inline-flex min-w-0 items-center gap-1.5 ${lost ? "text-ink/50" : "font-medium"}`}
+      className={`inline-flex min-w-0 items-center gap-1.5 ${lost ? "text-ink/65" : "font-medium"}`}
     >
       <TeamLogo teamId={team.id} size={16} />
       <span className="truncate">{name(team)}</span>
@@ -81,7 +81,7 @@ export default function HeadToHead({ h2h }: { h2h: HeadToHeadData }) {
   const rows = buildRows(h2h);
 
   return (
-    <div>
+    <div className="fade-in">
       <p className="mb-3 text-sm text-ink/70">{seriesSummary(h2h)}</p>
 
       {rows.length > 0 && (
@@ -93,22 +93,22 @@ export default function HeadToHead({ h2h }: { h2h: HeadToHeadData }) {
             </caption>
             <thead>
               <tr>
-                <th scope="col" className="font-display px-2 py-1 text-left text-xs font-semibold uppercase tracking-wider text-ink/50">
+                <th scope="col" className="font-display px-2 py-1 text-left text-xs font-semibold uppercase tracking-wider text-ink/65">
                   Date
                 </th>
-                <th scope="col" className="font-display px-2 py-1 text-left text-xs font-semibold uppercase tracking-wider text-ink/50">
+                <th scope="col" className="font-display px-2 py-1 text-left text-xs font-semibold uppercase tracking-wider text-ink/65">
                   Matchup
                 </th>
-                <th scope="col" className="font-display px-2 py-1 text-right text-xs font-semibold uppercase tracking-wider text-ink/50">
+                <th scope="col" className="font-display px-2 py-1 text-right text-xs font-semibold uppercase tracking-wider text-ink/65">
                   Score
                 </th>
-                <th scope="col" className="font-display px-2 py-1 text-right text-xs font-semibold uppercase tracking-wider text-ink/50">
+                <th scope="col" className="font-display px-2 py-1 text-right text-xs font-semibold uppercase tracking-wider text-ink/65">
                   Result
                 </th>
                 <th
                   scope="col"
                   title={`Running record for ${name(h2h.teamA)}`}
-                  className="font-display px-2 py-1 text-right text-xs font-semibold uppercase tracking-wider text-ink/50"
+                  className="font-display px-2 py-1 text-right text-xs font-semibold uppercase tracking-wider text-ink/65"
                 >
                   {name(h2h.teamA)} record
                 </th>
@@ -128,29 +128,29 @@ export default function HeadToHead({ h2h }: { h2h: HeadToHeadData }) {
                 return (
                   <tr key={m.gamePk} className="border-t border-ink/10 odd:bg-ink/5">
                     <td className="px-2 py-1 text-left">
-                      <Link href={`/games/${m.gamePk}`} className="text-ink/50 hover:text-grass hover:underline">
+                      <Link href={`/games/${m.gamePk}`} className="text-ink/65 hover:text-grass hover:underline">
                         {formatDate(m.date)}
                       </Link>
                     </td>
                     <td className="px-2 py-1 text-left">
                       <Link href={`/games/${m.gamePk}`} className="flex min-w-0 items-center gap-1.5 hover:text-grass">
                         <TeamMini team={m.away.team} lost={awayLost} />
-                        <span className="shrink-0 text-ink/40">@</span>
+                        <span className="shrink-0 text-ink/65">@</span>
                         <TeamMini team={m.home.team} lost={homeLost} />
                       </Link>
                     </td>
                     <td
-                      className={`font-mono px-2 py-1 text-right ${isFinal ? "font-semibold" : "text-ink/50"}`}
+                      className={`font-mono px-2 py-1 text-right ${isFinal ? "font-semibold" : "text-ink/65"}`}
                     >
                       {scoreText(m)}
                     </td>
                     <td className="px-2 py-1 text-right">
                       {teamAWon == null ? (
-                        <span className="text-ink/40">–</span>
+                        <span className="text-ink/65">–</span>
                       ) : (
                         <span
                           className={`inline-flex h-5 w-5 items-center justify-center rounded font-mono text-xs font-semibold ${
-                            teamAWon ? "bg-grass/15 text-grass" : "text-ink/40"
+                            teamAWon ? "bg-grass/15 text-grass" : "text-ink/65"
                           }`}
                         >
                           {teamAWon ? "W" : "L"}

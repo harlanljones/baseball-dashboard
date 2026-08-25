@@ -4,12 +4,15 @@
  * colored text. Values inside the neutral band between the two thresholds —
  * roughly average performance — get no color.
  *
+ * The `stat-good`/`stat-bad` hooks add the ▲/▼ direction marker from
+ * globals.css, and text uses the AA-safe `-deep` shades in day mode.
+ *
  * BABIP is deliberately absent: it is largely luck-driven, so grading it as
  * good/bad would mislead.
  */
 
-export const GOOD_CLASS = "bg-hot/15 text-hot";
-export const BAD_CLASS = "bg-cold/15 text-cold";
+export const GOOD_CLASS = "bg-hot/15 text-hot-deep stat-good";
+export const BAD_CLASS = "bg-cold/15 text-cold stat-bad";
 
 export interface QuantileBand {
   lower: number;
