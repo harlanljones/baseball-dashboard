@@ -20,8 +20,9 @@ sponsored by Major League Baseball or any MLB club.
 - **Sabermetric context** including wOBA, wRC+, WAR, BABIP, ERA-, FIP, and xFIP.
 - **Ballpark weather** from Open-Meteo, including wind direction relative to home
   plate and roof-aware presentation.
-- **Optional player props** from The Odds API. The sidebar stays hidden and the
-  rest of the game page remains available when no API key is configured.
+- **Optional player props** from SportsGameOdds (primary) with The Odds API as
+  an automatic fallback. The sidebar stays hidden and the rest of the game page
+  remains available when no API key is configured.
 - **Fail-soft sections** so a single unavailable upstream endpoint does not take
   down the entire game page.
 
@@ -31,7 +32,7 @@ sponsored by Major League Baseball or any MLB club.
 | --- | --- |
 | Framework | Next.js 16 App Router, React 19, TypeScript |
 | Styling | Tailwind CSS 4 |
-| Data | MLB Stats API, Open-Meteo, optional The Odds API |
+| Data | MLB Stats API, Open-Meteo, optional SportsGameOdds (primary) and The Odds API (fallback) |
 | State | Stateless application; Next.js fetch caching backed by Cloudflare R2 in production |
 | Tests | Vitest |
 | Runtime | Cloudflare Workers through `@opennextjs/cloudflare` |
@@ -57,7 +58,8 @@ Open <http://localhost:3000>. To inspect a specific date, use
 
 | Variable | Required | Purpose |
 | --- | --- | --- |
-| `ODDS_API_KEY` | No | Server-only [The Odds API](https://the-odds-api.com/) key used by the player-props sidebar. |
+| `SPORTSGAMEODDS_API_KEY` | No | Server-only [SportsGameOdds](https://sportsgameodds.com/) key. Primary provider for the player-props sidebar and best-leans board. |
+| `ODDS_API_KEY` | No | Server-only [The Odds API](https://the-odds-api.com/) key used as the fallback provider when SportsGameOdds is unset or returns no lines. |
 
 Never commit `.env.local`, `.dev.vars`, or API credentials. The provided
 [`.env.example`](.env.example) contains the complete variable inventory.

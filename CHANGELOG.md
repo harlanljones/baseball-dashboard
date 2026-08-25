@@ -8,6 +8,22 @@ All notable changes to this project will be documented here. The format follows
 
 ### Added
 
+- SportsGameOdds as the primary player-prop odds provider: one cached
+  league-wide request per 6-hour window prices the whole slate's tracked prop
+  markets (per-event billing keeps the free tier inside its monthly budget),
+  with FanDuel → DraftKings → BetMGM bookmaker preference and matched-line
+  pairing per book.
+- Automatic fallback to The Odds API whenever the primary provider is unset,
+  errors, resolves no event, or posts zero props for a matchup.
+- `SPORTSGAMEODDS_API_KEY` environment variable (`.env.example`, deployment,
+  and security docs updated alongside the existing `ODDS_API_KEY`).
+
+### Changed
+
+- Player-prop loading is now provider-agnostic (`loadGamePlayerProps`), so the
+  game-page sidebar, props page, and best-leans board require no per-provider
+  logic and keep failing soft to an empty board.
+
 - Public contribution, conduct, security, deployment, publishing, and data-source guidance.
 - GitHub Actions validation for linting, type checking, tests, and production builds.
 - Reproducible Bun toolchain and repository metadata.

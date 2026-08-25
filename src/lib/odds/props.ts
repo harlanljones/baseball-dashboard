@@ -1,4 +1,6 @@
-import { oddsFetch, TTL } from "./client";
+import { oddsFetch, TTL, getOddsApiKey } from "./client";
+import { findTheOddsApiEvent, resolveOddsEvent } from "./events";
+import { getSgoPlayerProps } from "./sgo";
 import type { PlayerProp, PropMarketKey } from "./types";
 
 const PROP_MARKETS: PropMarketKey[] = [
@@ -34,7 +36,7 @@ interface RawEventOdds {
 }
 
 /**
- * Fetches player-prop odds for one Odds API event across the 7 tracked
+ * Fetches player-prop odds for one The Odds API event across the 7 tracked
  * markets, from the first bookmaker in the response. Only outcome pairs
  * where both Over and Under exist with the same line are kept.
  */
@@ -78,4 +80,34 @@ export async function getPlayerProps(eventId: string): Promise<PlayerProp[]> {
   }
 
   return props;
+}
+
+/**
+ * Loads the tracked prop board for one MLB game, provider-agnostically.
+ *
+ * SportsGameOdds (primary) is consulted whenever its key is configured; a
+ * failed request, an unresolved matchup, or an *empty* prop board — lines
+ * often post later than the event listing itself — falls through to The
+ * Odds API when `ODDS_API_KEY` is configured. Every failure mode resolves
+ * to `[]`; this function never throws, so callers stay fail-soft.
+ */
+export async function loadGamePlayerProps(
+  awayTeamName: string,
+  homeTeamName: string,
+  startTimeISO: string,
+): Promise<PlayerProp[]> {
+  const resolved = await resolveOddsEvent(awayTeamName, homeTeamName, startTimeISO);
+  if (!resolved) return [];
+
+  if (resolved.provider === "the-odds-api") {
+    return getPlayerProps(resolved.eventId).catch(() => []);
+  }
+
+  const primaryProps = await getSgoPlayerProps(resolved.eventId).catch(() => []);
+  if (primaryProps.length > 0) return primaryProps;
+
+  if (!getOddsApiKey()) return [];
+  const fallbackEventId = await findTheOddsApiEvent(awayTeamName, homeTeamName, startTimeISO);
+  if (!fallbackEventId) return [];
+  return getPlayerProps(fallbackEventId).catch(() => []);
 }

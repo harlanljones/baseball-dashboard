@@ -10,6 +10,15 @@ export type PropMarketKey =
   | "batter_rbis"
   | "batter_walks";
 
+/** Which upstream provider resolved a game's odds event. */
+export type OddsProvider = "sgo" | "the-odds-api";
+
+/** A game resolved to one provider's event id; ids are only valid within their provider. */
+export interface ResolvedOddsEvent {
+  provider: OddsProvider;
+  eventId: string;
+}
+
 /** One sportsbook's Over/Under line for one player in one market. */
 export interface PlayerProp {
   marketKey: PropMarketKey;

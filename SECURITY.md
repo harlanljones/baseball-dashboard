@@ -23,6 +23,7 @@ framework is involved.
 
 ## Secrets
 
-The only application secret is `ODDS_API_KEY`. It must stay in `.env.local`,
+The application secrets are `SPORTSGAMEODDS_API_KEY` (primary odds provider)
+and `ODDS_API_KEY` (fallback odds provider). They must stay in `.env.local`,
 `.dev.vars`, Cloudflare secrets, or CI secret storage. If a key is committed or
 printed in logs, revoke it immediately before removing it from the repository.

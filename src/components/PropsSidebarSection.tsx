@@ -1,7 +1,6 @@
 import type { GameFeed, PitcherSplitLine, PlayerRef, TeamRef, VsPlayerLine, SplitLine } from "@/lib/mlb/types";
 import type { GameWeather } from "@/lib/weather/types";
-import { findOddsEvent } from "@/lib/odds/events";
-import { getPlayerProps } from "@/lib/odds/props";
+import { loadGamePlayerProps } from "@/lib/odds/props";
 import { matchPlayerName } from "@/lib/odds/playerMatch";
 import { matchupEvidence, scoreProp, type MatchupContext, type StatContext } from "@/lib/odds/highlight";
 import type { PlayerProp, ScoredProp } from "@/lib/odds/types";
@@ -47,12 +46,10 @@ export async function loadPropGroups({
   season: number;
   weather: GameWeather | null;
 }): Promise<PropTeamGroup[]> {
-  const eventId = await safe(
-    findOddsEvent(feed.away.team.name, feed.home.team.name, feed.startTime),
-  );
-  if (!eventId) return [];
-
-  const props = (await safe(getPlayerProps(eventId))) ?? [];
+  const props =
+    (await safe(
+      loadGamePlayerProps(feed.away.team.name, feed.home.team.name, feed.startTime),
+    )) ?? [];
   if (props.length === 0) return [];
 
   const [awayRoster, homeRoster] = await Promise.all([

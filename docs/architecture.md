@@ -15,7 +15,8 @@ Browser
   └─ Next.js routes and Server Components
        ├─ MLB Stats API        scores, feeds, rosters, and player stats
        ├─ Open-Meteo           venue forecasts
-       └─ The Odds API         optional player props
+       ├─ SportsGameOdds       primary player-prop odds
+       └─ The Odds API         fallback player-prop odds
             └─ Next fetch cache → OpenNext incremental cache → Cloudflare R2
 ```
 
@@ -72,10 +73,15 @@ interaction that requires browser state:
 
 ### Odds (`src/lib/odds`)
 
-The Odds API path is optional and fail-closed. `client.ts` reads the server-only
-`ODDS_API_KEY` and strips it from error URLs. The remaining modules find the MLB
-event, parse player props, match player names, and rank contextually interesting
-lines. No key means no sidebar; it never blocks core game data.
+Odds are optional and fail-closed. `sgo.ts` is the primary provider
+(SportsGameOdds): header-based auth, a cached league-wide request that serves
+the whole slate per TTL window, statID-to-market mapping, bookmaker preference,
+and prop parsing. `events.ts` resolves a game to a provider-tagged event id,
+falling back to The Odds API (`client.ts`, which reads the server-only
+`ODDS_API_KEY` and strips it from error URLs) on error or missing coverage;
+`props.ts` owns both providers' parsers plus the top-level cascade that also
+falls back when the primary returns an empty board. No key means no sidebar;
+it never blocks core game data.
 
 ### Weather (`src/lib/weather`)
 

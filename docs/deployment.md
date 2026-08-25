@@ -45,13 +45,14 @@ The OpenNext deploy command populates the remote incremental cache and then
 deploys the Worker. The first deployment applies the Durable Object migration
 declared in `wrangler.jsonc`.
 
-To enable player props, set the runtime secret interactively:
+To enable player props, set the runtime secrets interactively:
 
 ```bash
-bunx wrangler secret put ODDS_API_KEY
+bunx wrangler secret put SPORTSGAMEODDS_API_KEY  # primary provider
+bunx wrangler secret put ODDS_API_KEY            # optional fallback provider
 ```
 
-Do not place the key in `wrangler.jsonc`, a shell command argument, or a tracked
+Do not place keys in `wrangler.jsonc`, a shell command argument, or a tracked
 file. Confirm the deployed home page, a completed game, a live/preview game when
 available, and a player matchup route after deployment.
 
@@ -67,8 +68,9 @@ the existing Worker under **Settings → Builds**, then use:
 | Deploy command | `bunx opennextjs-cloudflare deploy` |
 
 The Worker name in Cloudflare must match `name` in `wrangler.jsonc`. Configure
-`ODDS_API_KEY` as both a build secret and a runtime secret if props are enabled;
-do not commit it. Because this Worker includes a Durable Object binding,
+`SPORTSGAMEODDS_API_KEY` (and `ODDS_API_KEY` if the fallback is wanted) as both
+build secrets and runtime secrets when props are enabled;
+do not commit them. Because this Worker includes a Durable Object binding,
 non-production branch builds do not receive Cloudflare preview URLs.
 
 GitHub Actions performs validation only and has no Cloudflare credentials. This

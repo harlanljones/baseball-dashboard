@@ -22,11 +22,125 @@ const mono = IBM_Plex_Mono({
 });
 
 export const metadata: Metadata = {
+  metadataBase: new URL("https://mlb.harlanljones.com"),
   title: {
-    default: "Baseball Dashboard",
+    default: "MLB Baseball Dashboard — Live Sabermetric Scores & Matchups | Harlan Jones",
     template: "%s · Baseball Dashboard",
   },
-  description: "Today's MLB scores, matchups, and sabermetric player evaluations.",
+  description: "Today's MLB scores, sabermetric matchups, ballpark weather, bullpen workload, and player evaluations by Harlan Jones.",
+  keywords: [
+    "MLB",
+    "baseball analytics",
+    "sabermetrics",
+    "baseball dashboard",
+    "MLB scores",
+    "bullpen workload",
+    "ballpark weather",
+    "player props",
+    "Harlan Jones",
+  ],
+  authors: [{ name: "Harlan Jones", url: "https://www.harlanljones.com/" }],
+  creator: "Harlan Jones",
+  publisher: "Harlan Jones",
+  alternates: {
+    canonical: "https://mlb.harlanljones.com/",
+  },
+  robots: {
+    index: true,
+    follow: true,
+    googleBot: {
+      index: true,
+      follow: true,
+      "max-image-preview": "large",
+      "max-snippet": -1,
+      "max-video-preview": -1,
+    },
+  },
+  openGraph: {
+    type: "website",
+    url: "https://mlb.harlanljones.com/",
+    siteName: "MLB Baseball Dashboard by Harlan Jones",
+    title: "MLB Baseball Dashboard — Live Sabermetric Scores & Matchups",
+    description: "Today's MLB scores, sabermetric matchups, ballpark weather, bullpen workload, and player evaluations.",
+    locale: "en_US",
+  },
+  twitter: {
+    card: "summary",
+    title: "MLB Baseball Dashboard — Live Sabermetric Scores & Matchups",
+    description: "Today's MLB scores, sabermetric matchups, ballpark weather, and player evaluations.",
+  },
+};
+
+const jsonLd = {
+  "@context": "https://schema.org",
+  "@graph": [
+    {
+      "@type": "WebSite",
+      "@id": "https://mlb.harlanljones.com/#website",
+      name: "MLB Baseball Dashboard",
+      url: "https://mlb.harlanljones.com/",
+      description: "Today's MLB scores, sabermetric matchups, ballpark weather, bullpen workload, and player evaluations.",
+      inLanguage: "en-US",
+      isPartOf: {
+        "@type": "WebSite",
+        "@id": "https://www.harlanljones.com/#website",
+        "name": "Harlan Jones Portfolio",
+        "url": "https://www.harlanljones.com/",
+      },
+      publisher: {
+        "@id": "https://www.harlanljones.com/#person",
+      },
+      author: {
+        "@id": "https://www.harlanljones.com/#person",
+      },
+    },
+    {
+      "@type": "WebApplication",
+      "@id": "https://mlb.harlanljones.com/#app",
+      name: "MLB Baseball Dashboard",
+      alternateName: "Sabermetric Baseball Matchup Dashboard",
+      url: "https://mlb.harlanljones.com/",
+      description: "Live MLB scoreboard and game-day research dashboard with sabermetric matchup statistics, ballpark weather, bullpen workload, and player props.",
+      applicationCategory: "SportsApplication",
+      operatingSystem: "All modern browsers",
+      codeRepository: "https://github.com/harlanljones/baseball-dashboard",
+      author: {
+        "@id": "https://www.harlanljones.com/#person",
+      },
+      creator: {
+        "@id": "https://www.harlanljones.com/#person",
+      },
+      offers: {
+        "@type": "Offer",
+        price: "0",
+        priceCurrency: "USD",
+      },
+    },
+    {
+      "@type": "Person",
+      "@id": "https://www.harlanljones.com/#person",
+      name: "Harlan Jones",
+      alternateName: "Harlan L. Jones",
+      givenName: "Harlan",
+      familyName: "Jones",
+      jobTitle: "Software Developer",
+      url: "https://www.harlanljones.com/",
+      sameAs: [
+        "https://github.com/harlanljones",
+        "https://www.linkedin.com/in/harlanljones/"
+      ],
+      worksFor: {
+        "@type": "Organization",
+        name: "PrimeIQ.ai",
+        url: "https://primeiq.ai",
+      },
+      alumniOf: {
+        "@type": "EducationalOrganization",
+        name: "Boston University",
+        url: "https://www.bu.edu",
+      },
+    },
+  ],
 };
 
 const directionContract = `<!--
@@ -48,6 +162,12 @@ export default function RootLayout({
       lang="en"
       className={`h-full antialiased ${display.variable} ${sans.variable} ${mono.variable}`}
     >
+      <head>
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+        />
+      </head>
       <body className="min-h-full flex flex-col bg-paper text-ink">
         <template
           data-direction-contract="matchup-board"

@@ -26,7 +26,7 @@ Users begin with the daily MLB slate, may scan a cross-game summary of the day's
 
 ## Capabilities and Constraints
 
-- The application uses MLB game and player data, ballpark weather, and optional player-prop odds from The Odds API.
+- The application uses MLB game and player data, ballpark weather, and optional player-prop odds from SportsGameOdds with The Odds API as a fallback provider.
 - Player-prop features must remain optional and fail softly when odds, statistics, weather, or an API credential are unavailable.
 - The dedicated prop-analysis page covers one game. A separate component covers the best leans across all games on the selected slate.
 - Every scored prop exposes model confidence, statistical edge, market value, and a cumulative score.
@@ -42,7 +42,7 @@ Preserve the Baseball Dashboard name and its concise, evidence-first voice. The 
 - MLB scores, schedules, rosters, player statistics, probable starters, matchup history, and play-by-play data.
 - Sabermetric context including wOBA, wRC+, WAR, BABIP, ERA-, FIP, and xFIP.
 - Ballpark weather and wind context from Open-Meteo.
-- Player-prop lines and prices from The Odds API when configured.
+- Player-prop lines and prices from SportsGameOdds when configured, with The Odds API as a fallback when the primary is unavailable or has no lines.
 - Existing prop evidence includes season average relative to the line, weather-sensitive adjustments, recent form, home/away context, platoon context, and batter-versus-pitcher history where available.
 - No outcome guarantees, user testimonials, or independently validated prediction-performance claims are on hand and none should be fabricated.
 
