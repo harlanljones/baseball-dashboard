@@ -30,6 +30,19 @@ const MAX_LEANS = 5;
 const LEANS_TTL = 5 * 60;
 
 /**
+ * How long an empty slate is remembered, in seconds.
+ *
+ * Short, because an empty result is usually a passing failure — a rate-limited
+ * key, a provider timeout, lines not yet posted — and pinning it would keep
+ * serving nothing long after the data recovered. But not zero: recomputing on
+ * every request turns a rate-limited provider into a request amplifier, where
+ * each retry earns another 429 and the outage sustains itself. A minute is
+ * long enough to let a rate-limit window clear, short enough that nobody
+ * notices the wait.
+ */
+const EMPTY_TTL = 60;
+
+/**
  * One row of the cross-slate leans list, flattened to exactly what the row
  * renders. Keeping this narrow rather than shipping whole `ScheduleGame` and
  * `ScoredProp` objects is what keeps the lazy-loaded payload small.
@@ -120,10 +133,11 @@ async function computeBestLeans(date: string): Promise<SlateLean[]> {
 class NoLeans extends Error {}
 
 /**
- * The scored slate, cached by date in the shared incremental cache so a whole
- * slate is ranked once per {@link LEANS_TTL} rather than once per visitor.
+ * A scored slate, kept for {@link LEANS_TTL}. Throwing on an empty result is
+ * what keeps this layer holding only real slates: a rejected promise is never
+ * persisted, so a passing failure cannot claim the long TTL.
  */
-const cachedBestLeans = unstable_cache(
+const cachedScoredSlate = unstable_cache(
   async (date: string): Promise<SlateLean[]> => {
     const leans = await computeBestLeans(date);
     if (leans.length === 0) throw new NoLeans();
@@ -134,6 +148,27 @@ const cachedBestLeans = unstable_cache(
 );
 
 /**
+ * The outcome either way, kept for {@link EMPTY_TTL}.
+ *
+ * Two layers because the two outcomes deserve different lifetimes. A real
+ * slate rides the long TTL underneath; an empty one is remembered only here,
+ * for a minute, which is what stops a failing provider from being retried on
+ * every single request without pinning the emptiness for five.
+ */
+const cachedOutcome = unstable_cache(
+  async (date: string): Promise<SlateLean[]> => {
+    try {
+      return await cachedScoredSlate(date);
+    } catch (error) {
+      if (error instanceof NoLeans) return [];
+      throw error;
+    }
+  },
+  ["best-leans-outcome"],
+  { revalidate: EMPTY_TTL, tags: ["best-leans"] },
+);
+
+/**
  * The strongest scored leans across a slate, best first.
  *
  * The date is resolved before it reaches the cache so "today" can never key the
@@ -141,10 +176,5 @@ const cachedBestLeans = unstable_cache(
  * Eastern-time rollover.
  */
 export async function getBestLeans(date?: string): Promise<SlateLean[]> {
-  try {
-    return await cachedBestLeans(date ?? easternToday());
-  } catch (error) {
-    if (error instanceof NoLeans) return [];
-    throw error;
-  }
+  return cachedOutcome(date ?? easternToday());
 }
