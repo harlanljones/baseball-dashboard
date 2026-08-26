@@ -108,13 +108,30 @@ async function computeBestLeans(date: string): Promise<SlateLean[]> {
 }
 
 /**
+ * Signals "nothing to cache" out of the cached scope.
+ *
+ * An empty slate is never a fact worth storing. Every upstream here is
+ * fail-soft — a provider timeout, a rate-limited key, or lines that have not
+ * posted yet all surface as zero leans — so caching that result would pin a
+ * passing failure into the shared cache and keep serving it long after the
+ * data recovered. A rejected promise is not persisted, so throwing is what
+ * keeps the empty case cheap *and* self-healing.
+ */
+class NoLeans extends Error {}
+
+/**
  * The scored slate, cached by date in the shared incremental cache so a whole
  * slate is ranked once per {@link LEANS_TTL} rather than once per visitor.
  */
-const cachedBestLeans = unstable_cache(computeBestLeans, ["best-leans"], {
-  revalidate: LEANS_TTL,
-  tags: ["best-leans"],
-});
+const cachedBestLeans = unstable_cache(
+  async (date: string): Promise<SlateLean[]> => {
+    const leans = await computeBestLeans(date);
+    if (leans.length === 0) throw new NoLeans();
+    return leans;
+  },
+  ["best-leans"],
+  { revalidate: LEANS_TTL, tags: ["best-leans"] },
+);
 
 /**
  * The strongest scored leans across a slate, best first.
@@ -124,5 +141,10 @@ const cachedBestLeans = unstable_cache(computeBestLeans, ["best-leans"], {
  * Eastern-time rollover.
  */
 export async function getBestLeans(date?: string): Promise<SlateLean[]> {
-  return cachedBestLeans(date ?? easternToday());
+  try {
+    return await cachedBestLeans(date ?? easternToday());
+  } catch (error) {
+    if (error instanceof NoLeans) return [];
+    throw error;
+  }
 }
