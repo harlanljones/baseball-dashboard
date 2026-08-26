@@ -1,19 +1,14 @@
+"use client";
+
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import PlayerHeadshot from "./PlayerHeadshot";
-import { loadPropGroups } from "./PropsSidebarSection";
-import {
-  DEFAULT_WEIGHTS,
-  MARKET_LABELS,
-  calculateScore,
-  leanAnchorId,
-} from "@/lib/odds/board";
-import { getLiveFeed, seasonOf } from "@/lib/mlb/game";
-import type { ScheduleGame } from "@/lib/mlb/types";
-import type { ScoredProp } from "@/lib/odds/types";
+import { LeansHeader, LeansRowBlock } from "./BestLeansSkeleton";
+import { MARKET_LABELS } from "@/lib/odds/board";
+import type { SlateLean } from "@/lib/odds/leans";
 
-function leanPrice(prop: ScoredProp): number {
-  return prop.direction === "over" ? prop.overPrice : prop.underPrice;
-}
+/** Start fetching a little before the plate reaches the viewport. */
+const ROOT_MARGIN = "200px";
 
 function formatPrice(value: number): string {
   return value > 0 ? `+${value}` : `${value}`;
@@ -27,77 +22,143 @@ function DirectionChip({ direction }: { direction: "over" | "under" }) {
   );
 }
 
-export default async function BestLeansSection({ games }: { games: ScheduleGame[] }) {
-  const previewGames = games.filter((game) => game.state === "Preview").slice(0, 8);
-  const results = await Promise.all(
-    previewGames.map(async (game) => {
-      try {
-        const feed = await getLiveFeed(game.gamePk);
-        const groups = await loadPropGroups({ feed, season: seasonOf(feed), weather: null });
-        return groups.flatMap((group) =>
-          group.players.flatMap((player) =>
-            player.props.map((prop) => ({
-              game,
-              prop: player.evidence.length ? { ...prop, evidence: [...player.evidence, ...prop.evidence] } : prop,
-            })),
-          ),
-        );
-      } catch {
-        return [];
-      }
-    }),
-  );
-  const leans = results
-    .flat()
-    .map((item) => ({ ...item, score: calculateScore(item.prop, DEFAULT_WEIGHTS) }))
-    .filter((item): item is (typeof item) & { score: number } => item.score != null)
-    .sort((a, b) => b.score - a.score)
-    .slice(0, 5);
+type State =
+  | { status: "pending" }
+  | { status: "ready"; leans: SlateLean[] };
 
-  if (leans.length === 0) {
+/**
+ * The strongest leans across the slate, loaded when the plate scrolls into
+ * view rather than with the page.
+ *
+ * The data behind this list costs a provider-wide odds board plus a prop
+ * lookup per game — seconds of work for a section the visitor may never reach.
+ * Deferring it keeps that off the document entirely, so the games grid is not
+ * merely first to paint but the only thing the response waits for.
+ *
+ * The plate holds its full height from the first frame in every state, so the
+ * grid below never moves when the leans land.
+ */
+export default function BestLeansSection({ date }: { date?: string }) {
+  const [state, setState] = useState<State>({ status: "pending" });
+  const ref = useRef<HTMLElement>(null);
+
+  useEffect(() => {
+    const node = ref.current;
+    if (!node) return;
+
+    let cancelled = false;
+    const load = async () => {
+      try {
+        const res = await fetch(
+          `/api/best-leans${date ? `?date=${encodeURIComponent(date)}` : ""}`,
+        );
+        const data = (await res.json()) as { leans?: SlateLean[] };
+        if (!cancelled) setState({ status: "ready", leans: data.leans ?? [] });
+      } catch {
+        if (!cancelled) setState({ status: "ready", leans: [] });
+      }
+    };
+
+    // No IntersectionObserver (or an already-visible plate) simply loads now.
+    if (typeof IntersectionObserver === "undefined") {
+      void load();
+      return () => {
+        cancelled = true;
+      };
+    }
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries.some((e) => e.isIntersecting)) {
+          observer.disconnect();
+          void load();
+        }
+      },
+      { rootMargin: ROOT_MARGIN },
+    );
+    observer.observe(node);
+
+    return () => {
+      cancelled = true;
+      observer.disconnect();
+    };
+  }, [date]);
+
+  if (state.status === "pending") {
     return (
-      <section className="mb-5 rounded-md border border-dashed border-ink/20 bg-card p-4">
-        <h2 className="eyebrow text-base">Best leans across the slate</h2>
-        <p className="mt-1 max-w-xl text-sm text-ink/65">
-          No scored leans today — player-prop odds may be unavailable, or no edge clears the default weights.
-        </p>
+      <section
+        ref={ref}
+        role="status"
+        className="mb-5 rounded-md border border-ink/10 bg-card p-4 shadow-sm"
+      >
+        <LeansHeader note="Reading the slate…" />
+        <span className="sr-only">Loading best leans across the slate</span>
+        <LeansRowBlock className="animate-pulse" />
+      </section>
+    );
+  }
+
+  if (state.leans.length === 0) {
+    // The plate keeps the height it reserved — mounting the same row block
+    // invisibly is what holds it, so the games grid never jumps. Only the rows
+    // go invisible: the block's rules stay, so an odds-less slate reads as an
+    // empty plate on the board rather than as a gap where a section failed.
+    return (
+      <section
+        ref={ref}
+        className="fade-in mb-5 rounded-md border border-dashed border-ink/20 bg-card p-4"
+      >
+        <LeansHeader note="Research signals only" />
+        <div className="relative">
+          <LeansRowBlock className="[&>*]:invisible" />
+          <p className="absolute inset-0 flex items-center justify-center px-4 text-center text-sm text-ink/65">
+            No scored leans today — player-prop odds may be unavailable, or no edge
+            clears the default weights.
+          </p>
+        </div>
       </section>
     );
   }
 
   return (
-    <section className="mb-5 rounded-md border border-ink/10 bg-card p-4 shadow-sm">
-      <div className="flex flex-wrap items-end justify-between gap-2">
-        <div>
-          <h2 className="eyebrow text-base">Best leans across the slate</h2>
-          <p className="mt-1 text-xs text-ink/65">
-            Default weights: confidence {DEFAULT_WEIGHTS.modelConfidence}% · edge {DEFAULT_WEIGHTS.statisticalEdge}% · value {DEFAULT_WEIGHTS.marketValue}%
-          </p>
-        </div>
-        <span className="text-xs text-ink/65">Research signals only</span>
-      </div>
+    <section
+      ref={ref}
+      className="fade-in mb-5 rounded-md border border-ink/10 bg-card p-4 shadow-sm"
+    >
+      <LeansHeader note="Research signals only" />
       <div className="mt-3 divide-y divide-ink/10 border-y border-ink/10">
-        {leans.map(({ game, prop, score: leanScore }) => (
+        {state.leans.map((lean) => (
           <Link
-            key={`${game.gamePk}-${prop.player.id}-${prop.marketKey}-${prop.line}`}
-            href={`/games/${game.gamePk}/props#${leanAnchorId(prop)}`}
+            key={`${lean.gamePk}-${lean.playerId}-${lean.marketKey}-${lean.line}`}
+            href={`/games/${lean.gamePk}/props#${lean.anchor}`}
             className="group grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-3 px-1 py-3 hover:bg-paper"
           >
-            <PlayerHeadshot personId={prop.player.id} size={28} />
+            <PlayerHeadshot personId={lean.playerId} size={28} />
             <div className="min-w-0">
               <div className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
-                <span className="font-display font-semibold">{prop.player.fullName}</span>
-                <span className="text-xs text-ink/65">{game.away.team.abbreviation} at {game.home.team.abbreviation}</span>
+                <span className="font-display font-semibold">{lean.playerName}</span>
+                <span className="text-xs text-ink/65">{lean.matchup}</span>
               </div>
               <div className="mt-0.5 flex flex-wrap gap-x-2 gap-y-1 text-xs">
-                <DirectionChip direction={prop.direction} />
-                <span className="text-ink/75">{MARKET_LABELS[prop.marketKey]} {prop.line}</span>
-                <span className="nums font-mono text-ink/65">{formatPrice(leanPrice(prop))}</span>
+                <DirectionChip direction={lean.direction} />
+                <span className="text-ink/75">
+                  {MARKET_LABELS[lean.marketKey]} {lean.line}
+                </span>
+                <span className="nums font-mono text-ink/65">
+                  {formatPrice(lean.price)}
+                </span>
               </div>
             </div>
             <div className="flex items-center gap-2">
-              <span className="nums font-mono text-lg font-semibold text-gold-deep">{leanScore.toFixed(1)}</span>
-              <span aria-hidden className="text-ink/35 transition-transform group-hover:translate-x-0.5">→</span>
+              <span className="nums font-mono text-lg font-semibold text-gold-deep">
+                {lean.score.toFixed(1)}
+              </span>
+              <span
+                aria-hidden
+                className="text-ink/35 transition-transform group-hover:translate-x-0.5"
+              >
+                →
+              </span>
             </div>
           </Link>
         ))}

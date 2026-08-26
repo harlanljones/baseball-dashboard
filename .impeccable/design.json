@@ -1,0 +1,109 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-08-25T22:30:00Z",
+  "title": "Design System: Baseball Dashboard",
+  "extensions": {
+    "colorMeta": {
+      "field": { "role": "primary", "displayName": "Field Green", "canonical": "#173f2c" },
+      "field-deep": { "role": "primary", "displayName": "Deep Infield", "canonical": "#0e2a1d" },
+      "grass": { "role": "secondary", "displayName": "Outfield Grass", "canonical": "#22543c", "tonalRamp": ["#0f2a1e", "#173f2c", "#22543c", "#2e6b4e", "#4a8a68", "#6fa885", "#93bfa7", "#c2dccd"] },
+      "gold": { "role": "secondary", "displayName": "Scoreboard Gold", "canonical": "#d9a13b", "tonalRamp": ["#5c4208", "#85600e", "#b3831a", "#d9a13b", "#e5b54e", "#efc97e", "#f5dba6", "#fbeed2"] },
+      "hot": { "role": "tertiary", "displayName": "Hot Streak Red", "canonical": "#be3e2e", "tonalRamp": ["#5c1710", "#9c342a", "#be3e2e", "#d4574a", "#e07b6c", "#eba294", "#f5c8bf", "#fce8e4"] },
+      "cold": { "role": "tertiary", "displayName": "Cold Slump Blue", "canonical": "#33689b", "tonalRamp": ["#1a334c", "#24496e", "#33689b", "#4a83b5", "#82aecf", "#a8c6de", "#c6dbec", "#e4eff8"] },
+      "clay": { "role": "tertiary", "displayName": "Warning Track Clay", "canonical": "#a8542f", "tonalRamp": ["#542412", "#8f3f22", "#a8542f", "#c07048", "#c97a55", "#d68f70", "#e3ab90", "#f1cec0"] },
+      "paper": { "role": "neutral", "displayName": "Day-Game Paper", "canonical": "#f5f5f0" },
+      "card": { "role": "neutral", "displayName": "Card White", "canonical": "#ffffff" },
+      "ink": { "role": "neutral", "displayName": "Scorebook Ink", "canonical": "#1b2420" }
+    },
+    "typographyMeta": {
+      "display": { "displayName": "Scoreboard Condensed", "purpose": "Uppercase headings and section eyebrows with gold tick." },
+      "data": { "displayName": "LED Mono", "purpose": "Every numeral, price, and statistic — always tabular." }
+    },
+    "shadows": [
+      { "name": "resting-lift", "value": "0 1px 2px rgb(0 0 0 / 0.05)", "purpose": "Section and slate cards at rest." },
+      { "name": "floating-chrome", "value": "0 4px 6px -1px rgb(0 0 0 / 0.1)", "purpose": "Live-status pill only." }
+    ],
+    "motion": [
+      { "name": "live-pulse", "value": "animate-pulse (Tailwind), disabled under prefers-reduced-motion", "purpose": "Live badge dot and status pill dot only." }
+    ],
+    "breakpoints": [
+      { "name": "sm", "value": "640px" },
+      { "name": "md", "value": "768px" },
+      { "name": "lg", "value": "1024px" },
+      { "name": "xl", "value": "1280px" }
+    ]
+  },
+  "components": [
+    {
+      "name": "Section Card",
+      "kind": "card",
+      "refersTo": "section-card",
+      "description": "The flat ruled panel every section lives in.",
+      "html": "<section class=\"ds-card\"><h2 class=\"ds-eyebrow\">Probable starters</h2><p class=\"ds-body\">Content sits on hairline rules, never nested boxes.</p></section>",
+      "css": ".ds-card{background:#fff;border:1px solid rgb(27 36 32 / .1);border-radius:6px;padding:16px;box-shadow:0 1px 2px rgb(0 0 0 / .05)} @media (prefers-color-scheme: dark){.ds-card{background:#18211c}} .ds-eyebrow{display:flex;align-items:center;gap:.5rem;font-family:'Barlow Condensed',sans-serif;font-weight:600;font-size:18px;letter-spacing:.06em;text-transform:uppercase} .ds-eyebrow::before{content:'';width:.3125rem;height:1em;background:#d9a13b} .ds-body{margin-top:.5rem;font:14px/1.5 'IBM Plex Sans',sans-serif}"
+    },
+    {
+      "name": "Primary CTA",
+      "kind": "button",
+      "refersTo": "cta-gold",
+      "description": "Gold outlined call-to-action (Analyze player props).",
+      "html": "<button class=\"ds-cta\">Analyze player props</button>",
+      "css": ".ds-cta{cursor:pointer;border-radius:6px;border:1px solid rgb(133 96 14 / .4);padding:4px 10px;font-size:12px;font-weight:600;color:#85600e;background:transparent;transition:background .15s} .ds-cta:hover{background:rgb(217 161 59 / .1)} .ds-cta:focus-visible{outline:2px solid #22543c;outline-offset:2px}"
+    },
+    {
+      "name": "Live Status Badge",
+      "kind": "chip",
+      "refersTo": "status-badge-live",
+      "description": "Solid gold scoreboard chip with pulsing dot for live innings.",
+      "html": "<span class=\"ds-badge\"><span class=\"ds-dot\"></span>TOP 7TH</span>",
+      "css": ".ds-badge{display:inline-flex;align-items:center;gap:6px;border-radius:2px;padding:2px 8px;background:#d9a13b;color:#0e2a1d;font-family:'Barlow Condensed',sans-serif;font-weight:600;font-size:12px;text-transform:uppercase;letter-spacing:.05em} .ds-dot{width:6px;height:6px;border-radius:50%;background:#0e2a1d;animation:ds-pulse 2s infinite} @keyframes ds-pulse{50%{opacity:.35}} @media (prefers-reduced-motion: reduce){.ds-dot{animation:none}}",
+      "note": ""
+    },
+    {
+      "name": "Direction Chip",
+      "kind": "chip",
+      "refersTo": null,
+      "description": "Neutral Over/Under chip — words carry meaning, color stays out.",
+      "html": "<span class=\"ds-dir\">OVER</span>",
+      "css": ".ds-dir{display:inline-block;border:1px solid rgb(27 36 32 / .25);border-radius:2px;padding:1px 4px;font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.08em;color:rgb(27 36 32 / .75)}"
+    },
+    {
+      "name": "Graded Stat Cell",
+      "kind": "custom",
+      "refersTo": null,
+      "description": "Hot/cold graded value with mandatory ▲/▼ marker.",
+      "html": "<table class=\"ds-t\"><tr><td class=\"ds-good\">&#9650; 134</td><td class=\"ds-bad\">&#9660; 4.85</td></tr></table>",
+      "css": ".ds-t{border-collapse:collapse;font-family:'IBM Plex Mono',monospace;font-variant-numeric:tabular-nums;font-size:14px} .ds-good{background:rgb(190 62 46 / .15);color:#9c342a;padding:4px 10px;text-align:right} .ds-bad{background:rgb(51 104 155 / .15);color:#33689b;padding:4px 10px;text-align:right}",
+      "note": "Markers ship via ::before with empty alt text in the real app."
+    }
+  ],
+  "narrative": {
+    "northStar": "The Night Scoreboard",
+    "overview": "A ballpark scoreboard that runs research: constant field-green structure, gold marking what matters now, monospace numerals wired like LED plates. Operate-mode density with brand in precise details.",
+    "keyCharacteristics": [
+      "Field-green chrome + gold accents on paper/night surfaces",
+      "Barlow Condensed eyebrows with gold tick",
+      "IBM Plex Mono tabular numerals everywhere data appears",
+      "Flat ruled panels; hairlines over nested boxes",
+      "Evidence-first: color + marker + words for every graded signal"
+    ],
+    "rules": [
+      { "name": "The One Goodness Rule", "body": "Graded stats: hot-red is good, cold-blue is bad, everywhere; lean strength alone speaks in grass/gold.", "section": "colors" },
+      { "name": "The Deep-Twin Rule", "body": "Bright accents for chips/ticks/fills/dark; -deep twins are the only small day-mode text form.", "section": "colors" },
+      { "name": "Clay Means Broken", "body": "Clay is reserved for failures — never scores, directions, or schedule facts.", "section": "colors" },
+      { "name": "The Tick Rule", "body": "No kicker above a heading; the gold-tick eyebrow heading stands alone.", "section": "typography" },
+      { "name": "The Ruled-Panel Rule", "body": "Group with spacing and hairlines; never nest bordered boxes inside bordered boxes.", "section": "elevation" }
+    ],
+    "dos": [
+      "Do pair every graded color with its triangle marker and keep legends near tables",
+      "Do use -deep accent twins for small text on day surfaces",
+      "Do set all statistics in Plex Mono with tabular figures"
+    ],
+    "donts": [
+      "Don't rely on color alone for direction, score, or state",
+      "Don't put clay on anything that isn't a failure",
+      "Don't nest bordered boxes inside bordered boxes",
+      "Don't add a kicker above a heading"
+    ]
+  }
+}

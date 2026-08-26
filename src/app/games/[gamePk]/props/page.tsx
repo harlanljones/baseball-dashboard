@@ -6,6 +6,7 @@ import LocalTime from "@/components/LocalTime";
 import PlayerPropsBoard from "@/components/PlayerPropsBoard";
 import TeamLogo from "@/components/TeamLogo";
 import { loadPropGroups } from "@/components/PropsSidebarSection";
+import { propContextFromFeed } from "@/lib/odds/board";
 import { getLiveFeed, seasonOf } from "@/lib/mlb/game";
 import { MlbApiError } from "@/lib/mlb/client";
 import type { GameFeed } from "@/lib/mlb/types";
@@ -58,7 +59,16 @@ export default async function PlayerPropsPage({ params }: { params: Promise<{ ga
         }),
       )
     : null;
-  const groups = isPreview ? await loadPropGroups({ feed, season: seasonOf(feed), weather }) : [];
+  // Passing the feed opts this surface into the per-player matchup evidence it
+  // renders beneath each prop.
+  const groups = isPreview
+    ? await loadPropGroups({
+        game: propContextFromFeed(feed),
+        season: seasonOf(feed),
+        weather,
+        feed,
+      })
+    : [];
 
   return (
     <div className="mx-auto w-full max-w-[1400px] px-4 py-6 sm:px-6 lg:px-8">

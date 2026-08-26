@@ -1,4 +1,12 @@
-import type { GameFeed, PitcherSplitLine, PlayerRef, TeamRef, VsPlayerLine, SplitLine } from "@/lib/mlb/types";
+import type {
+  GameFeed,
+  PitcherRecentForm,
+  PitcherSplitLine,
+  PlayerRef,
+  SplitLine,
+  TeamRef,
+  VsPlayerLine,
+} from "@/lib/mlb/types";
 import type { GameWeather } from "@/lib/weather/types";
 import { loadGamePlayerProps } from "@/lib/odds/props";
 import { matchPlayerName } from "@/lib/odds/playerMatch";
@@ -13,7 +21,7 @@ import {
   getPitcherRecentFormBatch,
   getPitcherSituationalSplitBatch,
 } from "@/lib/mlb/players";
-import type { PropPlayerGroup, PropTeamGroup } from "@/lib/odds/board";
+import type { PropGameContext, PropPlayerGroup, PropTeamGroup } from "@/lib/odds/board";
 
 async function safe<T>(p: Promise<T>): Promise<T | null> {
   try {
@@ -37,38 +45,50 @@ function findEntry(name: string, entries: RosterEntry[]): RosterEntry | null {
   return entries.find((e) => e.player.id === matched.id) ?? null;
 }
 
+/**
+ * Scored prop board for one game, grouped by team then player.
+ *
+ * `game` carries everything the board itself needs. `feed` is optional and buys
+ * exactly one thing: the per-player matchup evidence lines (batter-vs-starter,
+ * platoon, pitcher recent form and home/road split), which cost several
+ * upstream lookups per game. Callers that render that evidence pass the feed;
+ * the slate-wide leans, which show only the score, omit it and skip the work.
+ * Scores are identical either way — `scoreProp` never reads matchup context.
+ */
 export async function loadPropGroups({
-  feed,
+  game,
   season,
   weather,
+  feed = null,
 }: {
-  feed: GameFeed;
+  game: PropGameContext;
   season: number;
   weather: GameWeather | null;
+  feed?: GameFeed | null;
 }): Promise<PropTeamGroup[]> {
   const props =
     (await safe(
-      loadGamePlayerProps(feed.away.team.name, feed.home.team.name, feed.startTime),
+      loadGamePlayerProps(game.away.name, game.home.name, game.startTime),
     )) ?? [];
   if (props.length === 0) return [];
 
   const [awayRoster, homeRoster] = await Promise.all([
-    safe(getRosterWithSeasonStats(feed.away.team.id, season)),
-    safe(getRosterWithSeasonStats(feed.home.team.id, season)),
+    safe(getRosterWithSeasonStats(game.away.id, season)),
+    safe(getRosterWithSeasonStats(game.home.id, season)),
   ]);
 
   const pitcherEntries: RosterEntry[] = (
     [
-      [feed.probablePitchers.away, feed.away.team],
-      [feed.probablePitchers.home, feed.home.team],
+      [game.probablePitchers.away, game.away],
+      [game.probablePitchers.home, game.home],
     ] as const
   )
     .filter((pair): pair is [PlayerRef, TeamRef] => pair[0] != null)
     .map(([player, team]) => ({ player, team }));
 
   const batterEntries: RosterEntry[] = [
-    ...(awayRoster ?? []).map((r) => ({ player: r.player, team: feed.away.team })),
-    ...(homeRoster ?? []).map((r) => ({ player: r.player, team: feed.home.team })),
+    ...(awayRoster ?? []).map((r) => ({ player: r.player, team: game.away })),
+    ...(homeRoster ?? []).map((r) => ({ player: r.player, team: game.home })),
   ];
 
   const matched: { prop: PlayerProp; entry: RosterEntry; isPitcher: boolean }[] = [];
@@ -91,26 +111,37 @@ export async function loadPropGroups({
   // section (batter vs today's starter) and probable-starter cards (pitcher
   // recent form / home-road split); Next's fetch cache dedupes the repeats.
   // Computed once per player (not per prop) since it doesn't vary by market.
-  const gameDate = easternDateOf(feed.startTime || new Date());
+  //
+  // Only when a feed was supplied: these are the most expensive lookups here,
+  // and a caller that doesn't render evidence shouldn't pay for them.
+  const gameDate = easternDateOf(game.startTime || new Date());
   const pitcherIsHomeById = new Map(
-    pitcherEntries.map((e) => [e.player.id, e.team.id === feed.home.team.id]),
+    pitcherEntries.map((e) => [e.player.id, e.team.id === game.home.id]),
   );
 
-  const [matchups, pitcherRecentFormById, pitcherHomeAwayById] = await Promise.all([
-    safe(buildMatchups(feed, season)),
-    safe(getPitcherRecentFormBatch(pitcherIds, gameDate)).then((m) => m ?? new Map()),
-    // Each pitcher gets whichever home/road split matches this game — group by
-    // side so the batched lookups stay one request per split code.
-    Promise.all(
-      [true, false].map(async (isHome) => {
-        const ids = pitcherIds.filter((id) => (pitcherIsHomeById.get(id) ?? false) === isHome);
-        return ids.length > 0
-          ? ((await safe(getPitcherSituationalSplitBatch(ids, isHome ? "h" : "a", season))) ??
-              new Map())
-          : new Map<number, PitcherSplitLine>();
-      }),
-    ).then(([homeMap, roadMap]) => new Map([...homeMap, ...roadMap])),
-  ]);
+  const [matchups, pitcherRecentFormById, pitcherHomeAwayById] = feed
+    ? await Promise.all([
+        safe(buildMatchups(feed, season)),
+        safe(getPitcherRecentFormBatch(pitcherIds, gameDate)).then((m) => m ?? new Map()),
+        // Each pitcher gets whichever home/road split matches this game — group
+        // by side so the batched lookups stay one request per split code.
+        Promise.all(
+          [true, false].map(async (isHome) => {
+            const ids = pitcherIds.filter(
+              (id) => (pitcherIsHomeById.get(id) ?? false) === isHome,
+            );
+            return ids.length > 0
+              ? ((await safe(getPitcherSituationalSplitBatch(ids, isHome ? "h" : "a", season))) ??
+                  new Map())
+              : new Map<number, PitcherSplitLine>();
+          }),
+        ).then(([homeMap, roadMap]) => new Map([...homeMap, ...roadMap])),
+      ])
+    : [
+        null,
+        new Map<number, PitcherRecentForm>(),
+        new Map<number, PitcherSplitLine>(),
+      ];
 
   const batterMatchupById = new Map<
     number,
@@ -128,14 +159,18 @@ export async function loadPropGroups({
     }
   }
 
+  // Without a feed there is no matchup evidence to attach, and every group's
+  // `evidence` stays empty rather than carrying half-populated contexts.
   const matchupById = new Map<number, MatchupContext>();
-  for (const id of pitcherIds) {
-    matchupById.set(id, {
-      kind: "pitcher",
-      recentForm: pitcherRecentFormById.get(id) ?? undefined,
-      homeAway: pitcherHomeAwayById.get(id) ?? undefined,
-      isHome: pitcherIsHomeById.get(id),
-    });
+  if (feed) {
+    for (const id of pitcherIds) {
+      matchupById.set(id, {
+        kind: "pitcher",
+        recentForm: pitcherRecentFormById.get(id) ?? undefined,
+        homeAway: pitcherHomeAwayById.get(id) ?? undefined,
+        isHome: pitcherIsHomeById.get(id),
+      });
+    }
   }
   for (const id of batterIds) {
     const m = batterMatchupById.get(id);
@@ -145,8 +180,8 @@ export async function loadPropGroups({
   }
 
   const scoredByTeam = new Map<number, ScoredProp[]>([
-    [feed.away.team.id, []],
-    [feed.home.team.id, []],
+    [game.away.id, []],
+    [game.home.id, []],
   ]);
 
   for (const { prop, entry, isPitcher } of matched) {
@@ -188,8 +223,8 @@ export async function loadPropGroups({
   }
 
   const groups: PropTeamGroup[] = [
-    buildTeamGroup(feed.away.team, scoredByTeam.get(feed.away.team.id) ?? []),
-    buildTeamGroup(feed.home.team, scoredByTeam.get(feed.home.team.id) ?? []),
+    buildTeamGroup(game.away, scoredByTeam.get(game.away.id) ?? []),
+    buildTeamGroup(game.home, scoredByTeam.get(game.home.id) ?? []),
   ].filter((g) => g.players.length > 0);
 
   return groups;

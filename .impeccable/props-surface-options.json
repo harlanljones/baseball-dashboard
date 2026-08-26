@@ -1,0 +1,45 @@
+{
+  "title": "Choose the player-props page structure",
+  "question": "Which composition makes it easiest to tune the score, compare leans, and understand why the ranking changed?",
+  "options": [
+    {
+      "id": "matchup-board",
+      "label": "Matchup Board",
+      "kicker": "THE ROLL",
+      "thesis": "Two team columns turn the game into a head-to-head prop board while one shared scoring console governs both sides.",
+      "palette": ["#101613", "#18211c", "#e8eae6", "#e5b54e", "#e07b6c", "#82aecf"],
+      "materials": ["night-game scorecard panels", "hairline inning-grid rules", "gold scoreboard ticks"],
+      "viewport": "Game identity and three compact weight sliders span the top; below, away and home prop columns mirror each other with cumulative-score leaders nearest the center seam.",
+      "risk": "Team symmetry can make cross-team ranking slightly slower when one side has far more props.",
+      "comp": ".impeccable/mocks/decision/matchup-board.webp"
+    },
+    {
+      "id": "market-lanes",
+      "label": "Market Lanes",
+      "thesis": "Props flow through horizontal market lanes so users compare like with like before opening the evidence behind a lean.",
+      "palette": ["#101613", "#18211c", "#e8eae6", "#e5b54e", "#e07b6c", "#82aecf"],
+      "materials": ["night-game scorecard panels", "ruled stat bands", "condensed market labels"],
+      "viewport": "A sticky scoring strip sits under the game header; strikeouts, outs, hits, and total-bases lanes fill the page with ranked cards and visible three-factor bars.",
+      "risk": "A user seeking one player must scan across several lanes unless search and player filters are prominent.",
+      "comp": ".impeccable/mocks/decision/market-lanes.webp"
+    },
+    {
+      "id": "top-lean-story",
+      "label": "Top Lean First",
+      "thesis": "The strongest cumulative lean becomes the focal analysis, followed by a dense ranked board of every alternative.",
+      "palette": ["#101613", "#18211c", "#e8eae6", "#e5b54e", "#e07b6c", "#82aecf"],
+      "materials": ["night-game scorecard panels", "large tabular score readout", "evidence ledger"],
+      "viewport": "The game header and weights lead into one large best-lean module with a three-part score decomposition; the remaining props continue below as a compact sortable table.",
+      "risk": "The focal recommendation may feel overly authoritative unless uncertainty and score proximity are explicit.",
+      "comp": ".impeccable/mocks/decision/top-lean-story.webp"
+    }
+  ],
+  "reroll": {
+    "registers": ["safer", "bolder"]
+  },
+  "buildPath": {
+    "value": "comp",
+    "toggle": true
+  },
+  "steer": true
+}

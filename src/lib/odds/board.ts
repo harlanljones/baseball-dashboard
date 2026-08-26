@@ -1,5 +1,5 @@
 import type { PropMarketKey, ScoredProp } from "@/lib/odds/types";
-import type { PlayerRef, TeamRef } from "@/lib/mlb/types";
+import type { GameFeed, PlayerRef, ScheduleGame, TeamRef } from "@/lib/mlb/types";
 
 /**
  * Shared vocabulary for the player-props surfaces (board + best leans):
@@ -16,6 +16,50 @@ export const MARKET_LABELS: Record<PropMarketKey, string> = {
   batter_rbis: "RBIs",
   batter_walks: "Walks",
 };
+
+/**
+ * The minimum a game must supply for its prop board to load: team identities,
+ * first pitch, and the announced starters.
+ *
+ * Deliberately narrower than `GameFeed`. The slate-wide leans can build one of
+ * these straight from a schedule row, so summarising the whole day no longer
+ * costs one full live-feed fetch per game; the game page passes a context
+ * derived from the feed it already holds.
+ */
+export interface PropGameContext {
+  away: TeamRef;
+  home: TeamRef;
+  /** First pitch, ISO. Used to disambiguate doubleheaders at the odds provider. */
+  startTime: string;
+  probablePitchers: { away?: PlayerRef; home?: PlayerRef };
+}
+
+/** A game page's feed, narrowed to what the prop board actually reads. */
+export function propContextFromFeed(feed: GameFeed): PropGameContext {
+  return {
+    away: feed.away.team,
+    home: feed.home.team,
+    startTime: feed.startTime,
+    probablePitchers: feed.probablePitchers,
+  };
+}
+
+/**
+ * The same context built from a schedule row. The slate already carries teams,
+ * first pitch and both probables, so summarising a day's games costs no extra
+ * upstream request per game.
+ */
+export function propContextFromScheduleGame(game: ScheduleGame): PropGameContext {
+  return {
+    away: game.away.team,
+    home: game.home.team,
+    startTime: game.gameDate,
+    probablePitchers: {
+      away: game.away.probablePitcher,
+      home: game.home.probablePitcher,
+    },
+  };
+}
 
 export type WeightKey = "modelConfidence" | "statisticalEdge" | "marketValue";
 export type Weights = Record<WeightKey, number>;

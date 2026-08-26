@@ -3,8 +3,10 @@ import { Barlow_Condensed, IBM_Plex_Mono, IBM_Plex_Sans } from "next/font/google
 import Link from "next/link";
 import "./globals.css";
 
+// Weights are the ones the UI actually sets. Barlow never renders at 500 and
+// Plex Mono never at 500, so loading them would ship two files nothing asks for.
 const display = Barlow_Condensed({
-  weight: ["500", "600", "700"],
+  weight: ["600", "700"],
   subsets: ["latin"],
   variable: "--font-barlow",
 });
@@ -16,7 +18,7 @@ const sans = IBM_Plex_Sans({
 });
 
 const mono = IBM_Plex_Mono({
-  weight: ["400", "500", "600"],
+  weight: ["400", "600"],
   subsets: ["latin"],
   variable: "--font-plex-mono",
 });
@@ -163,6 +165,10 @@ export default function RootLayout({
       className={`h-full antialiased ${display.variable} ${sans.variable} ${mono.variable}`}
     >
       <head>
+        {/* Every team logo and headshot comes from these two hosts, and the
+            first of them is requested only once the slate HTML has parsed. */}
+        <link rel="preconnect" href="https://www.mlbstatic.com" crossOrigin="" />
+        <link rel="preconnect" href="https://midfield.mlbstatic.com" crossOrigin="" />
         <script
           type="application/ld+json"
           dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
