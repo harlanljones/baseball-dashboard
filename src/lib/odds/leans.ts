@@ -1,3 +1,6 @@
+import { unstable_cache } from "next/cache";
+
+import { easternToday } from "@/lib/mlb/client";
 import { getSchedule } from "@/lib/mlb/schedule";
 import { loadPropGroups } from "@/components/PropsSidebarSection";
 import type { ScheduleGame } from "@/lib/mlb/types";
@@ -14,6 +17,17 @@ const MAX_GAMES = 8;
 
 /** Leans returned to the client. */
 const MAX_LEANS = 5;
+
+/**
+ * How long a scored slate stays good, in seconds.
+ *
+ * The inputs behind a score barely move — the provider's board and the season
+ * stats are both cached for hours — but scoring a slate means parsing a
+ * multi-megabyte board and ranking every prop on it, and that ran on every
+ * single request. Caching the *result* is what collapses it. Five minutes
+ * keeps the list honest as games leave the Preview state.
+ */
+const LEANS_TTL = 5 * 60;
 
 /**
  * One row of the cross-slate leans list, flattened to exactly what the row
@@ -45,8 +59,10 @@ function seasonOf(game: ScheduleGame): number {
  * this list shows scores, never evidence lines, so the lookups behind those
  * lines would be work no reader ever sees. A game whose odds are missing or
  * whose provider call fails contributes nothing rather than failing the slate.
+ *
+ * Uncached — {@link getBestLeans} is the entry point callers should use.
  */
-export async function getBestLeans(date?: string): Promise<SlateLean[]> {
+async function computeBestLeans(date: string): Promise<SlateLean[]> {
   const { games } = await getSchedule(date);
   const previewGames = games.filter((g) => g.state === "Preview").slice(0, MAX_GAMES);
 
@@ -89,4 +105,24 @@ export async function getBestLeans(date?: string): Promise<SlateLean[]> {
     .filter((lean): lean is SlateLean => lean != null)
     .sort((a, b) => b.score - a.score)
     .slice(0, MAX_LEANS);
+}
+
+/**
+ * The scored slate, cached by date in the shared incremental cache so a whole
+ * slate is ranked once per {@link LEANS_TTL} rather than once per visitor.
+ */
+const cachedBestLeans = unstable_cache(computeBestLeans, ["best-leans"], {
+  revalidate: LEANS_TTL,
+  tags: ["best-leans"],
+});
+
+/**
+ * The strongest scored leans across a slate, best first.
+ *
+ * The date is resolved before it reaches the cache so "today" can never key the
+ * same entry as an explicit date — or, worse, serve yesterday's slate after the
+ * Eastern-time rollover.
+ */
+export async function getBestLeans(date?: string): Promise<SlateLean[]> {
+  return cachedBestLeans(date ?? easternToday());
 }
