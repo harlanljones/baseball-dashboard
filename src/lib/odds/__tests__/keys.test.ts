@@ -108,6 +108,25 @@ describe("createPool rotation + failover", () => {
     vi.stubEnv("ODDS_API_KEY", "");
     expect(pool.pick()).toBe("k2");
   });
+
+  it("rotates to a healthy secondary when the primary is rate-limited, without freezing the pool", () => {
+    // Mirrors the prod scenario: old SGO key is exhausted (429 "rate limit"),
+    // new independent key (_2) is healthy. The pool must rotate, not freeze.
+    vi.stubEnv("SPORTSGAMEODDS_API_KEY", "old-exhausted");
+    vi.stubEnv("SPORTSGAMEODDS_API_KEY_2", "new-healthy");
+    const pool = createPool("SPORTSGAMEODDS");
+
+    pool.record("old-exhausted", {
+      ok: false,
+      status: 429,
+      body: { success: false, error: "Rate limit exceeded" },
+    });
+
+    // The exhausted primary is put in backoff, the pool is NOT frozen, and the
+    // healthy secondary is picked next.
+    expect(pool.isPoolExhausted()).toBe(false);
+    expect(pool.pick()).toBe("new-healthy");
+  });
 });
 
 describe("isQuotaExhausted", () => {
@@ -117,8 +136,11 @@ describe("isQuotaExhausted", () => {
     ).toBe(true);
   });
 
-  it("detects SGO quota/rate-limit error strings", () => {
-    expect(isQuotaExhausted({ success: false, error: "Rate limit exceeded" }, "SPORTSGAMEODDS")).toBe(true);
+  it("does not treat an SGO rate limit as pool-wide quota (per-key → rotate)", () => {
+    // SGO grants per-key quota, so "Rate limit exceeded" on one key must rotate to
+    // the next key rather than freezing the pool.
+    expect(isQuotaExhausted({ success: false, error: "Rate limit exceeded" }, "SPORTSGAMEODDS")).toBe(false);
+    // An explicit shared-quota/upgrade signal still counts.
     expect(isQuotaExhausted({ success: false, error: "quota" }, "SPORTSGAMEODDS")).toBe(true);
     expect(isQuotaExhausted({ success: false, error: "other" }, "SPORTSGAMEODDS")).toBe(false);
   });

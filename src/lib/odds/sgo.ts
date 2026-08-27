@@ -11,7 +11,7 @@
  */
 
 import type { PlayerProp, PropMarketKey } from "./types";
-import { createPool, isQuotaExhausted, type FetchResult } from "./keys";
+import { createPool, type FetchResult } from "./keys";
 
 const SGO_KEYS = createPool("SPORTSGAMEODDS");
 
@@ -153,9 +153,6 @@ async function sgoFetch(params: Params, revalidate: number = TTL_SGO): Promise<S
 
   if (!res.ok) {
     SGO_KEYS.record(key, result);
-    if (isQuotaExhausted(body, "SPORTSGAMEODDS")) {
-      SGO_KEYS.markPoolExhausted();
-    }
     throw new SgoError(res.status, url.toString());
   }
 

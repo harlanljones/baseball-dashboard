@@ -8,7 +8,7 @@
  * key that keeps 429ing, and skipping a key that seems invalid.
  */
 
-import { createPool, isQuotaExhausted, type FetchResult } from "./keys";
+import { createPool, type FetchResult } from "./keys";
 
 const BASE = "https://api.the-odds-api.com";
 
@@ -86,9 +86,6 @@ export async function oddsFetch<T>(
 
   if (!res.ok) {
     ODDS_KEYS.record(key, result);
-    if (isQuotaExhausted(body, "ODDS")) {
-      ODDS_KEYS.markPoolExhausted();
-    }
     throw new OddsApiError(res.status, redactApiKey(url));
   }
 

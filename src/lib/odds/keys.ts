@@ -269,26 +269,40 @@ export function createPool(
 }
 
 /**
- * Detect quota exhaustion from a provider response body. Used conservatively so a
- * benign error does not free the pool.
+ * Detect true pool-wide quota exhaustion from a provider response body.
+ *
+ * This should only return true when every key on the shared subscription is spent
+ * — i.e. the quota is genuinely account/subscription-wide, so rotating to another
+ * key would not buy quota. Providers that grant per-key quota (e.g. SportsGameOdds
+ * bills each key/customerID its own objects/month) must return false here so a
+ * single exhausted key merely rotates to the next one instead of freezing the pool.
  */
 export function isQuotaExhausted(body: unknown, provider: string): boolean {
   if (body == null || typeof body !== "object") return false;
   const o = body as Record<string, unknown>;
 
-  if (provider === "SPORTSGAMEODDS") {
-    if (o.success === false && typeof o.error === "string") {
-      const msg = o.error.toLowerCase();
-      return msg.includes("rate limit") || msg.includes("quota") || msg.includes("object");
-    }
-    return false;
-  }
-
+  // The Odds API quota is shared per subscription (single credit pool per account),
+  // so a genuine OUT_OF_USAGE_CREDITS means no other key on this account helps.
   if (provider === "ODDS") {
     if (typeof o.statusCode === "number" && typeof o.message === "string") {
       if (o.statusCode === 401 && (o.message as string).includes("OUT_OF_USAGE_CREDITS")) return true;
       const msg = (o.message as string).toLowerCase();
-      return msg.includes("out of usage") || msg.includes("quota") || msg.includes("rate limit");
+      // A 429 "rate limited" is a short per-key window, not shared quota — rotate.
+      return msg.includes("out of usage") || msg.includes("quota exceeded") || msg.includes("usage quota");
+    }
+    return false;
+  }
+
+  // SportsGameOdds grants per-key quota (each customerID has its own objects/month),
+  // so a 429 "rate limit exceeded" on one key must rotate to the next key, not freeze
+  // the pool. We only signal pool-wide exhaustion on an explicit, unequivocal shared
+  // quota message that isn't a plain rate limit.
+  if (provider === "SPORTSGAMEODDS") {
+    if (o.success === false && typeof o.error === "string") {
+      const msg = o.error.toLowerCase();
+      // "Rate limit exceeded" is per-key (per-minute or per-key monthly) → rotate.
+      if (msg.includes("rate limit")) return false;
+      return msg.includes("quota") || msg.includes("object") || msg.includes("upgrade");
     }
     return false;
   }
