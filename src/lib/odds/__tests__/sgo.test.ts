@@ -7,12 +7,14 @@ import {
   playerNameFromId,
   SgoError,
   teamsMatch,
+  resetSgoKeyPool,
 } from "../sgo";
 import type { SgoEvent } from "../sgo";
 
 afterEach(() => {
   vi.unstubAllGlobals();
   vi.unstubAllEnvs();
+  resetSgoKeyPool();
 });
 
 function bookLine(odds: string, overUnder: string, available = true) {

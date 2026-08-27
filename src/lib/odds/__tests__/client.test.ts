@@ -1,9 +1,10 @@
 import { describe, it, expect, vi, afterEach } from "vitest";
-import { getOddsApiKey, oddsFetch, OddsApiError } from "../client";
+import { getOddsApiKey, oddsFetch, OddsApiError, resetOddsKeyPool } from "../client";
 
 afterEach(() => {
   vi.unstubAllGlobals();
   vi.unstubAllEnvs();
+  resetOddsKeyPool();
 });
 
 describe("getOddsApiKey", () => {

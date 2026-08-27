@@ -30,6 +30,45 @@ The free endpoint is intended for non-commercial use and has published request
 limits; use an appropriate commercial plan and endpoint before monetizing a
 deployment.
 
+## Odds API key rotation
+
+Each odds provider reads its key(s) through a rotation pool (`src/lib/odds/keys.ts`).
+A provider can hold several keys and rotates between them automatically so a
+single rate-limited or invalid key cannot keep the slate empty. The pool is
+re-read from env on every request, so adding or replacing a key via
+`wrangler secret put` takes effect on the next request without a code deploy —
+that is the hot-swap path.
+
+Per-provider env vars (all optional; combine as needed):
+
+- `SPORTSGAMEODDS_API_KEY` / `ODDS_API_KEY` — primary key (retained for backward
+  compatibility, always used first).
+- `SPORTSGAMEODDS_API_KEYS` / `ODDS_API_KEYS` — comma-separated list of all keys
+  (primary first). Convenient for carrying several keys in one secret.
+- `SPORTSGAMEODDS_API_KEY_2`, `_3`, `_4`, `_5` / `ODDS_API_KEY_2`, `_3`, `_4`,
+  `_5` — individual secondary keys, each as its own secret. This is the usual
+  rotation path: provision a fresh key, add it as `_2`, then optionally drop the
+  old primary once confirmed healthy.
+
+Rotation behaviour:
+
+- A 200 response keeps the key usable.
+- A 429 (rate limit) puts just that key into a short per-key backoff and rotates
+  the request to the next key, instead of hammering the same rate-limited key.
+- A 401 / invalid-key response cools off only that key and rotates to the next.
+- A quota-exhaustion response (e.g. The Odds API `OUT_OF_USAGE_CREDITS`, or SGO
+  "rate limit exceeded / quota" error strings) marks the whole pool exhausted for
+  a lease window, because the researched providers share quota per subscription —
+  rotating to another key would not buy quota.
+- A transient failure (500, network, parse) rotates to the next key and, after
+  repeated failures on one key, cools that key down so an unhealthy key is
+  deprioritised.
+
+Caveat: rotating keys buys resilience against a bad key and reduces repeated
+rate-limit trips, but if all keys share one subscription it does **not** increase
+the total monthly quota. Fully-exhausted quota still needs a renewed/upgraded
+subscription.
+
 ## SportsGameOdds
 
 - Base URL: `https://api.sportsgameodds.com/v2`

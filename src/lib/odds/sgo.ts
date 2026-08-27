@@ -11,6 +11,9 @@
  */
 
 import type { PlayerProp, PropMarketKey } from "./types";
+import { createPool, isQuotaExhausted, type FetchResult } from "./keys";
+
+const SGO_KEYS = createPool("SPORTSGAMEODDS");
 
 const BASE = "https://api.sportsgameodds.com/v2";
 
@@ -76,6 +79,11 @@ export function getSgoApiKey(): string | null {
   return process.env.SPORTSGAMEODDS_API_KEY || null;
 }
 
+/** Test seam: reset the in-memory rotation state so cases don't leak into each other. */
+export function resetSgoKeyPool(): void {
+  SGO_KEYS.reset();
+}
+
 interface SgoNames {
   long?: string;
 }
@@ -122,9 +130,9 @@ interface SgoEventsPage {
 type Params = Record<string, string | number | boolean | undefined>;
 
 async function sgoFetch(params: Params, revalidate: number = TTL_SGO): Promise<SgoEventsPage> {
-  const key = getSgoApiKey();
+  const key = SGO_KEYS.pick();
   if (!key) {
-    throw new SgoError(0, `${BASE}/events`, "SPORTSGAMEODDS_API_KEY is not set");
+    throw new SgoError(0, `${BASE}/events`, "No usable SPORTSGAMEODDS_API_KEY");
   }
 
   const url = new URL(`${BASE}/events`);
@@ -140,10 +148,18 @@ async function sgoFetch(params: Params, revalidate: number = TTL_SGO): Promise<S
     next: { revalidate },
   });
 
+  const body = await res.json().catch(() => null);
+  const result: FetchResult = { ok: res.ok, status: res.status, body };
+
   if (!res.ok) {
+    SGO_KEYS.record(key, result);
+    if (isQuotaExhausted(body, "SPORTSGAMEODDS")) {
+      SGO_KEYS.markPoolExhausted();
+    }
     throw new SgoError(res.status, url.toString());
   }
-  return (await res.json()) as SgoEventsPage;
+
+  return body as SgoEventsPage;
 }
 
 /**

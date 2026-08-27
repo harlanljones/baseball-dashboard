@@ -1,9 +1,13 @@
 import { describe, it, expect, vi, afterEach } from "vitest";
 import { findTheOddsApiEvent, resolveOddsEvent } from "../events";
+import { resetOddsKeyPool } from "../client";
+import { resetSgoKeyPool } from "../sgo";
 
 afterEach(() => {
   vi.unstubAllGlobals();
   vi.unstubAllEnvs();
+  resetOddsKeyPool();
+  resetSgoKeyPool();
 });
 
 function sgoJson(body: unknown) {

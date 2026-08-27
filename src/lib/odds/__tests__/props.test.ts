@@ -1,9 +1,13 @@
 import { describe, it, expect, vi, afterEach } from "vitest";
 import { getPlayerProps, loadGamePlayerProps } from "../props";
+import { resetSgoKeyPool } from "../sgo";
+import { resetOddsKeyPool } from "../client";
 
 afterEach(() => {
   vi.unstubAllGlobals();
   vi.unstubAllEnvs();
+  resetSgoKeyPool();
+  resetOddsKeyPool();
 });
 
 function mockOdds(body: unknown) {
