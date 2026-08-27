@@ -30,19 +30,6 @@ const MAX_LEANS = 5;
 const LEANS_TTL = 5 * 60;
 
 /**
- * How long an empty slate is remembered, in seconds.
- *
- * Short, because an empty result is usually a passing failure — a rate-limited
- * key, a provider timeout, lines not yet posted — and pinning it would keep
- * serving nothing long after the data recovered. But not zero: recomputing on
- * every request turns a rate-limited provider into a request amplifier, where
- * each retry earns another 429 and the outage sustains itself. A minute is
- * long enough to let a rate-limit window clear, short enough that nobody
- * notices the wait.
- */
-const EMPTY_TTL = 60;
-
-/**
  * One row of the cross-slate leans list, flattened to exactly what the row
  * renders. Keeping this narrow rather than shipping whole `ScheduleGame` and
  * `ScoredProp` objects is what keeps the lazy-loaded payload small.
@@ -148,33 +135,26 @@ const cachedScoredSlate = unstable_cache(
 );
 
 /**
- * The outcome either way, kept for {@link EMPTY_TTL}.
- *
- * Two layers because the two outcomes deserve different lifetimes. A real
- * slate rides the long TTL underneath; an empty one is remembered only here,
- * for a minute, which is what stops a failing provider from being retried on
- * every single request without pinning the emptiness for five.
- */
-const cachedOutcome = unstable_cache(
-  async (date: string): Promise<SlateLean[]> => {
-    try {
-      return await cachedScoredSlate(date);
-    } catch (error) {
-      if (error instanceof NoLeans) return [];
-      throw error;
-    }
-  },
-  ["best-leans-outcome"],
-  { revalidate: EMPTY_TTL, tags: ["best-leans"] },
-);
-
-/**
  * The strongest scored leans across a slate, best first.
+ *
+ * Real slates are cached for {@link LEANS_TTL} via {@link cachedScoredSlate}. An
+ * empty slate is *not* cached: {@link cachedScoredSlate} throws `NoLeans` on
+ * empty (a rejected promise is never persisted), and we return `[]` here only
+ * after that cache lookup, so the empty case is recomputed on the next request
+ * rather than pinned. That keeps a passing failure (rate-limited key, lines not
+ * yet posted) from claiming a long cache TTL while a real slate still rides the
+ * long-lived cache.
  *
  * The date is resolved before it reaches the cache so "today" can never key the
  * same entry as an explicit date — or, worse, serve yesterday's slate after the
  * Eastern-time rollover.
  */
 export async function getBestLeans(date?: string): Promise<SlateLean[]> {
-  return cachedOutcome(date ?? easternToday());
+  const key = date ?? easternToday();
+  try {
+    return await cachedScoredSlate(key);
+  } catch (error) {
+    if (error instanceof NoLeans) return [];
+    throw error;
+  }
 }
