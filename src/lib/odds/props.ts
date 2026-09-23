@@ -2,6 +2,7 @@ import { oddsFetch, TTL, getOddsApiKey } from "./client";
 import { findTheOddsApiEvent, resolveOddsEvent } from "./events";
 import { getSgoPlayerProps } from "./sgo";
 import { logOddsFailure } from "./log";
+import { withOddsScope } from "./requestScope";
 import type { PlayerProp, PropMarketKey } from "./types";
 
 const PROP_MARKETS: PropMarketKey[] = [
@@ -91,8 +92,19 @@ export async function getPlayerProps(eventId: string): Promise<PlayerProp[]> {
  * often post later than the event listing itself — falls through to The
  * Odds API when `ODDS_API_KEY` is configured. Every failure mode resolves
  * to `[]`; this function never throws, so callers stay fail-soft.
+ *
+ * Runs in an odds scope, so the event lookup and the prop read share one
+ * board; a slate-wide caller that opened a scope first shares it across games.
  */
-export async function loadGamePlayerProps(
+export function loadGamePlayerProps(
+  awayTeamName: string,
+  homeTeamName: string,
+  startTimeISO: string,
+): Promise<PlayerProp[]> {
+  return withOddsScope(() => loadInScope(awayTeamName, homeTeamName, startTimeISO));
+}
+
+async function loadInScope(
   awayTeamName: string,
   homeTeamName: string,
   startTimeISO: string,

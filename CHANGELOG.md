@@ -34,6 +34,10 @@ All notable changes to this project will be documented here. The format follows
 - Player-prop loading is now provider-agnostic (`loadGamePlayerProps`), so the
   game-page sidebar, props page, and best-leans board require no per-provider
   logic and keep failing soft to an empty board.
+- The best-leans board fetches and parses the SportsGameOdds board once per
+  request instead of twice per game, and a game's props share one board
+  between event lookup and prop read. A cold cache no longer sends up to eight
+  identical provider requests for one slate.
 
 - Public contribution, conduct, security, deployment, publishing, and data-source guidance.
 - GitHub Actions validation for linting, type checking, tests, and production builds.

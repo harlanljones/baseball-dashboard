@@ -10,6 +10,7 @@ import {
   leanAnchorId,
   propContextFromScheduleGame,
 } from "@/lib/odds/board";
+import { withOddsScope } from "@/lib/odds/requestScope";
 import type { PropDirection, PropMarketKey } from "@/lib/odds/types";
 
 /** Games sampled per slate. Beyond this the provider board stops paying for itself. */
@@ -59,6 +60,8 @@ function seasonOf(game: ScheduleGame): number {
  * this list shows scores, never evidence lines, so the lookups behind those
  * lines would be work no reader ever sees. A game whose odds are missing or
  * whose provider call fails contributes nothing rather than failing the slate.
+ * The games share one odds scope, so the provider board is fetched and parsed
+ * once for the whole slate rather than once per game.
  *
  * Uncached — {@link getBestLeans} is the entry point callers should use.
  */
@@ -66,38 +69,40 @@ async function computeBestLeans(date: string): Promise<SlateLean[]> {
   const { games } = await getSchedule(date);
   const previewGames = games.filter((g) => g.state === "Preview").slice(0, MAX_GAMES);
 
-  const perGame = await Promise.all(
-    previewGames.map(async (game) => {
-      try {
-        const groups = await loadPropGroups({
-          game: propContextFromScheduleGame(game),
-          season: seasonOf(game),
-          weather: null,
-        });
-        return groups.flatMap((group) =>
-          group.players.flatMap((player) =>
-            player.props.map((prop) => {
-              const score = calculateScore(prop, DEFAULT_WEIGHTS);
-              if (score == null) return null;
-              return {
-                gamePk: game.gamePk,
-                anchor: leanAnchorId(prop),
-                matchup: `${game.away.team.abbreviation} at ${game.home.team.abbreviation}`,
-                playerId: prop.player.id,
-                playerName: prop.player.fullName,
-                marketKey: prop.marketKey,
-                line: prop.line,
-                direction: prop.direction,
-                price: prop.direction === "over" ? prop.overPrice : prop.underPrice,
-                score,
-              } satisfies SlateLean;
-            }),
-          ),
-        );
-      } catch {
-        return [];
-      }
-    }),
+  const perGame = await withOddsScope(() =>
+    Promise.all(
+      previewGames.map(async (game) => {
+        try {
+          const groups = await loadPropGroups({
+            game: propContextFromScheduleGame(game),
+            season: seasonOf(game),
+            weather: null,
+          });
+          return groups.flatMap((group) =>
+            group.players.flatMap((player) =>
+              player.props.map((prop) => {
+                const score = calculateScore(prop, DEFAULT_WEIGHTS);
+                if (score == null) return null;
+                return {
+                  gamePk: game.gamePk,
+                  anchor: leanAnchorId(prop),
+                  matchup: `${game.away.team.abbreviation} at ${game.home.team.abbreviation}`,
+                  playerId: prop.player.id,
+                  playerName: prop.player.fullName,
+                  marketKey: prop.marketKey,
+                  line: prop.line,
+                  direction: prop.direction,
+                  price: prop.direction === "over" ? prop.overPrice : prop.underPrice,
+                  score,
+                } satisfies SlateLean;
+              }),
+            ),
+          );
+        } catch {
+          return [];
+        }
+      }),
+    ),
   );
 
   return perGame

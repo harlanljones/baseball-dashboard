@@ -13,6 +13,7 @@
 import type { PlayerProp, PropMarketKey } from "./types";
 import { buildKeyList, createPool, shouldTryNextKey, type FetchResult } from "./keys";
 import { upstreamMessage } from "./log";
+import { shareInScope } from "./requestScope";
 
 const SGO_KEYS = createPool("SPORTSGAMEODDS");
 
@@ -208,6 +209,15 @@ async function fetchBoard(): Promise<SgoEvent[]> {
   return events;
 }
 
+/**
+ * The board, fetched and parsed once per odds scope (see `requestScope.ts`):
+ * every game's event lookup and prop read share it instead of each re-reading
+ * and re-parsing the same payload.
+ */
+function loadBoard(): Promise<SgoEvent[]> {
+  return shareInScope("sgo:board", fetchBoard);
+}
+
 /** Loose team-name matcher shared by both providers' event lookups. */
 export function teamsMatch(oddsName: string, mlbName: string): boolean {
   const a = oddsName.trim().toLowerCase();
@@ -236,7 +246,7 @@ export async function findSgoEvent(
 ): Promise<string | null> {
   if (!getSgoApiKey()) return null;
 
-  const events = await fetchBoard();
+  const events = await loadBoard();
   const matches = events.filter(
     (event) =>
       teamsMatch(eventAwayName(event), awayTeamName) &&
@@ -370,7 +380,7 @@ export function parseSgoProps(event: SgoEvent): PlayerProp[] {
 export async function getSgoPlayerProps(eventId: string): Promise<PlayerProp[]> {
   if (!getSgoApiKey()) return [];
 
-  const events = await fetchBoard();
+  const events = await loadBoard();
   const event = events.find((candidate) => candidate.eventID === eventId);
   if (!event) return [];
   return parseSgoProps(event);
