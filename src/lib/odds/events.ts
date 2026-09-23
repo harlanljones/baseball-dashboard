@@ -5,7 +5,8 @@
  * no event for the matchup.
  */
 
-import { getOddsApiKey, oddsFetch } from "./client";import { findSgoEvent, getSgoApiKey, teamsMatch } from "./sgo";
+import { getOddsApiKey, oddsFetch } from "./client";
+import { findSgoEvent, getSgoApiKey, teamsMatch } from "./sgo";
 import type { ResolvedOddsEvent } from "./types";
 
 interface RawOddsApiEvent {

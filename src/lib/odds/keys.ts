@@ -16,16 +16,19 @@
  *
  * Per-provider key configuration (env vars), all optional:
  *  - `<PROVIDER>_API_KEY`          — primary key (kept for backward compat).
- *  - `<PROVIDER>_API_KEYS`          — comma-separated list of all keys (primary
- *    first, then secondaries). When present it wins over the single-key form so a
- *    single secret can carry several keys without extra secrets.
+ *    When set it is always tried first.
+ *  - `<PROVIDER>_API_KEYS`          — comma-separated list of keys, tried in order
+ *    after the primary, so a single secret can carry several keys without extra
+ *    secrets. Any one of these forms is enough to enable the provider.
  *  - `<PROVIDER>_API_KEY_2`, `3`, `4`, `5` — individual secondary keys, each as
  *    its own secret. Added one at a time with `wrangler secret put`, which is the
  *    usual rotation path: provision a fresh key, add it, and the pool picks it up
  *    on the next request without any code change.
  *
  * Rotation policy:
- *  - Each request picks the highest-priority usable key.
+ *  - Each request picks the highest-priority usable key. A 401 or 429 on that key
+ *    retries the same request once with each remaining usable key (see
+ *    {@link shouldTryNextKey}); any other failure is returned as-is.
  *  - On a 2xx response the key stays usable.
  *  - On 429 (rate limit) the key is moved to a per-key backoff for
  *    `rateLimitBackoffMs`; while it is in backoff it is skipped, so the request
@@ -107,12 +110,12 @@ export type KeyState =
 /**
  * Build the ordered list of keys for a provider from env.
  *
- * Priority: `<PROVIDER>_API_KEYS` (comma-separated, primary first) wins over
- * the single-key form, which wins over numbered secondary keys. Duplicates are
+ * Priority: the single `<PROVIDER>_API_KEY` first, then `<PROVIDER>_API_KEYS`
+ * (comma-separated, in order), then numbered secondary keys. Duplicates are
  * dropped while preserving first-seen order so a key that appears in both forms
  * is not double-counted.
  */
-export function buildKeyList(provider: string, maxSecondaryKeys = 4): string[] {
+export function buildKeyList(provider: string, maxSecondaryKeys = 5): string[] {
   const prefix = `${provider}_API_KEY`;
   const keys: string[] = [];
   const seen = new Set<string>();
@@ -143,6 +146,15 @@ export function buildKeyList(provider: string, maxSecondaryKeys = 4): string[] {
   }
 
   return keys;
+}
+
+/**
+ * Whether a failed response is specific to the key that made it (rejected or
+ * rate-limited), so the same request is worth retrying with the next key.
+ * Anything else — a 5xx, a bad request — would fail the same way on every key.
+ */
+export function shouldTryNextKey(status: number): boolean {
+  return status === 401 || status === 429;
 }
 
 /**

@@ -54,6 +54,7 @@ interface RawInning {
 interface RawFeed {
   gamePk: number;
   gameData: {
+    game?: { type?: string };
     status: { abstractGameState?: string; detailedState?: string };
     datetime?: { dateTime?: string };
     venue?: { id?: number; name?: string; location?: { city?: string } };
@@ -327,6 +328,7 @@ export const getLiveFeed = cache(async function getLiveFeed(
     state: mapGameState(gd.status.abstractGameState),
     detailedState: gd.status.detailedState ?? "",
     startTime: gd.datetime?.dateTime ?? "",
+    gameType: gd.game?.type,
     venue: gd.venue?.name,
     venueCity: gd.venue?.location?.city,
     venueId: gd.venue?.id,

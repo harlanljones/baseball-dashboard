@@ -4,6 +4,7 @@ import type {
   HeadToHead,
   LeagueRecord,
   PlayerRef,
+  PostseasonSeries,
   ScheduleDay,
   ScheduleGame,
   SeriesMeeting,
@@ -35,6 +36,9 @@ interface RawLinescore {
 export interface RawGame {
   gamePk: number;
   gameDate: string;
+  /** `YYYY-MM-DD` date the game counts toward (Eastern). */
+  officialDate?: string;
+  gameType?: string;
   status: RawStatus;
   venue?: { name?: string; location?: { city?: string } };
   teams: { away: RawTeamSide; home: RawTeamSide };
@@ -43,6 +47,24 @@ export interface RawGame {
 
 interface RawSchedule {
   dates?: { date: string; games: RawGame[] }[];
+}
+
+// --- Game types --------------------------------------------------------------
+
+/** MLB postseason game type codes, in round order, with display names. */
+const POSTSEASON_ROUNDS: Record<string, string> = {
+  F: "Wild Card Series",
+  D: "Division Series",
+  L: "Championship Series",
+  W: "World Series",
+};
+
+/** Comma-joined postseason game types, for `gameType` query params. */
+export const POSTSEASON_GAME_TYPES = Object.keys(POSTSEASON_ROUNDS).join(",");
+
+/** True for Wild Card, Division, League Championship and World Series games. */
+export function isPostseason(gameType?: string): boolean {
+  return gameType != null && gameType in POSTSEASON_ROUNDS;
 }
 
 // --- Mapping helpers ---------------------------------------------------------
@@ -141,12 +163,18 @@ export async function getSchedule(date?: string): Promise<ScheduleDay> {
 /**
  * Season series between two teams, with a derived win-loss split from completed
  * meetings.
+ *
+ * Pass the viewed game's `gameType` so a postseason game also gets its round's
+ * games (e.g. the Division Series so far) as `postseason`; the top-level
+ * record and meetings always stay regular season only.
  */
 export async function getHeadToHead(
   teamA: TeamRef,
   teamB: TeamRef,
   season: number,
+  gameType?: string,
 ): Promise<HeadToHead> {
+  const round = isPostseason(gameType) ? gameType : undefined;
   const data = await mlbFetch<RawSchedule>(
     "/api/v1/schedule",
     {
@@ -159,7 +187,7 @@ export async function getHeadToHead(
       // season's year, so a bare date-range query pulls exhibition games
       // (and their sometimes-Cancelled-but-abstractGameState=Final entries)
       // into what should be the regular-season series.
-      gameType: "R",
+      gameType: round ? `R,${round}` : "R",
       hydrate: "team,linescore",
     },
     TTL.headToHead,
@@ -179,11 +207,42 @@ export async function getHeadToHead(
     if (!existing || (!decided(existing) && decided(g))) byPk.set(g.gamePk, g);
   }
 
+  // Filter on each game's own type too, rather than trusting the query alone;
+  // a game missing the field counts as regular season, the query's base type.
+  const games = [...byPk.values()];
+  const regular = tallySeries(
+    games.filter((g) => (g.gameType ?? "R") === "R"),
+    teamA,
+    teamB,
+  );
+
+  let postseason: PostseasonSeries | undefined;
+  if (round) {
+    postseason = {
+      gameType: round,
+      name: POSTSEASON_ROUNDS[round],
+      ...tallySeries(
+        games.filter((g) => g.gameType === round),
+        teamA,
+        teamB,
+      ),
+    };
+  }
+
+  return { teamA, teamB, ...regular, ...(postseason ? { postseason } : {}) };
+}
+
+/** Win-loss split and meeting list for a set of games between two teams. */
+function tallySeries(
+  games: RawGame[],
+  teamA: TeamRef,
+  teamB: TeamRef,
+): { aWins: number; bWins: number; meetings: SeriesMeeting[] } {
   let aWins = 0;
   let bWins = 0;
   const meetings: SeriesMeeting[] = [];
 
-  for (const g of byPk.values()) {
+  for (const g of games) {
     const state = mapGameState(g.status.abstractGameState);
     const away = g.teams.away;
     const home = g.teams.home;
@@ -211,5 +270,5 @@ export async function getHeadToHead(
     });
   }
 
-  return { teamA, teamB, aWins, bWins, meetings };
+  return { aWins, bWins, meetings };
 }
