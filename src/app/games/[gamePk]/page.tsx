@@ -25,7 +25,7 @@ import {
   getBullpenSeasonPitching,
   getBullpenWorkload,
 } from "@/lib/mlb/players";
-import { getHeadToHead } from "@/lib/mlb/schedule";
+import { getHeadToHead, isPostseason } from "@/lib/mlb/schedule";
 import { getGameWeather } from "@/lib/weather/report";
 import type { GameWeather } from "@/lib/weather/types";
 import GameSplitPane from "@/components/GameSplitPane";
@@ -141,11 +141,12 @@ async function BullpenSection({
   const gameDate = easternDateOf(feed.startTime || new Date());
   const awayIds = feed.boxscore.away.bullpen.map((p) => p.id);
   const homeIds = feed.boxscore.home.bullpen.map((p) => p.id);
+  const postseason = isPostseason(feed.gameType);
 
   const fetched = await safe(
     Promise.all([
-      getBullpenWorkload(awayIds, season, gameDate),
-      getBullpenWorkload(homeIds, season, gameDate),
+      getBullpenWorkload(awayIds, season, gameDate, postseason ? feed.away.team.id : undefined),
+      getBullpenWorkload(homeIds, season, gameDate, postseason ? feed.home.team.id : undefined),
       getBullpenSeasonPitching(awayIds, season),
       getBullpenSeasonPitching(homeIds, season),
     ]),
@@ -172,7 +173,9 @@ async function HeadToHeadSection({
 }) {
   // Await inside try/catch, build JSX outside — a try/catch cannot catch errors
   // thrown while React later renders returned JSX.
-  const h2h = await safe(getHeadToHead(feed.away.team, feed.home.team, season));
+  const h2h = await safe(
+    getHeadToHead(feed.away.team, feed.home.team, season, feed.gameType),
+  );
   if (!h2h) return <SectionError label="the season series" />;
   return <HeadToHead h2h={h2h} />;
 }
@@ -401,7 +404,7 @@ export default async function GamePage({
               )}
 
             {/* 3. Head-to-head (reference tier) */}
-            <CollapsibleSection title="Season series">
+            <CollapsibleSection title={isPostseason(feed.gameType) ? "Series" : "Season series"}>
               <Suspense fallback={<SectionSkeleton />}>
                 <HeadToHeadSection feed={feed} season={season} />
               </Suspense>
