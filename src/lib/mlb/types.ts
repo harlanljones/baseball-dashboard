@@ -363,7 +363,7 @@ export interface DivisionStandings {
   teams: StandingsRow[];
 }
 
-export interface PostseasonSeries {
+export interface PostseasonRound {
   /** MLB series id, e.g. "W_1", "L_2". */
   id: string;
   /** F (Wild Card), D (Division), L (LCS), W (World Series). */
@@ -384,7 +384,7 @@ export interface SeasonRecap {
   /** The last completed postseason game (World Series clincher once over). */
   finalGame?: ScheduleGame;
   /** Ordered World Series first, then LCS, Division Series, Wild Card. */
-  series: PostseasonSeries[];
+  series: PostseasonRound[];
 }
 
 export interface OpeningDay {

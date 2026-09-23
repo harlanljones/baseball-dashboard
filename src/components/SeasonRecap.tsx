@@ -1,8 +1,8 @@
 import GameCard from "@/components/GameCard";
 import TeamLogo from "@/components/TeamLogo";
-import type { PostseasonSeries, SeasonRecap as SeasonRecapData } from "@/lib/mlb/types";
+import type { PostseasonRound, SeasonRecap as SeasonRecapData } from "@/lib/mlb/types";
 
-function SeriesRow({ series }: { series: PostseasonSeries }) {
+function SeriesRow({ series }: { series: PostseasonRound }) {
   return (
     <li className="flex items-center justify-between gap-3 py-2">
       <div className="min-w-0">

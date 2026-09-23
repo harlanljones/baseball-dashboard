@@ -9,7 +9,7 @@ import { mapGame, type RawGame } from "./schedule";
 import type {
   OffseasonContext,
   OpeningDay,
-  PostseasonSeries,
+  PostseasonRound,
   SeasonRecap,
   TeamRef,
 } from "./types";
@@ -152,7 +152,7 @@ export async function getSeasonRecap(season: number): Promise<SeasonRecap> {
     games: dedupeGames(entry.games),
   }));
 
-  const series: PostseasonSeries[] = dedupedEntries.map((entry) => {
+  const series: PostseasonRound[] = dedupedEntries.map((entry) => {
     const { winner, status } = seriesResult(entry.games);
     const label = entry.games.find((g) => g.seriesDescription)?.seriesDescription ?? entry.series.id;
     return {
