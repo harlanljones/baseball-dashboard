@@ -1,6 +1,6 @@
-import type { GameFeed, SaberHitting, SaberPitching, TeamRef } from "@/lib/mlb/types";
+import type { SaberHitting, SaberPitching, TeamRef } from "@/lib/mlb/types";
 import { MlbApiError } from "@/lib/mlb/client";
-import { getLiveFeed, seasonOf } from "@/lib/mlb/game";
+import { getGameTeams } from "@/lib/mlb/schedule";
 import {
   getActiveRoster,
   getSaberHittingBatch,
@@ -150,10 +150,13 @@ export async function GET(
   }
 
   try {
-    const feed: GameFeed = await getLiveFeed(id);
+    // Only the teams and season are needed here, so read the small schedule
+    // entry rather than parsing the game's multi-megabyte live feed again.
+    const game = await getGameTeams(id);
+    const season = new Date(game.gameDate).getUTCFullYear();
     const [away, home] = await Promise.all([
-      teamStats(feed.away.team, seasonOf(feed)),
-      teamStats(feed.home.team, seasonOf(feed)),
+      teamStats(game.away, season),
+      teamStats(game.home, season),
     ]);
     return Response.json(
       { away, home },

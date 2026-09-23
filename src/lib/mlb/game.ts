@@ -279,6 +279,18 @@ export function seasonOf(feed: GameFeed): number {
 }
 
 /**
+ * The raw `feed/live` payload, fetched and parsed once per request.
+ *
+ * The feed carries every pitch of the game and runs to megabytes once play
+ * starts. The fetch cache keeps repeats off the upstream, but each caller
+ * still read the cached body back and parsed it again, so the game page paid
+ * for two parses: one for the feed and one for the game log's plays.
+ */
+const getRawFeed = cache(function getRawFeed(gamePk: number): Promise<RawFeedWithPlays> {
+  return mlbFetch<RawFeedWithPlays>(`/api/v1.1/game/${gamePk}/feed/live`, {}, TTL.live);
+});
+
+/**
  * Full live feed for one game: status, linescore, boxscore, and probables.
  * A bad `gamePk` yields a 404 from the API (surfaced as {@link MlbApiError}),
  * which callers translate into `notFound()`.
@@ -290,11 +302,7 @@ export function seasonOf(feed: GameFeed): number {
 export const getLiveFeed = cache(async function getLiveFeed(
   gamePk: number,
 ): Promise<GameFeed> {
-  const feed = await mlbFetch<RawFeed>(
-    `/api/v1.1/game/${gamePk}/feed/live`,
-    {},
-    TTL.live,
-  );
+  const feed = await getRawFeed(gamePk);
 
   // Unknown gamePks return HTTP 200 with an empty skeleton (gamePk 0, team
   // id 0). Treat that as a 404 so callers can render notFound() cleanly.
@@ -372,11 +380,7 @@ export const getLiveFeed = cache(async function getLiveFeed(
  * Returns plays grouped by inning and half.
  */
 export async function getGamePlays(gamePk: number): Promise<ScoringPlay[]> {
-  const feed = await mlbFetch<RawFeedWithPlays>(
-    `/api/v1.1/game/${gamePk}/feed/live`,
-    {},
-    TTL.live,
-  );
+  const feed = await getRawFeed(gamePk);
 
   // BUG FIX 1: liveData.plays is an object with allPlays, not an array
   const allPlays = feed.liveData.plays?.allPlays;

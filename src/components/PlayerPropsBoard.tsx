@@ -208,6 +208,15 @@ export default function PlayerPropsBoard({ groups, gameHref }: { groups: PropTea
     window.localStorage.setItem(WEIGHTS_STORAGE_KEY, JSON.stringify(weights));
   }, [weights, hydrated]);
 
+  useEffect(() => {
+    if (!hydrated) return;
+    // The board streams in behind the page header, so the browser's jump to a
+    // lean's #anchor can run before the row exists. Redo it once the rows have
+    // mounted and any stored weights have put them in their final order.
+    const id = decodeURIComponent(window.location.hash.slice(1));
+    if (id) document.getElementById(id)?.scrollIntoView();
+  }, [hydrated]);
+
   const allProps = useMemo(() => groups.flatMap((group) => group.players.flatMap((player) => player.props)), [groups]);
   const best = useMemo(() => {
     return allProps
