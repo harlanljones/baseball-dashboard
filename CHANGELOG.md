@@ -21,6 +21,10 @@ All notable changes to this project will be documented here. The format follows
   errors, resolves no event, or posts zero props for a matchup.
 - `SPORTSGAMEODDS_API_KEY` environment variable (`.env.example`, deployment,
   and security docs updated alongside the existing `ODDS_API_KEY`).
+- Odds provider failures that fall back to an empty board are now logged as
+  `[odds] ...` warnings in Workers Logs, with the provider's own message (for
+  example a rate limit or spent quota), so a thin or empty props board can be
+  traced to its cause.
 - Postseason game pages show the current round's games (for example the
   Division Series so far) ahead of the regular-season series, and bullpen
   pitch counts include each team's recent playoff outings.

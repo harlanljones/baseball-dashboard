@@ -196,6 +196,22 @@ describe("findSgoEvent", () => {
     ).rejects.toThrow(SgoError);
   });
 
+  it("carries the provider's own message into the thrown error", async () => {
+    vi.stubEnv("SPORTSGAMEODDS_API_KEY", "test-key");
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue({
+        ok: false,
+        status: 429,
+        json: async () => ({ success: false, error: "Rate limit exceeded" }),
+      }),
+    );
+
+    await expect(
+      findSgoEvent("New York Yankees", "Boston Red Sox", "2026-07-22T23:05:00Z"),
+    ).rejects.toThrow(/\(429\).*Rate limit exceeded/);
+  });
+
   it("throws SgoError when the API reports success:false", async () => {
     vi.stubEnv("SPORTSGAMEODDS_API_KEY", "test-key");
     vi.stubGlobal(
