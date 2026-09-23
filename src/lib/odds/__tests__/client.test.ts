@@ -18,7 +18,40 @@ describe("getOddsApiKey", () => {
   });
 });
 
+describe("getOddsApiKey with rotation-only configs", () => {
+  it("counts a numbered secondary key alone as configured", () => {
+    vi.stubEnv("ODDS_API_KEY_2", "k2");
+    expect(getOddsApiKey()).toBe("k2");
+  });
+});
+
 describe("oddsFetch", () => {
+  it("retries the same request on the next key when a key is rejected", async () => {
+    vi.stubEnv("ODDS_API_KEY", "bad");
+    vi.stubEnv("ODDS_API_KEY_2", "good");
+    const fetchSpy = vi
+      .fn()
+      .mockResolvedValueOnce({ ok: false, status: 401, json: async () => ({ message: "Invalid API key" }) })
+      .mockResolvedValueOnce({ ok: true, status: 200, json: async () => ({ hello: "world" }) });
+    vi.stubGlobal("fetch", fetchSpy);
+
+    const result = await oddsFetch<{ hello: string }>("/v4/sports/baseball_mlb/events");
+
+    expect(result).toEqual({ hello: "world" });
+    const keysUsed = fetchSpy.mock.calls.map(([url]) => new URL(url as string).searchParams.get("apiKey"));
+    expect(keysUsed).toEqual(["bad", "good"]);
+  });
+
+  it("stops after trying each key once", async () => {
+    vi.stubEnv("ODDS_API_KEY", "k1");
+    vi.stubEnv("ODDS_API_KEY_2", "k2");
+    const fetchSpy = vi.fn().mockResolvedValue({ ok: false, status: 429, json: async () => ({}) });
+    vi.stubGlobal("fetch", fetchSpy);
+
+    await expect(oddsFetch("/v4/sports/baseball_mlb/events")).rejects.toThrow(OddsApiError);
+    expect(fetchSpy).toHaveBeenCalledTimes(2);
+  });
+
   it("throws OddsApiError without making a request when the key is unset", async () => {
     const fetchSpy = vi.fn();
     vi.stubGlobal("fetch", fetchSpy);

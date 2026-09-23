@@ -12,7 +12,7 @@ describe("buildKeyList", () => {
     expect(buildKeyList("SPORTSGAMEODDS")).toEqual(["k1"]);
   });
 
-  it("orders bulk list first, then primary, then numbered secondaries, deduped", () => {
+  it("orders primary first, then the bulk list, then numbered secondaries, deduped", () => {
     vi.stubEnv("SPORTSGAMEODDS_API_KEYS", "bulkA,bulkB");
     vi.stubEnv("SPORTSGAMEODDS_API_KEY", "primary");
     vi.stubEnv("SPORTSGAMEODDS_API_KEY_2", "secondary");
@@ -24,6 +24,12 @@ describe("buildKeyList", () => {
     vi.stubEnv("SPORTSGAMEODDS_API_KEYS", "shared");
     vi.stubEnv("SPORTSGAMEODDS_API_KEY", "shared");
     expect(buildKeyList("SPORTSGAMEODDS")).toEqual(["shared"]);
+  });
+
+  it("reads every advertised numbered secondary, _2 through _5", () => {
+    vi.stubEnv("SPORTSGAMEODDS_API_KEY_2", "k2");
+    vi.stubEnv("SPORTSGAMEODDS_API_KEY_5", "k5");
+    expect(buildKeyList("SPORTSGAMEODDS")).toEqual(["k2", "k5"]);
   });
 
   it("returns [] when nothing is set", () => {

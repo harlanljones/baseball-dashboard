@@ -11,7 +11,7 @@
  */
 
 import type { PlayerProp, PropMarketKey } from "./types";
-import { createPool, type FetchResult } from "./keys";
+import { buildKeyList, createPool, shouldTryNextKey, type FetchResult } from "./keys";
 
 const SGO_KEYS = createPool("SPORTSGAMEODDS");
 
@@ -74,9 +74,12 @@ export class SgoError extends Error {
   }
 }
 
-/** The configured SportsGameOdds key, or `null` if unset — callers fail closed on `null`. */
+/**
+ * The highest-priority configured SportsGameOdds key, or `null` if none is set
+ * under any of the pool's env forms — callers fail closed on `null`.
+ */
 export function getSgoApiKey(): string | null {
-  return process.env.SPORTSGAMEODDS_API_KEY || null;
+  return buildKeyList("SPORTSGAMEODDS")[0] ?? null;
 }
 
 /** Test seam: reset the in-memory rotation state so cases don't leak into each other. */
@@ -130,11 +133,6 @@ interface SgoEventsPage {
 type Params = Record<string, string | number | boolean | undefined>;
 
 async function sgoFetch(params: Params, revalidate: number = TTL_SGO): Promise<SgoEventsPage> {
-  const key = SGO_KEYS.pick();
-  if (!key) {
-    throw new SgoError(0, `${BASE}/events`, "No usable SPORTSGAMEODDS_API_KEY");
-  }
-
   const url = new URL(`${BASE}/events`);
   for (const [k, v] of Object.entries(params)) {
     if (v !== undefined && v !== null && v !== "") {
@@ -142,21 +140,29 @@ async function sgoFetch(params: Params, revalidate: number = TTL_SGO): Promise<S
     }
   }
 
-  // Auth via header so the key never appears in cached/logged URLs.
-  const res = await fetch(url.toString(), {
-    headers: { Accept: "application/json", "x-api-key": key },
-    next: { revalidate },
-  });
+  // A rejected or rate-limited key retries this request on the next usable key,
+  // so one bad key doesn't empty the board; each key is tried at most once.
+  const tried = new Set<string>();
+  let lastError: SgoError | null = null;
+  for (let key = SGO_KEYS.pick(); key && !tried.has(key); key = SGO_KEYS.pick()) {
+    tried.add(key);
 
-  const body = await res.json().catch(() => null);
-  const result: FetchResult = { ok: res.ok, status: res.status, body };
+    // Auth via header so the key never appears in cached/logged URLs.
+    const res = await fetch(url.toString(), {
+      headers: { Accept: "application/json", "x-api-key": key },
+      next: { revalidate },
+    });
 
-  if (!res.ok) {
+    const body = await res.json().catch(() => null);
+    if (res.ok) return body as SgoEventsPage;
+
+    const result: FetchResult = { ok: res.ok, status: res.status, body };
     SGO_KEYS.record(key, result);
-    throw new SgoError(res.status, url.toString());
+    lastError = new SgoError(res.status, url.toString());
+    if (!shouldTryNextKey(res.status)) throw lastError;
   }
 
-  return body as SgoEventsPage;
+  throw lastError ?? new SgoError(0, `${BASE}/events`, "No usable SPORTSGAMEODDS_API_KEY");
 }
 
 /**
