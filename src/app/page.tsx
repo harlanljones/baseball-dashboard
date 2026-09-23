@@ -1,10 +1,18 @@
 import Link from "next/link";
+import { Suspense } from "react";
 import AutoRefresh from "@/components/AutoRefresh";
 import GameCard from "@/components/GameCard";
 import BestLeansSection from "@/components/BestLeansSection";
 import PageContainer from "@/components/PageContainer";
+import {
+  CountdownSection,
+  OffseasonSectionSkeleton,
+  RecapSection,
+  StandingsSection,
+} from "@/components/OffseasonSections";
 import { easternToday, shiftDate } from "@/lib/mlb/client";
 import { getSchedule } from "@/lib/mlb/schedule";
+import { getOffseasonContext } from "@/lib/mlb/season";
 
 // This route renders per-request because it awaits `searchParams` (a
 // request-time API). Don't add `dynamic = "force-dynamic"` — in Next 16 that
@@ -32,6 +40,9 @@ export default async function Home({
   const { games, hasLiveGame } = await getSchedule(date);
   const prev = shiftDate(date, -1);
   const next = shiftDate(date, 1);
+  // Only an empty date can be the offseason; in-season off days get null and
+  // keep the plain empty state below.
+  const offseason = games.length === 0 ? await getOffseasonContext(date) : null;
 
   return (
     <PageContainer>
@@ -40,7 +51,7 @@ export default async function Home({
       <div className="mb-5 flex items-center justify-between gap-3">
         <div>
           <h1 className="font-display text-3xl font-bold uppercase leading-none tracking-wide">
-            {date === today ? "Today's Games" : "Games"}
+            {offseason ? "Offseason" : date === today ? "Today's Games" : "Games"}
           </h1>
           <p className="mt-1 text-sm text-ink/65">{prettyDate(date)}</p>
         </div>
@@ -71,7 +82,23 @@ export default async function Home({
         </nav>
       </div>
 
-      {games.length === 0 ? (
+      {offseason ? (
+        <>
+          {/* Each section fetches its own endpoint and fails soft, so one
+              missing source hides only its own section. */}
+          <Suspense fallback={<OffseasonSectionSkeleton />}>
+            <div className="mb-5">
+              <CountdownSection season={offseason.nextSeason} today={today} />
+            </div>
+          </Suspense>
+          <Suspense fallback={<OffseasonSectionSkeleton />}>
+            <RecapSection season={offseason.recapSeason} />
+          </Suspense>
+          <Suspense fallback={<OffseasonSectionSkeleton />}>
+            <StandingsSection season={offseason.recapSeason} />
+          </Suspense>
+        </>
+      ) : games.length === 0 ? (
         <div className="rounded-md border border-dashed border-ink/20 py-16 text-center">
           <p className="font-display text-lg font-semibold uppercase tracking-wide">
             No games scheduled

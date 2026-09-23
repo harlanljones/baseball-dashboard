@@ -32,7 +32,7 @@ interface RawLinescore {
   isTopInning?: boolean;
 }
 
-interface RawGame {
+export interface RawGame {
   gamePk: number;
   gameDate: string;
   status: RawStatus;
@@ -72,7 +72,7 @@ function mapProbable(p?: { id: number; fullName: string }): PlayerRef | undefine
   return p ? { id: p.id, fullName: p.fullName } : undefined;
 }
 
-function mapGame(g: RawGame): ScheduleGame {
+export function mapGame(g: RawGame): ScheduleGame {
   const state = mapGameState(g.status.abstractGameState);
   return {
     gamePk: g.gamePk,
