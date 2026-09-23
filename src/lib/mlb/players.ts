@@ -1,4 +1,5 @@
-import { MlbApiError, mlbFetch, shiftDate, TTL } from "./client";
+import { easternDateOf, MlbApiError, mlbFetch, shiftDate, TTL } from "./client";
+import { isPostseason, POSTSEASON_GAME_TYPES } from "./schedule";
 import type {
   PitcherRecentForm,
   PitcherSplitLine,
@@ -764,7 +765,8 @@ interface RawGameLogSplit {
  * Season gameLog pitching splits for many pitchers in a single request.
  * Note: the hydrate layer doesn't accept `gameType`, so this is regular-season
  * only (the per-pitcher endpoint's default) — postseason appearances won't
- * appear in workload/form windows.
+ * appear in form windows. Bullpen workload adds them back from boxscores
+ * instead (see {@link getPostseasonPitchCounts}).
  */
 async function getGameLogsBatch(
   pitcherIds: number[],
@@ -784,26 +786,109 @@ async function getGameLogsBatch(
   return byId;
 }
 
+interface RawPostseasonSchedule {
+  dates?: {
+    games: {
+      gamePk: number;
+      gameDate: string;
+      officialDate?: string;
+      gameType?: string;
+      status: { abstractGameState?: string };
+    }[];
+  }[];
+}
+
+interface RawBoxscoreSide {
+  team: { id: number };
+  pitchers?: number[];
+  players?: Record<string, { stats?: { pitching?: Record<string, unknown> } }>;
+}
+
+interface RawBoxscore {
+  teams?: { away?: RawBoxscoreSide; home?: RawBoxscoreSide };
+}
+
+/**
+ * Per-pitcher pitch counts from one team's postseason games between
+ * `startDate` and `endDate` (inclusive, `YYYY-MM-DD`), shaped like gameLog
+ * splits so they merge straight into the regular-season logs.
+ *
+ * The batched gameLog hydrate can't reach postseason games, and a per-pitcher
+ * gameLog request for every bullpen arm would blow the subrequest budget. A
+ * team plays at most one postseason game a day, so a short window costs one
+ * schedule request plus a boxscore per game played.
+ */
+async function getPostseasonPitchCounts(
+  teamId: number,
+  startDate: string,
+  endDate: string,
+): Promise<Map<number, RawGameLogSplit[]>> {
+  const schedule = await mlbFetch<RawPostseasonSchedule>(
+    "/api/v1/schedule",
+    { sportId: 1, teamId, startDate, endDate, gameType: POSTSEASON_GAME_TYPES },
+    TTL.pitcherLog,
+  );
+  const games = (schedule.dates ?? [])
+    .flatMap((d) => d.games)
+    .filter(
+      (g) =>
+        isPostseason(g.gameType) &&
+        (g.status.abstractGameState === "Final" || g.status.abstractGameState === "Live"),
+    );
+
+  const boxscores = await Promise.all(
+    games.map((g) =>
+      mlbFetch<RawBoxscore>(`/api/v1/game/${g.gamePk}/boxscore`, {}, TTL.pitcherLog),
+    ),
+  );
+
+  const byId = new Map<number, RawGameLogSplit[]>();
+  games.forEach((g, i) => {
+    const teams = boxscores[i].teams;
+    const side = [teams?.away, teams?.home].find((t) => t?.team.id === teamId);
+    if (!side) return;
+    const date = g.officialDate ?? easternDateOf(g.gameDate);
+    for (const id of side.pitchers ?? []) {
+      const pitching = side.players?.[`ID${id}`]?.stats?.pitching;
+      if (!pitching) continue;
+      const splits = byId.get(id) ?? [];
+      splits.push({ date, stat: { numberOfPitches: pitching.numberOfPitches } });
+      byId.set(id, splits);
+    }
+  });
+  return byId;
+}
+
 /**
  * Recent pitch-count workload for a set of bullpen arms, derived from each
  * pitcher's `gameLog` splits (there's no direct "recent workload" stat).
  * `asOfDate` is the game's date (`YYYY-MM-DD`, Eastern) — the window looks back
  * from the day before it, since bullpen arms haven't pitched in today's game yet.
+ *
+ * Pass `postseasonTeamId` (the arms' team) on postseason games so that team's
+ * playoff outings count too; the gameLog alone only covers the regular season.
  */
 export async function getBullpenWorkload(
   pitcherIds: number[],
   season: number,
   asOfDate: string,
+  postseasonTeamId?: number,
 ): Promise<Map<number, { yesterday: number; last3: number }>> {
   const yesterday = shiftDate(asOfDate, -1);
   const windowStart = shiftDate(asOfDate, -3);
-  const logsById = await getGameLogsBatch(pitcherIds, season);
+  const [logsById, postseasonById] = await Promise.all([
+    getGameLogsBatch(pitcherIds, season),
+    postseasonTeamId != null && pitcherIds.length > 0
+      ? getPostseasonPitchCounts(postseasonTeamId, windowStart, yesterday)
+      : new Map<number, RawGameLogSplit[]>(),
+  ]);
 
   const workload = new Map<number, { yesterday: number; last3: number }>();
   for (const id of new Set(pitcherIds)) {
     let yesterdayPitches = 0;
     let last3Pitches = 0;
-    for (const split of logsById.get(id) ?? []) {
+    const splits = [...(logsById.get(id) ?? []), ...(postseasonById.get(id) ?? [])];
+    for (const split of splits) {
       if (!split.date || split.date < windowStart || split.date > yesterday) continue;
       const pitches = n(split.stat?.numberOfPitches) ?? 0;
       last3Pitches += pitches;

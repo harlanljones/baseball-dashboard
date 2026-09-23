@@ -76,13 +76,28 @@ export interface SeriesMeeting {
   home: { team: TeamRef; score?: number };
 }
 
-export interface HeadToHead {
-  teamA: TeamRef;
-  teamB: TeamRef;
-  /** Wins for teamA / teamB across completed meetings. */
+/** One postseason round between two teams, e.g. a Division Series. */
+export interface PostseasonSeries {
+  /** MLB game type code: F (Wild Card), D (Division), L (LCS), W (World Series). */
+  gameType: string;
+  /** Display name, e.g. "Division Series". */
+  name: string;
+  /** Wins for teamA / teamB across completed games in this round. */
   aWins: number;
   bWins: number;
   meetings: SeriesMeeting[];
+}
+
+export interface HeadToHead {
+  teamA: TeamRef;
+  teamB: TeamRef;
+  /** Wins for teamA / teamB across completed regular-season meetings. */
+  aWins: number;
+  bWins: number;
+  /** Regular-season meetings. */
+  meetings: SeriesMeeting[];
+  /** Present when requested for a postseason game: that round's games so far. */
+  postseason?: PostseasonSeries;
 }
 
 // ---------------------------------------------------------------------------
@@ -166,6 +181,8 @@ export interface GameFeed {
   state: GameState;
   detailedState: string;
   startTime: string; // ISO
+  /** MLB game type code: R (regular season), F/D/L/W (postseason rounds), S (spring), etc. */
+  gameType?: string;
   /** Ballpark name, e.g. "PNC Park". */
   venue?: string;
   /** Ballpark's city, e.g. "Pittsburgh". */
