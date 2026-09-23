@@ -1,4 +1,4 @@
-import { easternToday, mlbFetch, TTL } from "./client";
+import { easternToday, mlbFetch, MlbApiError, TTL } from "./client";
 import type {
   GameState,
   HeadToHead,
@@ -157,6 +157,35 @@ export async function getSchedule(date?: string): Promise<ScheduleDay> {
     date: target,
     games,
     hasLiveGame: games.some((g) => g.state === "Live"),
+  };
+}
+
+/**
+ * The two teams and start time of one game, from its schedule entry.
+ *
+ * For callers that need only who is playing and when: the schedule entry is a
+ * few kilobytes, where the game's `feed/live` carries every pitch and runs to
+ * megabytes once play starts. A game's teams never change, so the entry is
+ * cached for a day. An unknown `gamePk` throws a 404 {@link MlbApiError}, the
+ * same as the feed.
+ */
+export async function getGameTeams(
+  gamePk: number,
+): Promise<{ away: TeamRef; home: TeamRef; gameDate: string }> {
+  const data = await mlbFetch<RawSchedule>(
+    "/api/v1/schedule",
+    { sportId: 1, gamePk, hydrate: "team" },
+    TTL.roster,
+  );
+
+  const game = data.dates?.flatMap((d) => d.games).find((g) => g.gamePk === gamePk);
+  if (!game) {
+    throw new MlbApiError(404, `/api/v1/schedule?gamePk=${gamePk}`, "Game not found");
+  }
+  return {
+    away: mapTeamRef(game.teams.away.team),
+    home: mapTeamRef(game.teams.home.team),
+    gameDate: game.gameDate,
   };
 }
 

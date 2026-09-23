@@ -38,6 +38,18 @@ All notable changes to this project will be documented here. The format follows
   request instead of twice per game, and a game's props share one board
   between event lookup and prop read. A cold cache no longer sends up to eight
   identical provider requests for one slate.
+- The props page shows the game header as soon as the game feed loads and
+  streams the board in behind it. The board's MLB lookups (rosters, season
+  stats, matchup evidence) and the weather forecast now run alongside the odds
+  instead of after them, cutting its chain of upstream round trips from about
+  seven to about three.
+- A game's extracted props are cached for five minutes, so a repeat props-page
+  view no longer reparses the multi-megabyte SportsGameOdds board.
+- The game page parses the live feed once per request instead of twice (the
+  game log reuses it), and the roster-stats endpoint reads the game's small
+  schedule entry instead of the multi-megabyte live feed.
+- `/api/best-leans` sends a short `Cache-Control` so repeat views and
+  back-navigations skip a round trip.
 
 - Public contribution, conduct, security, deployment, publishing, and data-source guidance.
 - GitHub Actions validation for linting, type checking, tests, and production builds.

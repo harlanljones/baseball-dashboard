@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { Suspense } from "react";
 import { notFound } from "next/navigation";
 import GameStatusBadge from "@/components/GameStatusBadge";
 import LocalTime from "@/components/LocalTime";
@@ -19,6 +20,40 @@ async function safe<T>(promise: Promise<T>): Promise<T | null> {
   } catch {
     return null;
   }
+}
+
+async function PropsBoardSection({ feed, gameHref }: { feed: GameFeed; gameHref: string }) {
+  // Weather is only read when props are scored, so it is fetched alongside
+  // the odds and MLB lookups rather than ahead of them.
+  const weather: Promise<GameWeather | null> = safe(
+    getGameWeather({
+      venueId: feed.venueId,
+      startTimeISO: feed.startTime,
+      observed: feed.weather ?? null,
+    }),
+  );
+  // Passing the feed opts this surface into the per-player matchup evidence it
+  // renders beneath each prop.
+  const groups = await loadPropGroups({
+    game: propContextFromFeed(feed),
+    season: seasonOf(feed),
+    weather,
+    feed,
+  });
+  return <PlayerPropsBoard groups={groups} gameHref={gameHref} />;
+}
+
+function BoardSkeleton() {
+  return (
+    <div role="status" className="space-y-4">
+      <span className="sr-only">Loading player props</span>
+      <div className="h-48 animate-pulse rounded-md border border-ink/10 bg-card" />
+      <div className="grid gap-4 xl:grid-cols-2">
+        <div className="h-96 animate-pulse rounded-md border border-ink/10 bg-card" />
+        <div className="h-96 animate-pulse rounded-md border border-ink/10 bg-card" />
+      </div>
+    </div>
+  );
 }
 
 export async function generateMetadata({ params }: { params: Promise<{ gamePk: string }> }): Promise<Metadata> {
@@ -50,25 +85,6 @@ export default async function PlayerPropsPage({ params }: { params: Promise<{ ga
   }
 
   const isPreview = feed.state === "Preview";
-  const weather: GameWeather | null = isPreview
-    ? await safe(
-        getGameWeather({
-          venueId: feed.venueId,
-          startTimeISO: feed.startTime,
-          observed: feed.weather ?? null,
-        }),
-      )
-    : null;
-  // Passing the feed opts this surface into the per-player matchup evidence it
-  // renders beneath each prop.
-  const groups = isPreview
-    ? await loadPropGroups({
-        game: propContextFromFeed(feed),
-        season: seasonOf(feed),
-        weather,
-        feed,
-      })
-    : [];
 
   return (
     <div className="mx-auto w-full max-w-[1400px] px-4 py-6 sm:px-6 lg:px-8">
@@ -119,7 +135,11 @@ export default async function PlayerPropsPage({ params }: { params: Promise<{ ga
               <h1 className="font-display text-3xl font-bold uppercase leading-none tracking-wide">Player props</h1>
               <p className="mt-1 max-w-xl text-sm text-ink/65">Compare weighted leans for this game. Scores are research signals, not guarantees.</p>
             </div>
-            <PlayerPropsBoard groups={groups} gameHref={`/games/${id}`} />
+            {/* The header needs only the feed; the board waits on the odds and
+                a dozen MLB lookups, so it streams in behind it. */}
+            <Suspense fallback={<BoardSkeleton />}>
+              <PropsBoardSection feed={feed} gameHref={`/games/${id}`} />
+            </Suspense>
           </>
         )}
       </main>

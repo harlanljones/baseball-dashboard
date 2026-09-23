@@ -1,3 +1,5 @@
+import { unstable_cache } from "next/cache";
+
 import { oddsFetch, TTL, getOddsApiKey } from "./client";
 import { findTheOddsApiEvent, resolveOddsEvent } from "./events";
 import { getSgoPlayerProps } from "./sgo";
@@ -102,6 +104,53 @@ export function loadGamePlayerProps(
   startTimeISO: string,
 ): Promise<PlayerProp[]> {
   return withOddsScope(() => loadInScope(awayTeamName, homeTeamName, startTimeISO));
+}
+
+/**
+ * How long one game's extracted props are kept, in seconds. Matches the
+ * slate-wide leans: short enough that a moved line shows up within minutes.
+ */
+const GAME_PROPS_TTL = 5 * 60;
+
+/** Signals "nothing to cache" out of {@link cachedGameProps}. */
+class NoProps extends Error {}
+
+/**
+ * One game's props, kept for {@link GAME_PROPS_TTL}. Throwing on an empty
+ * result keeps a passing failure (quota, lines not posted) out of the cache,
+ * since a rejected promise is never persisted.
+ */
+const cachedGameProps = unstable_cache(
+  async (awayTeamName: string, homeTeamName: string, startTimeISO: string) => {
+    const props = await loadGamePlayerProps(awayTeamName, homeTeamName, startTimeISO);
+    if (props.length === 0) throw new NoProps();
+    return props;
+  },
+  ["game-player-props"],
+  { revalidate: GAME_PROPS_TTL, tags: ["player-props"] },
+);
+
+/**
+ * {@link loadGamePlayerProps}, cached per game.
+ *
+ * The fetch cache keeps the provider's board off the network, but every view
+ * still read that multi-megabyte board back and parsed it to pull out one
+ * game's few kilobytes of props. Caching the extracted props means a repeat
+ * view reads only those. Inside the slate-wide leans' own cache the lookup
+ * runs uncached (Next bypasses nested caches) but still stores its result, so
+ * scoring the slate warms every game's props page too.
+ */
+export async function getGamePlayerProps(
+  awayTeamName: string,
+  homeTeamName: string,
+  startTimeISO: string,
+): Promise<PlayerProp[]> {
+  try {
+    return await cachedGameProps(awayTeamName, homeTeamName, startTimeISO);
+  } catch (error) {
+    if (error instanceof NoProps) return [];
+    throw error;
+  }
 }
 
 async function loadInScope(
