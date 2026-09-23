@@ -316,3 +316,72 @@ export interface ScoringPlay {
   awayScore: number;        // Score after this play
   homeScore: number;
 }
+
+// ---------------------------------------------------------------------------
+// Offseason (standings, postseason recap, next Opening Day)
+// ---------------------------------------------------------------------------
+
+export interface StandingsRow {
+  team: TeamRef;
+  wins: number;
+  losses: number;
+  /** Winning percentage as MLB formats it, e.g. ".580". */
+  pct: string;
+  /** Games behind the division leader; "-" for the leader. */
+  gamesBack: string;
+  runDifferential?: number;
+  /** MLB clinch code: z = best record in league, y = division, w = wild card, x = playoff berth. */
+  clinch?: string;
+  /** e.g. "W4". */
+  streak?: string;
+  divisionRank?: number;
+}
+
+export interface DivisionStandings {
+  divisionId: number;
+  /** e.g. "AL East". */
+  name: string;
+  league: "AL" | "NL";
+  /** Ordered by division rank. */
+  teams: StandingsRow[];
+}
+
+export interface PostseasonSeries {
+  /** MLB series id, e.g. "W_1", "L_2". */
+  id: string;
+  /** F (Wild Card), D (Division), L (LCS), W (World Series). */
+  gameType: string;
+  /** e.g. "World Series", "AL Division Series". */
+  label: string;
+  /** e.g. "TOR wins 3-1". */
+  status?: string;
+  winner?: TeamRef;
+  games: ScheduleGame[];
+}
+
+export interface SeasonRecap {
+  season: number;
+  /** True once the World Series has a winner. */
+  isOver: boolean;
+  champion?: TeamRef;
+  /** The last completed postseason game (World Series clincher once over). */
+  finalGame?: ScheduleGame;
+  /** Ordered World Series first, then LCS, Division Series, Wild Card. */
+  series: PostseasonSeries[];
+}
+
+export interface OpeningDay {
+  season: number;
+  /** First regular-season game date, YYYY-MM-DD (MLB official date). */
+  date: string;
+  /** First spring training date, YYYY-MM-DD, when known. */
+  springStart?: string;
+}
+
+/** Which seasons the offseason home page talks about. */
+export interface OffseasonContext {
+  /** The season that just ended: its standings and postseason are shown. */
+  recapSeason: number;
+  /** The season whose Opening Day is counted down to. */
+  nextSeason: number;
+}
