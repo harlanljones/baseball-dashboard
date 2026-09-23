@@ -7,6 +7,7 @@
 
 import { getOddsApiKey, oddsFetch } from "./client";
 import { logOddsFailure } from "./log";
+import { shareInScope } from "./requestScope";
 import { findSgoEvent, getSgoApiKey, teamsMatch } from "./sgo";
 import type { ResolvedOddsEvent } from "./types";
 
@@ -31,8 +32,9 @@ export async function findTheOddsApiEvent(
   if (!getOddsApiKey()) return null;
 
   try {
-    const events = await oddsFetch<RawOddsApiEvent[]>(
-      "/v4/sports/baseball_mlb/events",
+    // One event list serves every game in the scope, like the SGO board.
+    const events = await shareInScope("the-odds-api:events", () =>
+      oddsFetch<RawOddsApiEvent[]>("/v4/sports/baseball_mlb/events"),
     );
 
     const matches = events.filter(

@@ -2,6 +2,7 @@ import { describe, it, expect, vi, afterEach } from "vitest";
 import { getPlayerProps, loadGamePlayerProps } from "../props";
 import { resetSgoKeyPool } from "../sgo";
 import { resetOddsKeyPool } from "../client";
+import { withOddsScope } from "../requestScope";
 
 afterEach(() => {
   vi.unstubAllGlobals();
@@ -218,6 +219,98 @@ describe("loadGamePlayerProps", () => {
     ]);
     expect(lines.join("\n")).not.toContain("toa-key");
     warn.mockRestore();
+  });
+});
+
+describe("loadGamePlayerProps board sharing", () => {
+  const start = "2026-07-22T23:05:00Z";
+  const SECOND_EVENT = {
+    ...SGO_EVENT,
+    eventID: "sgo-evt-2",
+    teams: {
+      away: { names: { long: "Chicago Cubs" } },
+      home: { names: { long: "St. Louis Cardinals" } },
+    },
+  };
+
+  function callsTo(host: string): number {
+    const spy = vi.mocked(fetch);
+    return spy.mock.calls.filter(([input]) => String(input).includes(host)).length;
+  }
+
+  it("fetches the SportsGameOdds board once for a game's lookup and props", async () => {
+    vi.stubEnv("SPORTSGAMEODDS_API_KEY", "sgo-key");
+    stubFetch((url) => (url.includes("sportsgameodds.com") ? SGO_BOARD : undefined));
+
+    const props = await loadGamePlayerProps("New York Yankees", "Boston Red Sox", start);
+
+    expect(props).toHaveLength(1);
+    expect(callsTo("sportsgameodds.com")).toBe(1);
+  });
+
+  it("shares one board across every game in an outer scope", async () => {
+    vi.stubEnv("SPORTSGAMEODDS_API_KEY", "sgo-key");
+    stubFetch((url) =>
+      url.includes("sportsgameodds.com") ? { success: true, data: [SGO_EVENT, SECOND_EVENT] } : undefined,
+    );
+
+    const [first, second] = await withOddsScope(() =>
+      Promise.all([
+        loadGamePlayerProps("New York Yankees", "Boston Red Sox", start),
+        loadGamePlayerProps("Chicago Cubs", "St. Louis Cardinals", start),
+      ]),
+    );
+
+    expect(first).toHaveLength(1);
+    expect(second).toHaveLength(1);
+    expect(callsTo("sportsgameodds.com")).toBe(1);
+  });
+
+  it("does not share a board between separate scopes", async () => {
+    vi.stubEnv("SPORTSGAMEODDS_API_KEY", "sgo-key");
+    stubFetch((url) => (url.includes("sportsgameodds.com") ? SGO_BOARD : undefined));
+
+    await loadGamePlayerProps("New York Yankees", "Boston Red Sox", start);
+    await loadGamePlayerProps("New York Yankees", "Boston Red Sox", start);
+
+    expect(callsTo("sportsgameodds.com")).toBe(2);
+  });
+
+  it("shares a failed board, so each game still falls back to The Odds API", async () => {
+    vi.stubEnv("SPORTSGAMEODDS_API_KEY", "sgo-key");
+    vi.stubEnv("ODDS_API_KEY", "toa-key");
+    const toa = toaRoute(TOA_PROPS);
+    stubFetch((url) => (url.includes("sportsgameodds.com") ? FAIL : toa(url)));
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+
+    const [first, second] = await withOddsScope(() =>
+      Promise.all([
+        loadGamePlayerProps("New York Yankees", "Boston Red Sox", start),
+        loadGamePlayerProps("New York Yankees", "Boston Red Sox", start),
+      ]),
+    );
+
+    expect(first).toHaveLength(1);
+    expect(second).toHaveLength(1);
+    expect(callsTo("sportsgameodds.com")).toBe(1);
+    warn.mockRestore();
+  });
+
+  it("shares The Odds API event list across games in a scope", async () => {
+    vi.stubEnv("ODDS_API_KEY", "toa-key");
+    stubFetch(toaRoute(TOA_PROPS));
+
+    await withOddsScope(() =>
+      Promise.all([
+        loadGamePlayerProps("New York Yankees", "Boston Red Sox", start),
+        loadGamePlayerProps("New York Yankees", "Boston Red Sox", start),
+      ]),
+    );
+
+    const spy = vi.mocked(fetch);
+    const paths = spy.mock.calls.map(([input]) => new URL(String(input)).pathname);
+    expect(paths.filter((p) => p.endsWith("/events"))).toHaveLength(1);
+    expect(paths.filter((p) => p.endsWith("/odds"))).toHaveLength(2);
   });
 });
 
