@@ -8,7 +8,7 @@
  * key that keeps 429ing, and skipping a key that seems invalid.
  */
 
-import { createPool, type FetchResult } from "./keys";
+import { buildKeyList, createPool, shouldTryNextKey, type FetchResult } from "./keys";
 
 const BASE = "https://api.the-odds-api.com";
 
@@ -32,9 +32,12 @@ export class OddsApiError extends Error {
   }
 }
 
-/** The configured Odds API key, or `null` if unset — callers should fail closed on `null`. */
+/**
+ * The highest-priority configured Odds API key, or `null` if none is set under
+ * any of the pool's env forms — callers should fail closed on `null`.
+ */
 export function getOddsApiKey(): string | null {
-  return process.env.ODDS_API_KEY || null;
+  return buildKeyList("ODDS")[0] ?? null;
 }
 
 /** Test seam: reset the in-memory rotation state so cases don't leak into each other. */
@@ -63,31 +66,34 @@ export async function oddsFetch<T>(
   params: Params = {},
   revalidate: number = TTL.odds,
 ): Promise<T> {
-  const key = ODDS_KEYS.pick();
-  if (!key) {
-    throw new OddsApiError(0, path, "No usable ODDS_API_KEY");
-  }
-
   const url = new URL(`${BASE}${path}`);
-  url.searchParams.set("apiKey", key);
   for (const [k, v] of Object.entries(params)) {
     if (v !== undefined && v !== null && v !== "") {
       url.searchParams.set(k, String(v));
     }
   }
 
-  const res = await fetch(url.toString(), {
-    headers: { Accept: "application/json" },
-    next: { revalidate },
-  });
+  // A rejected or rate-limited key retries this request on the next usable key,
+  // so one bad key doesn't empty the board; each key is tried at most once.
+  const tried = new Set<string>();
+  let lastError: OddsApiError | null = null;
+  for (let key = ODDS_KEYS.pick(); key && !tried.has(key); key = ODDS_KEYS.pick()) {
+    tried.add(key);
+    url.searchParams.set("apiKey", key);
 
-  const body = await res.json().catch(() => null);
-  const result: FetchResult = { ok: res.ok, status: res.status, body };
+    const res = await fetch(url.toString(), {
+      headers: { Accept: "application/json" },
+      next: { revalidate },
+    });
 
-  if (!res.ok) {
+    const body = await res.json().catch(() => null);
+    if (res.ok) return body as T;
+
+    const result: FetchResult = { ok: res.ok, status: res.status, body };
     ODDS_KEYS.record(key, result);
-    throw new OddsApiError(res.status, redactApiKey(url));
+    lastError = new OddsApiError(res.status, redactApiKey(url));
+    if (!shouldTryNextKey(res.status)) throw lastError;
   }
 
-  return body as T;
+  throw lastError ?? new OddsApiError(0, path, "No usable ODDS_API_KEY");
 }

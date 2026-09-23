@@ -45,6 +45,11 @@ describe("getSgoApiKey", () => {
     vi.stubEnv("SPORTSGAMEODDS_API_KEY", "abc123");
     expect(getSgoApiKey()).toBe("abc123");
   });
+
+  it("counts rotation-only configs as configured", () => {
+    vi.stubEnv("SPORTSGAMEODDS_API_KEYS", "bulkA,bulkB");
+    expect(getSgoApiKey()).toBe("bulkA");
+  });
 });
 
 describe("teamsMatch", () => {
@@ -148,6 +153,35 @@ describe("findSgoEvent", () => {
 
     const id = await findSgoEvent("New York Yankees", "Boston Red Sox", "2026-07-22T23:05:00Z");
     expect(id).toBeNull();
+  });
+
+  it("retries the same request on the next key when a key is rate-limited", async () => {
+    vi.stubEnv("SPORTSGAMEODDS_API_KEY", "limited");
+    vi.stubEnv("SPORTSGAMEODDS_API_KEY_2", "fresh");
+    const fetchSpy = vi
+      .fn()
+      .mockResolvedValueOnce({ ok: false, status: 429, json: async () => ({ success: false, error: "Rate limit exceeded" }) })
+      .mockResolvedValueOnce({ ok: true, status: 200, json: async () => ({ success: true, data: [sgoEvent()] }) });
+    vi.stubGlobal("fetch", fetchSpy);
+
+    const id = await findSgoEvent("New York Yankees", "Boston Red Sox", "2026-07-22T23:05:00Z");
+
+    expect(id).toBe("sgo-evt-1");
+    expect(fetchSpy).toHaveBeenCalledTimes(2);
+    const keysUsed = fetchSpy.mock.calls.map(([, init]) => (init as RequestInit & { headers: Record<string, string> }).headers["x-api-key"]);
+    expect(keysUsed).toEqual(["limited", "fresh"]);
+  });
+
+  it("does not retry on a failure every key would hit", async () => {
+    vi.stubEnv("SPORTSGAMEODDS_API_KEY", "k1");
+    vi.stubEnv("SPORTSGAMEODDS_API_KEY_2", "k2");
+    const fetchSpy = vi.fn().mockResolvedValue({ ok: false, status: 500, json: async () => ({}) });
+    vi.stubGlobal("fetch", fetchSpy);
+
+    await expect(
+      findSgoEvent("New York Yankees", "Boston Red Sox", "2026-07-22T23:05:00Z"),
+    ).rejects.toThrow(SgoError);
+    expect(fetchSpy).toHaveBeenCalledTimes(1);
   });
 
   it("throws SgoError on a non-2xx response", async () => {

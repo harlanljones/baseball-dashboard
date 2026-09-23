@@ -36,6 +36,12 @@ All notable changes to this project will be documented here. The format follows
 
 ### Fixed
 
+- Odds key rotation: `*_API_KEY_5` is now read, a provider configured only
+  through `*_API_KEYS` or numbered keys is no longer treated as unset, and a
+  key rejected (401) or rate-limited (429) retries the same request on the next
+  key instead of returning an empty board.
+- The props page no longer claims rows reorder only when a weight adjustment
+  commits; they re-sort as the sliders move.
 - Batter-vs-pitcher pages are now ISR-cached (6-hour revalidation) instead of
   re-rendered per request, which exceeded the Workers free-plan CPU limit when
   crawlers requested many matchup URLs at once (`exceededCpu` / 503s).

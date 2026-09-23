@@ -259,7 +259,7 @@ export default function PlayerPropsBoard({ groups, gameHref }: { groups: PropTea
           ))}
         </div>
         <div className="mt-4 flex flex-wrap items-center justify-between gap-2 border-t border-ink/10 pt-3 text-xs text-ink/65">
-          <span>Scores update as weights move and reorder when the adjustment commits.</span>
+          <span>Scores and order update as the weights move.</span>
           <span className="nums font-mono font-semibold text-gold-deep">Total {weights.modelConfidence + weights.statisticalEdge + weights.marketValue}%</span>
         </div>
       </section>
