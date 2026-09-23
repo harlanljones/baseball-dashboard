@@ -12,6 +12,7 @@
 
 import type { PlayerProp, PropMarketKey } from "./types";
 import { buildKeyList, createPool, shouldTryNextKey, type FetchResult } from "./keys";
+import { upstreamMessage } from "./log";
 
 const SGO_KEYS = createPool("SPORTSGAMEODDS");
 
@@ -158,11 +159,25 @@ async function sgoFetch(params: Params, revalidate: number = TTL_SGO): Promise<S
 
     const result: FetchResult = { ok: res.ok, status: res.status, body };
     SGO_KEYS.record(key, result);
-    lastError = new SgoError(res.status, url.toString());
+    const why = upstreamMessage(body);
+    lastError = new SgoError(
+      res.status,
+      url.toString(),
+      why ? `SportsGameOdds request failed (${res.status}) for ${url.toString()}: ${why}` : undefined,
+    );
     if (!shouldTryNextKey(res.status)) throw lastError;
   }
 
-  throw lastError ?? new SgoError(0, `${BASE}/events`, "No usable SPORTSGAMEODDS_API_KEY");
+  throw (
+    lastError ??
+    new SgoError(
+      0,
+      `${BASE}/events`,
+      SGO_KEYS.isPoolExhausted()
+        ? "SportsGameOdds quota exhausted; every SPORTSGAMEODDS_API_KEY is paused"
+        : "No usable SPORTSGAMEODDS_API_KEY",
+    )
+  );
 }
 
 /**

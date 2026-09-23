@@ -6,6 +6,7 @@
  */
 
 import { getOddsApiKey, oddsFetch } from "./client";
+import { logOddsFailure } from "./log";
 import { findSgoEvent, getSgoApiKey, teamsMatch } from "./sgo";
 import type { ResolvedOddsEvent } from "./types";
 
@@ -48,7 +49,8 @@ export async function findTheOddsApiEvent(
         Math.abs(new Date(b.commence_time).getTime() - startMs),
     );
     return matches[0].id;
-  } catch {
+  } catch (error) {
+    logOddsFailure("The Odds API events", error);
     return null;
   }
 }
@@ -68,8 +70,9 @@ export async function resolveOddsEvent(
     try {
       const eventId = await findSgoEvent(awayTeamName, homeTeamName, startTimeISO);
       if (eventId) return { provider: "sgo", eventId };
-    } catch {
+    } catch (error) {
       // Primary unavailable — fall through to the fallback provider.
+      logOddsFailure("SportsGameOdds events", error);
     }
   }
 

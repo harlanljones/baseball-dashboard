@@ -201,6 +201,24 @@ describe("loadGamePlayerProps", () => {
 
     expect(await loadGamePlayerProps(away, home, start)).toEqual([]);
   });
+
+  it("logs each provider failure it swallows", async () => {
+    vi.stubEnv("SPORTSGAMEODDS_API_KEY", "sgo-key");
+    vi.stubEnv("ODDS_API_KEY", "toa-key");
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const toa = toaRoute(FAIL);
+    stubFetch((url) => (url.includes("sportsgameodds.com") ? FAIL : toa(url)));
+
+    await loadGamePlayerProps(away, home, start);
+
+    const lines = warn.mock.calls.map(([line]) => String(line));
+    expect(lines).toEqual([
+      expect.stringMatching(/^\[odds\] SportsGameOdds events: .*\(500\)/),
+      expect.stringMatching(/^\[odds\] The Odds API props for New York Yankees at Boston Red Sox: .*\(500\)/),
+    ]);
+    expect(lines.join("\n")).not.toContain("toa-key");
+    warn.mockRestore();
+  });
 });
 
 describe("getPlayerProps", () => {

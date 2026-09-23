@@ -111,4 +111,34 @@ describe("oddsFetch", () => {
       expect(apiErr.url).toContain("regions=us");
     }
   });
+
+  it("carries the provider's own message into the thrown error", async () => {
+    vi.stubEnv("ODDS_API_KEY", "abc123");
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue({
+        ok: false,
+        status: 401,
+        json: async () => ({ message: "Usage quota has been reached. OUT_OF_USAGE_CREDITS" }),
+      }),
+    );
+
+    await expect(oddsFetch("/v4/sports/baseball_mlb/events")).rejects.toThrow(
+      /\(401\).*Usage quota has been reached/,
+    );
+  });
+
+  it("says the quota is exhausted when a spent quota has paused every key", async () => {
+    vi.stubEnv("ODDS_API_KEY", "abc123");
+    const fetchSpy = vi.fn().mockResolvedValue({
+      ok: false,
+      status: 401,
+      json: async () => ({ statusCode: 401, message: "Usage quota has been reached. OUT_OF_USAGE_CREDITS" }),
+    });
+    vi.stubGlobal("fetch", fetchSpy);
+
+    await expect(oddsFetch("/v4/sports/baseball_mlb/events")).rejects.toThrow(OddsApiError);
+    await expect(oddsFetch("/v4/sports/baseball_mlb/events")).rejects.toThrow(/quota exhausted/);
+    expect(fetchSpy).toHaveBeenCalledTimes(1);
+  });
 });

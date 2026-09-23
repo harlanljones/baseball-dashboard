@@ -1,6 +1,7 @@
 import { oddsFetch, TTL, getOddsApiKey } from "./client";
 import { findTheOddsApiEvent, resolveOddsEvent } from "./events";
 import { getSgoPlayerProps } from "./sgo";
+import { logOddsFailure } from "./log";
 import type { PlayerProp, PropMarketKey } from "./types";
 
 const PROP_MARKETS: PropMarketKey[] = [
@@ -100,14 +101,23 @@ export async function loadGamePlayerProps(
   if (!resolved) return [];
 
   if (resolved.provider === "the-odds-api") {
-    return getPlayerProps(resolved.eventId).catch(() => []);
+    return getPlayerProps(resolved.eventId).catch((error) => {
+      logOddsFailure(`The Odds API props for ${awayTeamName} at ${homeTeamName}`, error);
+      return [];
+    });
   }
 
-  const primaryProps = await getSgoPlayerProps(resolved.eventId).catch(() => []);
+  const primaryProps = await getSgoPlayerProps(resolved.eventId).catch((error) => {
+    logOddsFailure(`SportsGameOdds props for ${awayTeamName} at ${homeTeamName}`, error);
+    return [];
+  });
   if (primaryProps.length > 0) return primaryProps;
 
   if (!getOddsApiKey()) return [];
   const fallbackEventId = await findTheOddsApiEvent(awayTeamName, homeTeamName, startTimeISO);
   if (!fallbackEventId) return [];
-  return getPlayerProps(fallbackEventId).catch(() => []);
+  return getPlayerProps(fallbackEventId).catch((error) => {
+    logOddsFailure(`The Odds API fallback props for ${awayTeamName} at ${homeTeamName}`, error);
+    return [];
+  });
 }

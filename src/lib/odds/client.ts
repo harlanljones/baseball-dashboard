@@ -9,6 +9,7 @@
  */
 
 import { buildKeyList, createPool, shouldTryNextKey, type FetchResult } from "./keys";
+import { upstreamMessage } from "./log";
 
 const BASE = "https://api.the-odds-api.com";
 
@@ -91,9 +92,23 @@ export async function oddsFetch<T>(
 
     const result: FetchResult = { ok: res.ok, status: res.status, body };
     ODDS_KEYS.record(key, result);
-    lastError = new OddsApiError(res.status, redactApiKey(url));
+    const why = upstreamMessage(body);
+    lastError = new OddsApiError(
+      res.status,
+      redactApiKey(url),
+      why ? `Odds API request failed (${res.status}) for ${redactApiKey(url)}: ${why}` : undefined,
+    );
     if (!shouldTryNextKey(res.status)) throw lastError;
   }
 
-  throw lastError ?? new OddsApiError(0, path, "No usable ODDS_API_KEY");
+  throw (
+    lastError ??
+    new OddsApiError(
+      0,
+      path,
+      ODDS_KEYS.isPoolExhausted()
+        ? "Odds API quota exhausted; every ODDS_API_KEY is paused"
+        : "No usable ODDS_API_KEY",
+    )
+  );
 }
