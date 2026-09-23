@@ -8,6 +8,10 @@ All notable changes to this project will be documented here. The format follows
 
 ### Added
 
+- Offseason home page: between the end of the World Series and spring
+  training, an empty date shows a countdown to next Opening Day, the
+  postseason recap (champion, series results, final game), and final
+  regular-season standings instead of "No games scheduled".
 - SportsGameOdds as the primary player-prop odds provider: one cached
   league-wide request per 6-hour window prices the whole slate's tracked prop
   markets (per-event billing keeps the free tier inside its monthly budget),
