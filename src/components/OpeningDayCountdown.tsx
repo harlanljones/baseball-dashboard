@@ -1,15 +1,6 @@
 import { daysBetween } from "@/lib/dates";
+import { prettyDate } from "@/lib/format";
 import type { OpeningDay } from "@/lib/mlb/types";
-
-function prettyDate(date: string): string {
-  return new Intl.DateTimeFormat("en-US", {
-    timeZone: "UTC",
-    weekday: "long",
-    month: "long",
-    day: "numeric",
-    year: "numeric",
-  }).format(new Date(`${date}T00:00:00Z`));
-}
 
 function shortDate(date: string): string {
   return new Intl.DateTimeFormat("en-US", {

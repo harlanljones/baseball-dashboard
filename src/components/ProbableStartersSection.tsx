@@ -15,14 +15,7 @@ import type {
   SaberPitching,
   TeamRef,
 } from "@/lib/mlb/types";
-
-async function safe<T>(p: Promise<T>): Promise<T | null> {
-  try {
-    return await p;
-  } catch {
-    return null;
-  }
-}
+import { safe } from "@/lib/safe";
 
 interface StarterData {
   hand: "L" | "R" | null;
@@ -94,7 +87,7 @@ export default async function ProbableStartersSection({
 
   // Batched upstream lookups — one request per split/stat group for both
   // starters instead of ~6 per card.
-  const [seasonStatsById, recentFormById, vsLeftById, vsRightById, homeAwayMaps] =
+  const [seasonStatsById, recentFormById, vsLeftById, vsRightById, homeAwayMaps, hands] =
     await Promise.all([
       safe(getSaberPitchingWithSeasonStatsBatch(ids, season)),
       safe(getPitcherRecentFormBatch(ids, easternDateOf(feed.startTime || new Date()))),
@@ -112,13 +105,14 @@ export default async function ProbableStartersSection({
             : new Map<number, PitcherSplitLine>();
         }),
       ).then(([roadMap, homeMap]) => new Map([...roadMap, ...homeMap])),
+      Promise.all(ids.map((id) => safe(getPitchHand(id)))),
     ]);
+  const handById = new Map(ids.map((id, i) => [id, hands[i]]));
 
-  async function dataFor(pitcher: PlayerRef | undefined): Promise<StarterData> {
+  function dataFor(pitcher: PlayerRef | undefined): StarterData {
     if (!pitcher) return NO_DATA;
-    const [hand] = await Promise.all([safe(getPitchHand(pitcher.id))]);
     return {
-      hand,
+      hand: handById.get(pitcher.id) ?? null,
       seasonStats: seasonStatsById?.get(pitcher.id) ?? null,
       homeAway: homeAwayMaps.get(pitcher.id) ?? null,
       vsLeft: vsLeftById?.get(pitcher.id) ?? null,
@@ -127,7 +121,8 @@ export default async function ProbableStartersSection({
     };
   }
 
-  const [awayData, homeData] = await Promise.all([dataFor(away), dataFor(home)]);
+  const awayData = dataFor(away);
+  const homeData = dataFor(home);
 
   return (
     <div className="fade-in">

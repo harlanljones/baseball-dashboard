@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 
 import type { SaberHitting, SaberPitching, TeamRef } from "@/lib/mlb/types";
 import RosterStatsTable from "./RosterStatsTable";
+import SectionError from "./SectionError";
 
 type Stats = {
   player: { id: number; fullName: string };
@@ -84,9 +85,7 @@ export default function RosterStatsSection({ gamePk }: { gamePk: number }) {
 
   if (state.status === "error") {
     return (
-      <p className="rounded-md border border-clay/40 bg-clay/10 px-3 py-2 text-sm text-clay">
-        Couldn’t load season stats right now.
-      </p>
+      <SectionError label="season stats" />
     );
   }
 

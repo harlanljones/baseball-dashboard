@@ -11,6 +11,7 @@ import {
   StandingsSection,
 } from "@/components/OffseasonSections";
 import { isValidDate } from "@/lib/dates";
+import { prettyDate } from "@/lib/format";
 import { easternToday, shiftDate } from "@/lib/mlb/client";
 import { getSchedule } from "@/lib/mlb/schedule";
 import { getOffseasonContext } from "@/lib/mlb/season";
@@ -18,16 +19,6 @@ import { getOffseasonContext } from "@/lib/mlb/season";
 // This route renders per-request because it awaits `searchParams` (a
 // request-time API). Don't add `dynamic = "force-dynamic"` — in Next 16 that
 // forces every fetch to `no-store`, defeating the TTL caching in mlbFetch.
-
-function prettyDate(date: string): string {
-  return new Intl.DateTimeFormat("en-US", {
-    timeZone: "UTC",
-    weekday: "long",
-    month: "long",
-    day: "numeric",
-    year: "numeric",
-  }).format(new Date(`${date}T00:00:00Z`));
-}
 
 export default async function Home({
   searchParams,

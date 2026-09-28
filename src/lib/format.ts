@@ -15,3 +15,13 @@ export function dec1(n?: number): string {
 export function dec2(n?: number): string {
   return n == null ? "—" : n.toFixed(2);
 }
+
+export function prettyDate(date: string): string {
+  return new Intl.DateTimeFormat("en-US", {
+    timeZone: "UTC",
+    weekday: "long",
+    month: "long",
+    day: "numeric",
+    year: "numeric",
+  }).format(new Date(`${date}T00:00:00Z`));
+}

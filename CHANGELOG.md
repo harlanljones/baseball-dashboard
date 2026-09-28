@@ -31,6 +31,9 @@ All notable changes to this project will be documented here. The format follows
 
 ### Changed
 
+- Removed the unused resizable split pane (`GameSplitPane`, pane-width
+  persistence) from the game page, which now renders a plain centred column;
+  props live on `/games/[gamePk]/props`.
 - Player-prop loading is now provider-agnostic (`loadGamePlayerProps`), so the
   game-page sidebar, props page, and best-leans board require no per-provider
   logic and keep failing soft to an empty board.

@@ -13,14 +13,7 @@ import { MlbApiError } from "@/lib/mlb/client";
 import type { GameFeed } from "@/lib/mlb/types";
 import { getGameWeather } from "@/lib/weather/report";
 import type { GameWeather } from "@/lib/weather/types";
-
-async function safe<T>(promise: Promise<T>): Promise<T | null> {
-  try {
-    return await promise;
-  } catch {
-    return null;
-  }
-}
+import { safe } from "@/lib/safe";
 
 async function PropsBoardSection({ feed, gameHref }: { feed: GameFeed; gameHref: string }) {
   // Weather is only read when props are scored, so it is fetched alongside
