@@ -38,13 +38,21 @@ type State =
  * The plate holds its full height from the first frame in every state, so the
  * grid below never moves when the leans land.
  */
-export default function BestLeansSection({ date }: { date?: string }) {
-  const [state, setState] = useState<State>({ status: "pending" });
+export default function BestLeansSection({
+  date,
+  hasPreviewGames,
+}: {
+  date?: string;
+  hasPreviewGames: boolean;
+}) {
+  const [state, setState] = useState<State>(
+    hasPreviewGames ? { status: "pending" } : { status: "ready", leans: [] },
+  );
   const ref = useRef<HTMLElement>(null);
 
   useEffect(() => {
     const node = ref.current;
-    if (!node) return;
+    if (!node || !hasPreviewGames) return;
 
     let cancelled = false;
     const load = async () => {
@@ -82,7 +90,7 @@ export default function BestLeansSection({ date }: { date?: string }) {
       cancelled = true;
       observer.disconnect();
     };
-  }, [date]);
+  }, [date, hasPreviewGames]);
 
   if (state.status === "pending") {
     return (
@@ -108,12 +116,15 @@ export default function BestLeansSection({ date }: { date?: string }) {
         ref={ref}
         className="fade-in mb-5 rounded-md border border-dashed border-ink/20 bg-card p-4"
       >
-        <LeansHeader note="Research signals only" />
+        <LeansHeader
+          note={hasPreviewGames ? "Research signals only" : "Leans close at first pitch"}
+        />
         <div className="relative">
           <LeansRowBlock className="[&>*]:invisible" />
           <p className="absolute inset-0 flex items-center justify-center px-4 text-center text-sm text-ink/65">
-            No scored leans today — player-prop odds may be unavailable, or no edge
-            clears the default weights.
+            {hasPreviewGames
+              ? "No player-prop odds posted yet for this slate."
+              : "Every game on this slate has started, so player props are closed."}
           </p>
         </div>
       </section>

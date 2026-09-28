@@ -10,6 +10,7 @@ import {
   RecapSection,
   StandingsSection,
 } from "@/components/OffseasonSections";
+import { isValidDate } from "@/lib/dates";
 import { easternToday, shiftDate } from "@/lib/mlb/client";
 import { getSchedule } from "@/lib/mlb/schedule";
 import { getOffseasonContext } from "@/lib/mlb/season";
@@ -35,7 +36,7 @@ export default async function Home({
 }) {
   const { date: dateParam } = await searchParams;
   const today = easternToday();
-  const date = dateParam ?? today;
+  const date = dateParam !== undefined && isValidDate(dateParam) ? dateParam : today;
 
   const { games, hasLiveGame } = await getSchedule(date);
   const prev = shiftDate(date, -1);
@@ -126,7 +127,10 @@ export default async function Home({
           {/* The slate itself costs one request; the leans behind it cost a
               provider-wide prop board plus per-game lookups, so they load
               themselves once the plate scrolls into view. */}
-          <BestLeansSection date={date} />
+          <BestLeansSection
+            date={date}
+            hasPreviewGames={games.some((g) => g.state === "Preview")}
+          />
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
             {games.map((game) => (
               <GameCard key={game.gamePk} game={game} />
