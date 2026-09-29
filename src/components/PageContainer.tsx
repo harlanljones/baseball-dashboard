@@ -1,13 +1,25 @@
 import type { ReactNode } from "react";
 
 /**
- * The standard centered/padded content column used by every route except the
- * game detail page, which needs a full-bleed, full-height shell for its
- * resizable split pane. Kept as the old `<main>` classes lifted verbatim so
- * moving it here is a no-op for every other page.
+ * The standard centered/padded content column shared by every route. `wide`
+ * widens it for data-dense pages such as the game's player props board.
  */
-export default function PageContainer({ children }: { children: ReactNode }) {
+export default function PageContainer({
+  children,
+  wide = false,
+}: {
+  children: ReactNode;
+  wide?: boolean;
+}) {
   return (
-    <div className="mx-auto w-full max-w-5xl px-4 py-6">{children}</div>
+    <div
+      className={
+        wide
+          ? "mx-auto w-full max-w-7xl px-4 py-6 sm:px-6 lg:px-8"
+          : "mx-auto w-full max-w-5xl px-4 py-6"
+      }
+    >
+      {children}
+    </div>
   );
 }

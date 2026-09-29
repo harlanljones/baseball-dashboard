@@ -6,12 +6,15 @@ import { notFound } from "next/navigation";
 import AutoRefresh from "@/components/AutoRefresh";
 import SectionError from "@/components/SectionError";
 import LocalTime from "@/components/LocalTime";
+import BackLink from "@/components/BackLink";
 import BoxscoreTables from "@/components/BoxscoreTables";
 import Bullpen from "@/components/Bullpen";
 import BallparkWeather from "@/components/BallparkWeather";
+import GameNav from "@/components/GameNav";
 import GameStatusBadge from "@/components/GameStatusBadge";
 import HeadToHead from "@/components/HeadToHead";
 import Linescore from "@/components/Linescore";
+import PageContainer from "@/components/PageContainer";
 import ScorePop from "@/components/ScorePop";
 import MatchupsSection from "@/components/MatchupsSection";
 import ProbableStartersSection from "@/components/ProbableStartersSection";
@@ -234,17 +237,9 @@ export default async function GamePage({
         )
       : null;
 
-  // Back link + game header + disruption note. Rendered as the first children
-  // of the split pane's main column so it shares that column's centered
-  // max-width when the props sidebar is collapsed or absent.
   const header = (
     <>
-      <Link
-        href="/"
-        className="inline-block text-sm text-ink/65 hover:text-ink"
-      >
-        ← All games
-      </Link>
+      <BackLink href="/">All games</BackLink>
 
       {/* Header */}
       <div className="rounded-md border border-ink/10 bg-card p-4 shadow-sm">
@@ -321,6 +316,8 @@ export default async function GamePage({
         )}
       </div>
 
+      <GameNav gamePk={id} current="overview" propsAvailable={!isDisrupted && isPreview} />
+
       {isDisrupted && (
         <p className="rounded-md border border-ink/15 bg-field/5 px-3 py-2 text-sm text-ink/75">
           This game is {feed.detailedState.toLowerCase()}. Sections below reflect season data, not today’s result.
@@ -333,86 +330,88 @@ export default async function GamePage({
     <div className="flex min-h-0 flex-1 flex-col">
       <AutoRefresh enabled={feed.state === "Live"} />
 
-      <div className="mx-auto w-full max-w-5xl space-y-5 px-4 py-6">
-        {header}
+      <PageContainer>
+        <div className="space-y-5">
+          {header}
 
-        {/* Probable starters */}
-        {!isDisrupted && isPreview && (
-          <Section title="Probable starters">
-            <Suspense fallback={<SectionSkeleton />}>
-              <ProbableStartersSection feed={feed} season={season} />
-            </Suspense>
-          </Section>
-        )}
-
-        {/* Ballpark weather */}
-        {!isDisrupted && (isPreview || feed.state === "Live") && (
-          <Section title="Ballpark weather">
-            <WeatherSection weather={weather} />
-          </Section>
-        )}
-
-        {/* 1. Linescore + boxscore (from the feed) */}
-        {scored && !isDisrupted && (
-          <Section title="Boxscore">
-            <div className="space-y-4">
-              <Linescore feed={feed} />
-              <BoxscoreTables
-                away={feed.boxscore.away}
-                home={feed.boxscore.home}
-                isLive={feed.state === "Live"}
-              />
-            </div>
-          </Section>
-        )}
-
-        {/* Game log (reference tier) */}
-        {scored && !isDisrupted && (
-          <CollapsibleSection title="Game log">
-            <Suspense fallback={<SectionSkeleton />}>
-              <GameLogSection feed={feed} />
-            </Suspense>
-          </CollapsibleSection>
-        )}
-
-        {/* 2. Bullpen (also from the feed) */}
-        {!isDisrupted &&
-          (feed.boxscore.away.bullpen.length > 0 ||
-            feed.boxscore.home.bullpen.length > 0) && (
-            <Section title={scored ? "Bullpen (available arms)" : "Bullpen"}>
+          {/* Probable starters */}
+          {!isDisrupted && isPreview && (
+            <Section title="Probable starters">
               <Suspense fallback={<SectionSkeleton />}>
-                <BullpenSection feed={feed} season={season} />
+                <ProbableStartersSection feed={feed} season={season} />
               </Suspense>
             </Section>
           )}
 
-        {/* 3. Head-to-head (reference tier) */}
-        <CollapsibleSection title={isPostseason(feed.gameType) ? "Series" : "Season series"}>
-          <Suspense fallback={<SectionSkeleton />}>
-            <HeadToHeadSection feed={feed} season={season} />
-          </Suspense>
-        </CollapsibleSection>
+          {/* Ballpark weather */}
+          {!isDisrupted && (isPreview || feed.state === "Live") && (
+            <Section title="Ballpark weather">
+              <WeatherSection weather={weather} />
+            </Section>
+          )}
 
-        {/* 4. Batter vs pitcher */}
-        <Section title="Matchups">
-          <MatchupsSection gamePk={id} />
-        </Section>
+          {/* 1. Linescore + boxscore (from the feed) */}
+          {scored && !isDisrupted && (
+            <Section title="Boxscore">
+              <div className="space-y-4">
+                <Linescore feed={feed} />
+                <BoxscoreTables
+                  away={feed.boxscore.away}
+                  home={feed.boxscore.home}
+                  isLive={feed.state === "Live"}
+                />
+              </div>
+            </Section>
+          )}
 
-        {/* 5. Sabermetrics */}
-        <Section
-          title="Sabermetric evaluations"
-          aside={
-            <a
-              href="/glossary"
-              className="text-xs text-grass underline underline-offset-2 hover:text-field-deep dark:hover:text-grass"
-            >
-              Glossary
-            </a>
-          }
-        >
-          <RosterStatsSection gamePk={id} />
-        </Section>
-      </div>
+          {/* Game log (reference tier) */}
+          {scored && !isDisrupted && (
+            <CollapsibleSection title="Game log">
+              <Suspense fallback={<SectionSkeleton />}>
+                <GameLogSection feed={feed} />
+              </Suspense>
+            </CollapsibleSection>
+          )}
+
+          {/* 2. Bullpen (also from the feed) */}
+          {!isDisrupted &&
+            (feed.boxscore.away.bullpen.length > 0 ||
+              feed.boxscore.home.bullpen.length > 0) && (
+              <Section title={scored ? "Bullpen (available arms)" : "Bullpen"}>
+                <Suspense fallback={<SectionSkeleton />}>
+                  <BullpenSection feed={feed} season={season} />
+                </Suspense>
+              </Section>
+            )}
+
+          {/* 3. Head-to-head (reference tier) */}
+          <CollapsibleSection title={isPostseason(feed.gameType) ? "Series" : "Season series"}>
+            <Suspense fallback={<SectionSkeleton />}>
+              <HeadToHeadSection feed={feed} season={season} />
+            </Suspense>
+          </CollapsibleSection>
+
+          {/* 4. Batter vs pitcher */}
+          <Section title="Matchups">
+            <MatchupsSection gamePk={id} />
+          </Section>
+
+          {/* 5. Sabermetrics */}
+          <Section
+            title="Sabermetric evaluations"
+            aside={
+              <a
+                href="/glossary"
+                className="text-xs text-grass underline underline-offset-2 hover:text-field-deep dark:hover:text-grass"
+              >
+                Glossary
+              </a>
+            }
+          >
+            <RosterStatsSection gamePk={id} />
+          </Section>
+        </div>
+      </PageContainer>
     </div>
   );
 }
