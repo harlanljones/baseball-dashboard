@@ -30,26 +30,28 @@ export default function SeasonRecap({ recap }: { recap: SeasonRecapData }) {
   const worldSeries = recap.series.find((s) => s.gameType === "W");
 
   return (
-    <div className="rounded-md border border-ink/15 bg-card p-4 shadow-sm">
-      {recap.champion && (
-        <div className="mb-3 flex items-center gap-3 border-b border-ink/10 pb-3">
-          <TeamLogo teamId={recap.champion.id} size={40} />
-          <div>
-            <p className="font-display text-lg font-bold uppercase leading-tight tracking-wide">
-              {recap.champion.name} win the {recap.season} World Series
-            </p>
-            {worldSeries?.status && (
-              <p className="nums text-sm text-ink/65">{worldSeries.status}</p>
-            )}
+    <>
+      <div className="rounded-md border border-ink/15 bg-card p-4 shadow-sm">
+        {recap.champion && (
+          <div className="mb-3 flex items-center gap-3 border-b border-ink/10 pb-3">
+            <TeamLogo teamId={recap.champion.id} size={40} />
+            <div>
+              <p className="font-display text-lg font-bold uppercase leading-tight tracking-wide">
+                {recap.champion.name} win the {recap.season} World Series
+              </p>
+              {worldSeries?.status && (
+                <p className="nums text-sm text-ink/65">{worldSeries.status}</p>
+              )}
+            </div>
           </div>
-        </div>
-      )}
+        )}
 
-      <ul className="divide-y divide-ink/10">
-        {recap.series.map((series) => (
-          <SeriesRow key={series.id} series={series} />
-        ))}
-      </ul>
+        <ul className="divide-y divide-ink/10">
+          {recap.series.map((series) => (
+            <SeriesRow key={series.id} series={series} />
+          ))}
+        </ul>
+      </div>
 
       {recap.finalGame && (
         <div className="mt-4">
@@ -57,6 +59,6 @@ export default function SeasonRecap({ recap }: { recap: SeasonRecapData }) {
           <GameCard game={recap.finalGame} />
         </div>
       )}
-    </div>
+    </>
   );
 }

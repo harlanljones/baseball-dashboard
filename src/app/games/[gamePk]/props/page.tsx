@@ -1,9 +1,11 @@
 import type { Metadata } from "next";
-import Link from "next/link";
 import { Suspense } from "react";
 import { notFound } from "next/navigation";
+import BackLink from "@/components/BackLink";
+import GameNav from "@/components/GameNav";
 import GameStatusBadge from "@/components/GameStatusBadge";
 import LocalTime from "@/components/LocalTime";
+import PageContainer from "@/components/PageContainer";
 import PlayerPropsBoard from "@/components/PlayerPropsBoard";
 import TeamLogo from "@/components/TeamLogo";
 import { loadPropGroups } from "@/components/PropsSidebarSection";
@@ -13,14 +15,7 @@ import { MlbApiError } from "@/lib/mlb/client";
 import type { GameFeed } from "@/lib/mlb/types";
 import { getGameWeather } from "@/lib/weather/report";
 import type { GameWeather } from "@/lib/weather/types";
-
-async function safe<T>(promise: Promise<T>): Promise<T | null> {
-  try {
-    return await promise;
-  } catch {
-    return null;
-  }
-}
+import { safe } from "@/lib/safe";
 
 async function PropsBoardSection({ feed, gameHref }: { feed: GameFeed; gameHref: string }) {
   // Weather is only read when props are scored, so it is fetched alongside
@@ -87,13 +82,8 @@ export default async function PlayerPropsPage({ params }: { params: Promise<{ ga
   const isPreview = feed.state === "Preview";
 
   return (
-    <div className="mx-auto w-full max-w-[1400px] px-4 py-6 sm:px-6 lg:px-8">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <Link href={`/games/${id}`} className="text-sm text-ink/65 underline-offset-4 hover:text-ink hover:underline">
-          Back to game overview
-        </Link>
-        <Link href="/" className="text-sm text-ink/65 underline-offset-4 hover:text-ink hover:underline">All games</Link>
-      </div>
+    <PageContainer wide>
+      <BackLink href={`/games/${id}`}>Game overview</BackLink>
 
       <header className="mt-4 rounded-md border border-ink/10 bg-card p-4 shadow-sm">
         <div className="flex flex-wrap items-center justify-between gap-3">
@@ -118,12 +108,9 @@ export default async function PlayerPropsPage({ params }: { params: Promise<{ ga
         </div>
       </header>
 
-      <nav aria-label="Game detail navigation" className="mt-4 flex gap-1 border-b border-ink/10">
-        <Link href={`/games/${id}`} className="px-3 py-2 text-sm text-ink/65 hover:text-ink">Overview</Link>
-        <Link href={`/games/${id}/props`} aria-current="page" className="border-b-2 border-gold px-3 py-2 text-sm font-semibold text-ink">Player props</Link>
-      </nav>
+      <GameNav gamePk={id} current="props" propsAvailable={isPreview} />
 
-      <main className="mt-5">
+      <div className="mt-5">
         {!isPreview ? (
           <div className="rounded-md border border-dashed border-ink/20 bg-card px-5 py-12 text-center">
             <h1 className="font-display text-xl font-semibold uppercase">Player props are closed</h1>
@@ -142,7 +129,7 @@ export default async function PlayerPropsPage({ params }: { params: Promise<{ ga
             </Suspense>
           </>
         )}
-      </main>
-    </div>
+      </div>
+    </PageContainer>
   );
 }

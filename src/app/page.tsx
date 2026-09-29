@@ -10,6 +10,8 @@ import {
   RecapSection,
   StandingsSection,
 } from "@/components/OffseasonSections";
+import { isValidDate } from "@/lib/dates";
+import { prettyDate } from "@/lib/format";
 import { easternToday, shiftDate } from "@/lib/mlb/client";
 import { getSchedule } from "@/lib/mlb/schedule";
 import { getOffseasonContext } from "@/lib/mlb/season";
@@ -18,16 +20,6 @@ import { getOffseasonContext } from "@/lib/mlb/season";
 // request-time API). Don't add `dynamic = "force-dynamic"` — in Next 16 that
 // forces every fetch to `no-store`, defeating the TTL caching in mlbFetch.
 
-function prettyDate(date: string): string {
-  return new Intl.DateTimeFormat("en-US", {
-    timeZone: "UTC",
-    weekday: "long",
-    month: "long",
-    day: "numeric",
-    year: "numeric",
-  }).format(new Date(`${date}T00:00:00Z`));
-}
-
 export default async function Home({
   searchParams,
 }: {
@@ -35,7 +27,7 @@ export default async function Home({
 }) {
   const { date: dateParam } = await searchParams;
   const today = easternToday();
-  const date = dateParam ?? today;
+  const date = dateParam !== undefined && isValidDate(dateParam) ? dateParam : today;
 
   const { games, hasLiveGame } = await getSchedule(date);
   const prev = shiftDate(date, -1);
@@ -126,7 +118,10 @@ export default async function Home({
           {/* The slate itself costs one request; the leans behind it cost a
               provider-wide prop board plus per-game lookups, so they load
               themselves once the plate scrolls into view. */}
-          <BestLeansSection date={date} />
+          <BestLeansSection
+            date={date}
+            hasPreviewGames={games.some((g) => g.state === "Preview")}
+          />
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
             {games.map((game) => (
               <GameCard key={game.gamePk} game={game} />

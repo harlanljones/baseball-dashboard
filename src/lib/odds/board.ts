@@ -99,7 +99,7 @@ export function calculateScore(prop: ScoredProp, weights: Weights): number | nul
  * failures. All shades are the AA-safe `-deep` tokens in day mode.
  */
 export function scoreToneClass(score: number | null): string {
-  if (score == null) return "text-ink/60";
+  if (score == null) return "text-ink/65";
   if (score >= 80) return "text-grass";
   if (score >= 60) return "text-gold-deep";
   return "text-ink/70";
@@ -124,7 +124,7 @@ export const TIER_LABEL: Record<ScoredProp["tier"], string> = {
 export const TIER_CLASS: Record<ScoredProp["tier"], string> = {
   "strong-over": "bg-field/15 text-field-deep dark:text-grass",
   "lean-over": "text-gold-deep font-semibold",
-  neutral: "text-ink/60",
+  neutral: "text-ink/65",
   "lean-under": "text-gold-deep font-semibold",
   "strong-under": "bg-field/15 text-field-deep dark:text-grass",
 };

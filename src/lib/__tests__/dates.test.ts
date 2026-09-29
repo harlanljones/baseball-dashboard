@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { daysBetween } from "../dates";
+import { daysBetween, isValidDate } from "../dates";
 
 describe("daysBetween", () => {
   it("counts whole days forward", () => {
@@ -17,5 +17,28 @@ describe("daysBetween", () => {
 
   it("crosses a leap-year February correctly", () => {
     expect(daysBetween("2028-02-01", "2028-03-01")).toBe(29);
+  });
+});
+
+describe("isValidDate", () => {
+  it("accepts real calendar dates", () => {
+    expect(isValidDate("2026-09-28")).toBe(true);
+    expect(isValidDate("2028-02-29")).toBe(true);
+  });
+
+  it("rejects dates that do not exist", () => {
+    expect(isValidDate("2026-02-30")).toBe(false);
+    expect(isValidDate("2027-02-29")).toBe(false);
+    expect(isValidDate("2026-13-01")).toBe(false);
+    expect(isValidDate("2026-00-10")).toBe(false);
+    expect(isValidDate("2026-04-31")).toBe(false);
+  });
+
+  it("rejects malformed values", () => {
+    expect(isValidDate("abc")).toBe(false);
+    expect(isValidDate("")).toBe(false);
+    expect(isValidDate("2026-9-28")).toBe(false);
+    expect(isValidDate("2026-09-28T00:00:00Z")).toBe(false);
+    expect(isValidDate(" 2026-09-28")).toBe(false);
   });
 });

@@ -1,6 +1,7 @@
 import TeamLogo from "./TeamLogo";
 import StatGradeLegend from "./StatGradeLegend";
 import { statClass } from "@/lib/statColor";
+import { TD_LEFT, TD_NUM, TH_LEFT, TH_RIGHT } from "./tableStyles";
 import type { TeamBoxscore } from "@/lib/mlb/types";
 
 const BAT_COLS = ["AB", "R", "H", "RBI", "BB", "K", "AVG"] as const;
@@ -10,7 +11,7 @@ function Th({ children, first }: { children: React.ReactNode; first?: boolean })
   return (
     <th
       scope="col"
-      className={`font-display px-2 py-1 text-xs font-semibold uppercase tracking-wider text-ink/65 ${first ? "text-left" : "text-right"}`}
+      className={first ? TH_LEFT : TH_RIGHT}
     >
       {children}
     </th>
@@ -48,19 +49,19 @@ function TeamBox({ box, isLive }: { box: TeamBoxscore; isLive?: boolean }) {
                 key={b.id}
                 className="border-t border-ink/10"
               >
-                <td className="px-2 py-1 text-left">
+                <td className={TD_LEFT}>
                   {b.name}
                   <span className="ml-1 text-xs text-ink/65">
                     {b.position}
                   </span>
                 </td>
-                <td className="font-mono px-2 py-1 text-right">{b.ab}</td>
-                <td className="font-mono px-2 py-1 text-right">{b.r}</td>
-                <td className="font-mono px-2 py-1 text-right">{b.h}</td>
-                <td className="font-mono px-2 py-1 text-right">{b.rbi}</td>
-                <td className="font-mono px-2 py-1 text-right">{b.bb}</td>
-                <td className="font-mono px-2 py-1 text-right">{b.k}</td>
-                <td className={`font-mono px-2 py-1 text-right ${statClass("avg", b.avg)}`}>
+                <td className={TD_NUM}>{b.ab}</td>
+                <td className={TD_NUM}>{b.r}</td>
+                <td className={TD_NUM}>{b.h}</td>
+                <td className={TD_NUM}>{b.rbi}</td>
+                <td className={TD_NUM}>{b.bb}</td>
+                <td className={TD_NUM}>{b.k}</td>
+                <td className={`${TD_NUM} ${statClass("avg", b.avg)}`}>
                   {b.avg}
                 </td>
               </tr>
@@ -87,14 +88,14 @@ function TeamBox({ box, isLive }: { box: TeamBoxscore; isLive?: boolean }) {
                   key={p.id}
                   className="border-t border-ink/10"
                 >
-                  <td className="px-2 py-1 text-left">{p.name}</td>
-                  <td className="font-mono px-2 py-1 text-right">{p.ip}</td>
-                  <td className="font-mono px-2 py-1 text-right">{p.h}</td>
-                  <td className="font-mono px-2 py-1 text-right">{p.r}</td>
-                  <td className="font-mono px-2 py-1 text-right">{p.er}</td>
-                  <td className="font-mono px-2 py-1 text-right">{p.bb}</td>
-                  <td className="font-mono px-2 py-1 text-right">{p.k}</td>
-                  <td className={`font-mono px-2 py-1 text-right ${statClass("era", p.era)}`}>
+                  <td className={TD_LEFT}>{p.name}</td>
+                  <td className={TD_NUM}>{p.ip}</td>
+                  <td className={TD_NUM}>{p.h}</td>
+                  <td className={TD_NUM}>{p.r}</td>
+                  <td className={TD_NUM}>{p.er}</td>
+                  <td className={TD_NUM}>{p.bb}</td>
+                  <td className={TD_NUM}>{p.k}</td>
+                  <td className={`${TD_NUM} ${statClass("era", p.era)}`}>
                     {p.era}
                   </td>
                 </tr>

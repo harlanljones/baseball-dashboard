@@ -71,7 +71,7 @@ export default function Linescore({ feed }: { feed: GameFeed }) {
                 {innings.map((i) => (
                   <td
                     key={i.num}
-                    className={`w-7 rounded-[3px] border bg-field-deep/50 px-1 py-1 text-center font-medium ${
+                    className={`w-7 rounded-[3px] border bg-field-deep/50 px-1 py-1 text-center ${
                       i.num === currentInning
                         ? "border-gold/50 text-gold"
                         : "border-white/10"

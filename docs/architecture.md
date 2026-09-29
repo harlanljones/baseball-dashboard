@@ -7,8 +7,9 @@ and tests remain authoritative when this overview falls behind.
 
 The application is a stateless Next.js App Router project. Server Components
 fetch and shape upstream data; a small set of Client Components handles polling,
-sorting, image fallbacks, and the resizable props pane. There is no application
-database, authentication layer, or custom JSON API.
+sorting, and image fallbacks. There is no application database or
+authentication layer, and the only JSON routes are the small read-only `/api`
+endpoints listed below.
 
 ```text
 Browser
@@ -25,7 +26,12 @@ Browser
 | Route | Rendering | Responsibility |
 | --- | --- | --- |
 | `/` | Dynamic | Daily schedule selected by `?date=YYYY-MM-DD`; defaults to the current Eastern-time date. |
-| `/games/[gamePk]` | Dynamic and streamed | Game header plus independent suspense sections for scores, matchups, players, weather, and props. |
+| `/games/[gamePk]` | Dynamic and streamed | Game header plus independent suspense sections for scores, matchups, players, and weather. |
+| `/games/[gamePk]/props` | Dynamic | Player prop board for one game, rendered by `PropsSidebarSection` with the game's weather and matchup context. |
+| `/glossary` | Static | Definitions for the statistics and grades used across the app. |
+| `/api/best-leans` | Dynamic JSON | Best prop leans for a date, loaded by the home page's `BestLeansSection`. |
+| `/api/games/[gamePk]/matchups` | Dynamic JSON | Batter-vs-starter matchup history, loaded by `MatchupsSection`. |
+| `/api/games/[gamePk]/roster-stats` | Dynamic JSON | Team-wide hitting and pitching season stats, loaded by `RosterStatsSection`. |
 | `/players/[batterId]/vs/[pitcherId]` | ISR (6h) | Career batter-vs-pitcher history; empty `generateStaticParams` so pairings render on first visit and cache afterward. |
 | `loading.tsx`, `error.tsx`, `not-found.tsx` | Framework boundaries | Accessible loading, retry, and missing-resource states. |
 
@@ -46,7 +52,7 @@ provider or statistic can fail without suppressing the rest of the page:
 - `Bullpen` combines box-score usage with recent workload.
 - `BallparkWeather` aligns an hourly venue forecast with game time and home plate.
 - `RosterStatsSection` renders sortable team-wide hitting and pitching tables.
-- `PropsSidebarSection` matches optional market data to MLB players and context.
+- `PropsSidebarSection` matches optional market data to MLB players and context; it renders on the `/games/[gamePk]/props` page rather than the game page.
 
 ## Component boundaries
 
@@ -54,7 +60,6 @@ Most components render on the server. Client Components are limited to
 interaction that requires browser state:
 
 - `AutoRefresh` calls `router.refresh()` every 30 seconds only while a game is live.
-- `GameSplitPane` persists the props-pane width in local storage.
 - `RosterStatsTable`, `MatchupTable`, and `BoxscoreTables` share sortable-table logic.
 - `TeamLogo` and `PlayerHeadshot` handle remote images and fallbacks.
 
@@ -116,7 +121,7 @@ CPU usage within free-plan limits when many unknown pairings are requested.
 ## Testing
 
 Vitest covers pure data shaping, name matching, prop scoring, batched player
-statistics, and pane-width persistence. ESLint, TypeScript, Vitest, and the
+statistics. ESLint, TypeScript, Vitest, and the
 production build run in CI. Async Server Components currently rely on build
 coverage and manual route verification rather than component-unit tests.
 

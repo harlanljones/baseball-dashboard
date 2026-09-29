@@ -298,7 +298,7 @@ function WindFieldDiagram({ weather }: { weather: GameWeather }) {
 
   return (
     <svg
-      viewBox={`0 0 ${svgSize} ${svgSize}`}
+      viewBox="24 38 152 164"
       className="w-full max-w-xs"
       aria-hidden="true"
     >
@@ -336,7 +336,7 @@ function WindFieldDiagram({ weather }: { weather: GameWeather }) {
         x={centerX}
         y={centerY - outfieldRadius - 8}
         textAnchor="middle"
-        className="fill-ink/50 text-xs font-mono"
+        className="fill-ink/65 text-xs font-mono"
         fontSize="12"
       >
         CF
@@ -403,13 +403,17 @@ function StatTile({
   highlight?: string;
 }) {
   return (
-    <div className={deemphasize ? "opacity-60" : undefined}>
+    <div>
       <div className="flex items-center gap-1.5">
         {glyph && <span className="text-ink/70">{glyph}</span>}
         <div className="eyebrow text-xs">{label}</div>
       </div>
       <div className="mt-1">
-        <div className="font-display font-semibold text-ink">{value}</div>
+        <div
+          className={`font-display font-semibold ${deemphasize ? "text-ink/65" : "text-ink"}`}
+        >
+          {value}
+        </div>
         {detail && (
           <div className="mt-0.5 text-xs text-ink/65">{detail}</div>
         )}
@@ -439,9 +443,11 @@ function HourlyCell({
 }) {
   return (
     <div
-      className={`flex flex-none flex-col items-center gap-1.5 p-2 min-w-max ${deemphasize ? "opacity-60" : ""}`}
+      className="flex flex-none flex-col items-center gap-1.5 p-2 min-w-max"
     >
-      <div className="font-mono text-xs font-semibold text-ink">
+      <div
+        className={`font-mono text-xs font-semibold ${deemphasize ? "text-ink/65" : "text-ink"}`}
+      >
         <LocalHour iso={hour.timeISO} />
       </div>
       <div>
@@ -451,10 +457,18 @@ function HourlyCell({
           size="small"
         />
       </div>
-      <div className="nums font-mono text-xs text-ink">{hour.wind.speedMph}</div>
+      <div
+        className={`nums font-mono text-xs ${deemphasize ? "text-ink/65" : "text-ink"}`}
+      >
+        {hour.wind.speedMph}
+      </div>
       <div className="flex items-center gap-1">
         {getSkyGlyph(hour.sky)}
-        <span className="font-mono text-xs text-ink/70">{hour.tempF}°</span>
+        <span
+          className={`font-mono text-xs ${deemphasize ? "text-ink/65" : "text-ink/70"}`}
+        >
+          {hour.tempF}°
+        </span>
       </div>
     </div>
   );
@@ -498,6 +512,18 @@ export default function BallparkWeather({
       : roofType === "retractable"
         ? "Retractable roof"
         : "Open air";
+
+  const observedText = weather.observed
+    ? [
+        weather.observed.condition,
+        weather.observed.tempF !== undefined
+          ? `${weather.observed.tempF}°`
+          : null,
+        weather.observed.windText,
+      ]
+        .filter(Boolean)
+        .join(" · ")
+    : "";
 
   return (
     <div className="space-y-4">
@@ -610,19 +636,9 @@ export default function BallparkWeather({
         </div>
       )}
 
-      {/* Observed data (MLB actuals) */}
-      {weather.observed && (
+      {observedText && (
         <div className="border-t border-ink/10 pt-2 text-xs text-ink/65">
-          Observed:{" "}
-          {[
-            weather.observed.condition,
-            weather.observed.tempF !== undefined
-              ? `${weather.observed.tempF}°`
-              : null,
-            weather.observed.windText,
-          ]
-            .filter(Boolean)
-            .join(" · ")}
+          Observed: {observedText}
         </div>
       )}
     </div>

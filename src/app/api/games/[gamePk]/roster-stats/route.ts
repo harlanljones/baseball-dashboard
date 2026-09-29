@@ -7,6 +7,7 @@ import {
   getSaberPitchingWithSeasonStatsBatch,
   type RosterPlayer,
 } from "@/lib/mlb/players";
+import { safe } from "@/lib/safe";
 
 // --- Payload shapes -----------------------------------------------------------
 
@@ -74,14 +75,6 @@ const POSITION_ORDER = [
 function positionRank(pos: string): number {
   const idx = POSITION_ORDER.indexOf(pos);
   return idx === -1 ? POSITION_ORDER.length : idx;
-}
-
-async function safe<T>(p: Promise<T>): Promise<T | null> {
-  try {
-    return await p;
-  } catch {
-    return null;
-  }
 }
 
 async function enrichRoster(

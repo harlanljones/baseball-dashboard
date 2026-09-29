@@ -5,6 +5,7 @@ import { useEffect, useState } from "react";
 import type { MatchupSide } from "@/lib/mlb/types";
 import MatchupTable from "./MatchupTable";
 import StatGradeLegend from "./StatGradeLegend";
+import SectionError from "./SectionError";
 
 type State =
   | { status: "loading" }
@@ -61,9 +62,7 @@ export default function MatchupsSection({ gamePk }: { gamePk: number }) {
 
   if (state.status === "error") {
     return (
-      <p className="rounded-md border border-clay/40 bg-clay/10 px-3 py-2 text-sm text-clay">
-        Couldn’t load matchup history right now.
-      </p>
+      <SectionError label="matchup history" />
     );
   }
 

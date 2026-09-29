@@ -92,14 +92,21 @@ async function fetchPeopleStats(
   const unique = [...new Set(personIds)].filter(
     (id) => Number.isInteger(id) && id > 0,
   );
-  const byId = new Map<number, RawStatGroup[]>();
+  const chunks: number[][] = [];
   for (let i = 0; i < unique.length; i += PEOPLE_BATCH_SIZE) {
-    const chunk = unique.slice(i, i + PEOPLE_BATCH_SIZE);
-    const res = await mlbFetch<RawPeopleResponse>(
-      "/api/v1/people",
-      { personIds: chunk.join(","), hydrate },
-      ttl,
-    );
+    chunks.push(unique.slice(i, i + PEOPLE_BATCH_SIZE));
+  }
+  const responses = await Promise.all(
+    chunks.map((chunk) =>
+      mlbFetch<RawPeopleResponse>(
+        "/api/v1/people",
+        { personIds: chunk.join(","), hydrate },
+        ttl,
+      ),
+    ),
+  );
+  const byId = new Map<number, RawStatGroup[]>();
+  for (const res of responses) {
     for (const person of res.people ?? []) {
       if (person.id != null) byId.set(person.id, person.stats ?? []);
     }

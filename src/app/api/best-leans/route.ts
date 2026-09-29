@@ -1,3 +1,4 @@
+import { isValidDate } from "@/lib/dates";
 import { getBestLeans } from "@/lib/odds/leans";
 
 /**
@@ -11,6 +12,9 @@ import { getBestLeans } from "@/lib/odds/leans";
  */
 export async function GET(request: Request) {
   const date = new URL(request.url).searchParams.get("date") ?? undefined;
+  if (date !== undefined && !isValidDate(date)) {
+    return Response.json({ leans: [] }, { status: 400 });
+  }
   let leans: Awaited<ReturnType<typeof getBestLeans>>;
   try {
     leans = await getBestLeans(date);

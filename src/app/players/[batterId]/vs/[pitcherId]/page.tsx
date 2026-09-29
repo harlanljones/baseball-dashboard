@@ -90,7 +90,7 @@ export default async function VsPitcherPage({
           <h1 className="font-display flex flex-wrap items-center gap-2 text-xl font-semibold">
             <PlayerHeadshot personId={batter.id} size={28} />
             {batter.fullName}
-            <span className="font-normal text-ink/65">vs</span>
+            <span className="font-sans font-normal text-ink/65">vs</span>
             <PlayerHeadshot personId={pitcher.id} size={28} />
             {pitcher.fullName}
           </h1>

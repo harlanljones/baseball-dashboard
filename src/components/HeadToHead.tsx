@@ -6,6 +6,7 @@ import type {
   SeriesMeeting,
   TeamRef,
 } from "@/lib/mlb/types";
+import { TD_LEFT, TD_NUM, TD_RIGHT, TH_LEFT, TH_RIGHT } from "./tableStyles";
 
 function name(t: { abbreviation?: string; name: string }): string {
   return t.abbreviation ?? t.name;
@@ -152,22 +153,22 @@ function SeriesTable({
         </caption>
         <thead>
           <tr>
-            <th scope="col" className="font-display px-2 py-1 text-left text-xs font-semibold uppercase tracking-wider text-ink/65">
+            <th scope="col" className={TH_LEFT}>
               Date
             </th>
-            <th scope="col" className="font-display px-2 py-1 text-left text-xs font-semibold uppercase tracking-wider text-ink/65">
+            <th scope="col" className={TH_LEFT}>
               Matchup
             </th>
-            <th scope="col" className="font-display px-2 py-1 text-right text-xs font-semibold uppercase tracking-wider text-ink/65">
+            <th scope="col" className={TH_RIGHT}>
               Score
             </th>
-            <th scope="col" className="font-display px-2 py-1 text-right text-xs font-semibold uppercase tracking-wider text-ink/65">
+            <th scope="col" className={TH_RIGHT}>
               Result
             </th>
             <th
               scope="col"
               title={`Running record for ${name(teamA)}`}
-              className="font-display px-2 py-1 text-right text-xs font-semibold uppercase tracking-wider text-ink/65"
+              className={TH_RIGHT}
             >
               {name(teamA)} record
             </th>
@@ -185,13 +186,13 @@ function SeriesTable({
                 ? m.away.score > m.home.score
                 : false;
             return (
-              <tr key={m.gamePk} className="border-t border-ink/10 odd:bg-ink/5">
-                <td className="px-2 py-1 text-left">
+              <tr key={m.gamePk} className="border-t border-ink/10">
+                <td className={TD_LEFT}>
                   <Link href={`/games/${m.gamePk}`} className="text-ink/65 hover:text-grass hover:underline">
                     {formatDate(m.date)}
                   </Link>
                 </td>
-                <td className="px-2 py-1 text-left">
+                <td className={TD_LEFT}>
                   <Link href={`/games/${m.gamePk}`} className="flex min-w-0 items-center gap-1.5 hover:text-grass">
                     <TeamMini team={m.away.team} lost={awayLost} />
                     <span className="shrink-0 text-ink/65">@</span>
@@ -199,11 +200,11 @@ function SeriesTable({
                   </Link>
                 </td>
                 <td
-                  className={`font-mono px-2 py-1 text-right ${isFinal ? "font-semibold" : "text-ink/65"}`}
+                  className={`${TD_NUM} ${isFinal ? "font-semibold" : "text-ink/65"}`}
                 >
                   {scoreText(m)}
                 </td>
-                <td className="px-2 py-1 text-right">
+                <td className={TD_RIGHT}>
                   {teamAWon == null ? (
                     <span className="text-ink/65">–</span>
                   ) : (
@@ -216,7 +217,7 @@ function SeriesTable({
                     </span>
                   )}
                 </td>
-                <td className="font-mono px-2 py-1 text-right text-ink/70">{record}</td>
+                <td className={`${TD_NUM} text-ink/70`}>{record}</td>
               </tr>
             );
           })}

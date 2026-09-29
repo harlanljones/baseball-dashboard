@@ -22,14 +22,7 @@ import {
   getPitcherSituationalSplitBatch,
 } from "@/lib/mlb/players";
 import type { PropGameContext, PropPlayerGroup, PropTeamGroup } from "@/lib/odds/board";
-
-async function safe<T>(p: Promise<T>): Promise<T | null> {
-  try {
-    return await p;
-  } catch {
-    return null;
-  }
-}
+import { safe } from "@/lib/safe";
 
 interface RosterEntry {
   player: PlayerRef;

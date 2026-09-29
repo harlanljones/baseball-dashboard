@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import Link from "next/link";
+import BackLink from "@/components/BackLink";
 
 /**
  * Back link for pages that can be reached from a specific game (batter-vs-
@@ -11,7 +11,7 @@ import Link from "next/link";
  */
 export default function ContextualBackLink({
   fallbackHref = "/",
-  fallbackLabel = "← All games",
+  fallbackLabel = "All games",
 }: {
   fallbackHref?: string;
   fallbackLabel?: string;
@@ -29,15 +29,7 @@ export default function ContextualBackLink({
   }, []);
 
   if (gamePk != null) {
-    return (
-      <Link href={`/games/${gamePk}`} className="inline-block text-sm text-ink/65 hover:text-ink">
-        ← Back to the matchup
-      </Link>
-    );
+    return <BackLink href={`/games/${gamePk}`}>Back to the matchup</BackLink>;
   }
-  return (
-    <Link href={fallbackHref} className="inline-block text-sm text-ink/65 hover:text-ink">
-      {fallbackLabel}
-    </Link>
-  );
+  return <BackLink href={fallbackHref}>{fallbackLabel}</BackLink>;
 }
