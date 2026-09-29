@@ -87,8 +87,8 @@ export default function ProbableStarterCard({
       <h3 className="font-display mb-2 flex items-center gap-2 text-base font-semibold">
         <PlayerHeadshot personId={pitcher.id} size={28} />
         {pitcher.fullName}
-        {hand && <span className="text-sm font-normal text-ink/65">({hand})</span>}
-        <span className="ml-auto text-sm font-normal text-ink/65">{teamName(team)}</span>
+        {hand && <span className="font-sans text-sm font-normal text-ink/65">({hand})</span>}
+        <span className="ml-auto font-sans text-sm font-normal text-ink/65">{teamName(team)}</span>
       </h3>
 
       <div className="mb-3 grid grid-cols-4 gap-2 border-b border-ink/10 pb-3">

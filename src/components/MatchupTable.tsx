@@ -6,6 +6,7 @@ import SortableHeaderCell from "./SortableHeaderCell";
 import { rateClass } from "@/lib/statColor";
 import { useSortableTable } from "@/lib/hooks/useSortableTable";
 import type { MatchupSide } from "@/lib/mlb/types";
+import { TD_LEFT, TD_NUM, TD_RIGHT, TH_LEFT, TH_RIGHT } from "./tableStyles";
 
 const CAREER_COLS = ["PA", "H", "HR", "BB", "K", "AVG", "OBP", "SLG"] as const;
 
@@ -37,7 +38,7 @@ function PlatoonSplitTable({ side, gamePk }: { side: MatchupSide; gamePk?: numbe
           </caption>
           <thead>
             <tr>
-              <th scope="col" className="font-display px-2 py-1 text-left text-xs font-semibold uppercase tracking-wider text-ink/65">
+              <th scope="col" className={TH_LEFT}>
                 Batter
               </th>
               <SortableHeaderCell
@@ -83,7 +84,7 @@ function PlatoonSplitTable({ side, gamePk }: { side: MatchupSide; gamePk?: numbe
                 key={r.batter.id}
                 className="border-t border-ink/10"
               >
-                <td className="px-2 py-1 text-left">
+                <td className={TD_LEFT}>
                   <Link
                     href={vsHref(r.batter.id, r.pitcher.id, gamePk)}
                     className="hover:text-grass hover:underline"
@@ -91,17 +92,17 @@ function PlatoonSplitTable({ side, gamePk }: { side: MatchupSide; gamePk?: numbe
                     {r.batter.fullName}
                   </Link>
                 </td>
-                <td className="font-mono px-2 py-1 text-right">{r.platoon.pa}</td>
-                <td className={`font-mono px-2 py-1 text-right ${rateClass("obp", r.platoon.obp, r.platoon.pa)}`}>
+                <td className={TD_NUM}>{r.platoon.pa}</td>
+                <td className={`${TD_NUM} ${rateClass("obp", r.platoon.obp, r.platoon.pa)}`}>
                   {r.platoon.obp}
                 </td>
-                <td className={`font-mono px-2 py-1 text-right ${rateClass("ops", r.platoon.ops, r.platoon.pa)}`}>
+                <td className={`${TD_NUM} ${rateClass("ops", r.platoon.ops, r.platoon.pa)}`}>
                   {r.platoon.ops}
                 </td>
-                <td className={`font-mono px-2 py-1 text-right ${rateClass("bbPct", r.platoon.bbPct, r.platoon.pa)}`}>
+                <td className={`${TD_NUM} ${rateClass("bbPct", r.platoon.bbPct, r.platoon.pa)}`}>
                   {r.platoon.bbPct}
                 </td>
-                <td className={`font-mono px-2 py-1 text-right ${rateClass("kPct", r.platoon.kPct, r.platoon.pa)}`}>
+                <td className={`${TD_NUM} ${rateClass("kPct", r.platoon.kPct, r.platoon.pa)}`}>
                   {r.platoon.kPct}
                 </td>
               </tr>
@@ -138,7 +139,7 @@ function NoPitcherSplits({ side }: { side: MatchupSide }) {
           </caption>
           <thead>
             <tr>
-              <th scope="col" className="font-display px-2 py-1 text-left text-xs font-semibold uppercase tracking-wider text-ink/65">
+              <th scope="col" className={TH_LEFT}>
                 Batter
               </th>
               <SortableHeaderCell
@@ -181,18 +182,18 @@ function NoPitcherSplits({ side }: { side: MatchupSide }) {
           <tbody>
             {sorted.map((r) => (
               <tr key={r.batter.id} className="border-t border-ink/10">
-                <td className="px-2 py-1 text-left">{r.batter.fullName}</td>
-                <td className="font-mono px-2 py-1 text-right">{r.split.pa}</td>
-                <td className={`font-mono px-2 py-1 text-right ${rateClass("obp", r.split.obp, r.split.pa)}`}>
+                <td className={TD_LEFT}>{r.batter.fullName}</td>
+                <td className={TD_NUM}>{r.split.pa}</td>
+                <td className={`${TD_NUM} ${rateClass("obp", r.split.obp, r.split.pa)}`}>
                   {r.split.obp}
                 </td>
-                <td className={`font-mono px-2 py-1 text-right ${rateClass("ops", r.split.ops, r.split.pa)}`}>
+                <td className={`${TD_NUM} ${rateClass("ops", r.split.ops, r.split.pa)}`}>
                   {r.split.ops}
                 </td>
-                <td className={`font-mono px-2 py-1 text-right ${rateClass("bbPct", r.split.bbPct, r.split.pa)}`}>
+                <td className={`${TD_NUM} ${rateClass("bbPct", r.split.bbPct, r.split.pa)}`}>
                   {r.split.bbPct}
                 </td>
-                <td className={`font-mono px-2 py-1 text-right ${rateClass("kPct", r.split.kPct, r.split.pa)}`}>
+                <td className={`${TD_NUM} ${rateClass("kPct", r.split.kPct, r.split.pa)}`}>
                   {r.split.kPct}
                 </td>
               </tr>
@@ -226,7 +227,7 @@ export default function MatchupTable({ side, gamePk }: { side: MatchupSide; game
         <PlayerHeadshot personId={side.pitcher.id} size={24} />
         <span>
           {side.pitcher.fullName}{" "}
-          <span className="font-normal text-ink/65">
+          <span className="font-sans font-normal text-ink/65">
             vs {name(side.battingTeam)} hitters
           </span>
         </span>
@@ -244,14 +245,14 @@ export default function MatchupTable({ side, gamePk }: { side: MatchupSide; game
           </caption>
           <thead>
             <tr>
-              <th scope="col" className="font-display px-2 py-1 text-left text-xs font-semibold uppercase tracking-wider text-ink/65">
+              <th scope="col" className={TH_LEFT}>
                 Batter
               </th>
               {CAREER_COLS.map((c) => (
                 <th
                   key={c}
                   scope="col"
-                  className="font-display px-2 py-1 text-right text-xs font-semibold uppercase tracking-wider text-ink/65"
+                  className={TH_RIGHT}
                 >
                   {c}
                 </th>
@@ -264,7 +265,7 @@ export default function MatchupTable({ side, gamePk }: { side: MatchupSide; game
                 key={r.batter.id}
                 className="border-t border-ink/10"
               >
-                <td className="px-2 py-1 text-left">
+                <td className={TD_LEFT}>
                   <Link
                     href={vsHref(r.batter.id, r.pitcher.id, gamePk)}
                     className="hover:text-grass hover:underline"
@@ -274,25 +275,25 @@ export default function MatchupTable({ side, gamePk }: { side: MatchupSide; game
                 </td>
                 {r.hasHistory ? (
                   <>
-                    <td className="font-mono px-2 py-1 text-right">{r.pa}</td>
-                    <td className="font-mono px-2 py-1 text-right">{r.h}</td>
-                    <td className="font-mono px-2 py-1 text-right">{r.hr}</td>
-                    <td className="font-mono px-2 py-1 text-right">{r.bb}</td>
-                    <td className="font-mono px-2 py-1 text-right">{r.k}</td>
-                    <td className={`font-mono px-2 py-1 text-right ${rateClass("avg", r.avg, r.pa)}`}>
+                    <td className={TD_NUM}>{r.pa}</td>
+                    <td className={TD_NUM}>{r.h}</td>
+                    <td className={TD_NUM}>{r.hr}</td>
+                    <td className={TD_NUM}>{r.bb}</td>
+                    <td className={TD_NUM}>{r.k}</td>
+                    <td className={`${TD_NUM} ${rateClass("avg", r.avg, r.pa)}`}>
                       {r.avg}
                     </td>
-                    <td className={`font-mono px-2 py-1 text-right ${rateClass("obp", r.obp, r.pa)}`}>
+                    <td className={`${TD_NUM} ${rateClass("obp", r.obp, r.pa)}`}>
                       {r.obp}
                     </td>
-                    <td className={`font-mono px-2 py-1 text-right ${rateClass("slg", r.slg, r.pa)}`}>
+                    <td className={`${TD_NUM} ${rateClass("slg", r.slg, r.pa)}`}>
                       {r.slg}
                     </td>
                   </>
                 ) : (
                   <td
                     colSpan={CAREER_COLS.length}
-                    className="px-2 py-1 text-right text-ink/65"
+                    className={`${TD_RIGHT} text-ink/65`}
                   >
                     — no career history
                   </td>

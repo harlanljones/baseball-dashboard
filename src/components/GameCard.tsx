@@ -73,7 +73,7 @@ export default function GameCard({ game }: { game: ScheduleGame }) {
   return (
     <Link
       href={`/games/${game.gamePk}`}
-      className="block rounded-md border border-ink/10 bg-card p-4 shadow-sm transition hover:border-field/40 hover:shadow-md"
+      className="block rounded-md border border-ink/10 bg-card p-4 shadow-sm transition hover:border-field/40"
     >
       <div className="mb-2.5 flex items-center justify-between">
         <GameStatusBadge game={game} />

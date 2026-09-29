@@ -1,7 +1,9 @@
 "use client";
 
+import Link from "next/link";
 import PlayerHeadshot from "./PlayerHeadshot";
 import TeamLogo from "./TeamLogo";
+import { TD_LEFT, TD_NUM, TH_LEFT } from "./tableStyles";
 import SortableHeaderCell from "./SortableHeaderCell";
 import StatGradeLegend from "./StatGradeLegend";
 import { statClass } from "@/lib/statColor";
@@ -44,7 +46,7 @@ function BullpenTable({ box }: { box: TeamBoxscore }) {
               <tr>
                 <th
                   scope="col"
-                  className="font-display px-2 py-1 text-left text-xs font-semibold uppercase tracking-wider text-ink/65"
+                  className={TH_LEFT}
                 >
                   Pitcher
                 </th>
@@ -101,22 +103,22 @@ function BullpenTable({ box }: { box: TeamBoxscore }) {
                   key={p.id}
                   className="border-t border-ink/10"
                 >
-                  <td className="px-2 py-1 text-left">
+                  <td className={TD_LEFT}>
                     <span className="flex items-center gap-2">
                       <PlayerHeadshot personId={p.id} size={20} />
                       {p.name}
                     </span>
                   </td>
-                  <td className="font-mono px-2 py-1 text-right">{p.ip}</td>
-                  <td className={`font-mono px-2 py-1 text-right ${statClass("era", p.era)}`}>
+                  <td className={TD_NUM}>{p.ip}</td>
+                  <td className={`${TD_NUM} ${statClass("era", p.era)}`}>
                     {p.era ?? "—"}
                   </td>
-                  <td className={`font-mono px-2 py-1 text-right ${statClass("fip", p.fip)}`}>
+                  <td className={`${TD_NUM} ${statClass("fip", p.fip)}`}>
                     {formatStat(p.fip)}
                   </td>
-                  <td className="font-mono px-2 py-1 text-right">{p.k}</td>
-                  <td className="font-mono px-2 py-1 text-right">{pitchCount(p.pitchesYesterday)}</td>
-                  <td className="font-mono px-2 py-1 text-right">{pitchCount(p.pitchesLast3)}</td>
+                  <td className={TD_NUM}>{p.k}</td>
+                  <td className={TD_NUM}>{pitchCount(p.pitchesYesterday)}</td>
+                  <td className={TD_NUM}>{pitchCount(p.pitchesLast3)}</td>
                 </tr>
               ))}
             </tbody>
@@ -150,9 +152,9 @@ export default function Bullpen({
         PY = pitches thrown yesterday · P3D = pitches over the last three days,
         heavy counts mean the arm is likely unavailable today. Definitions for
         every column live in the{" "}
-        <a href="/glossary" className="text-grass underline underline-offset-2 hover:text-field-deep dark:hover:text-grass">
+        <Link href="/glossary" className="text-grass underline underline-offset-2 hover:text-field-deep dark:hover:text-grass">
           glossary
-        </a>
+        </Link>
         .
       </p>
     </div>

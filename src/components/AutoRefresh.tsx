@@ -81,7 +81,7 @@ export default function AutoRefresh({
     >
       <span aria-hidden className="h-1.5 w-1.5 animate-pulse rounded-full bg-gold" />
       <span>
-        Live · scores update automatically
+        Live<span className="hidden sm:inline"> · scores update automatically</span>
         {secondsAgo != null && (
           <span aria-hidden>
             {" "}

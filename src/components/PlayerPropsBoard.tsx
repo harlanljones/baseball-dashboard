@@ -62,6 +62,13 @@ function updateWeights(current: Weights, changed: WeightKey, value: number): Wei
   return next;
 }
 
+function topLean(props: ScoredProp[], weights: Weights) {
+  return props
+    .map((prop) => ({ prop, score: calculateScore(prop, weights) }))
+    .filter((item): item is { prop: ScoredProp; score: number } => item.score != null)
+    .sort((a, b) => b.score - a.score)[0];
+}
+
 function Factor({ label, value, toneClass, barClass }: { label: string; value: number | null; toneClass: string; barClass: string }) {
   return (
     <div className="min-w-0">
@@ -190,6 +197,7 @@ function TeamColumn({ group, weights }: { group: PropTeamGroup; weights: Weights
 
 export default function PlayerPropsBoard({ groups, gameHref }: { groups: PropTeamGroup[]; gameHref: string }) {
   const [weights, setWeights] = useState<Weights>(DEFAULT_WEIGHTS);
+  const [announcedWeights, setAnnouncedWeights] = useState<Weights>(DEFAULT_WEIGHTS);
   const [hydrated, setHydrated] = useState(false);
 
   useEffect(() => {
@@ -197,7 +205,10 @@ export default function PlayerPropsBoard({ groups, gameHref }: { groups: PropTea
     // a synchronous setState-in-effect).
     const id = window.setTimeout(() => {
       const stored = readStoredWeights();
-      if (stored) setWeights(stored);
+      if (stored) {
+        setWeights(stored);
+        setAnnouncedWeights(stored);
+      }
       setHydrated(true);
     }, 0);
     return () => window.clearTimeout(id);
@@ -218,12 +229,13 @@ export default function PlayerPropsBoard({ groups, gameHref }: { groups: PropTea
   }, [hydrated]);
 
   const allProps = useMemo(() => groups.flatMap((group) => group.players.flatMap((player) => player.props)), [groups]);
-  const best = useMemo(() => {
-    return allProps
-      .map((prop) => ({ prop, score: calculateScore(prop, weights) }))
-      .filter((item): item is { prop: ScoredProp; score: number } => item.score != null)
-      .sort((a, b) => b.score - a.score)[0];
-  }, [allProps, weights]);
+  const best = useMemo(() => topLean(allProps, weights), [allProps, weights]);
+  const announcedBest = useMemo(() => topLean(allProps, announcedWeights), [allProps, announcedWeights]);
+  const commitWeights = () => setAnnouncedWeights(weights);
+  const resetWeights = () => {
+    setWeights(DEFAULT_WEIGHTS);
+    setAnnouncedWeights(DEFAULT_WEIGHTS);
+  };
 
   if (groups.length === 0) {
     return (
@@ -243,7 +255,7 @@ export default function PlayerPropsBoard({ groups, gameHref }: { groups: PropTea
             <h2 className="eyebrow text-base">Lean score weights</h2>
             <p className="mt-1 text-xs text-ink/65">Tune the ranking without hiding the underlying factors. Weights always total 100% and are remembered on this device.</p>
           </div>
-          <button type="button" onClick={() => setWeights(DEFAULT_WEIGHTS)} className="rounded-md border border-ink/15 px-2.5 py-1 text-xs text-ink/75 hover:border-grass/60 hover:text-ink">Reset</button>
+          <button type="button" onClick={resetWeights} className="rounded-md border border-ink/15 px-2.5 py-1 text-xs text-ink/75 hover:border-grass/60 hover:text-ink">Reset</button>
         </div>
         <div className="mt-4 grid gap-4 md:grid-cols-3">
           {(Object.keys(weights) as WeightKey[]).map((key) => (
@@ -259,6 +271,9 @@ export default function PlayerPropsBoard({ groups, gameHref }: { groups: PropTea
                 step="1"
                 value={weights[key]}
                 onChange={(event) => setWeights((current) => updateWeights(current, key, Number(event.target.value)))}
+                onPointerUp={commitWeights}
+                onKeyUp={commitWeights}
+                onBlur={commitWeights}
                 className="mt-2 w-full accent-gold-deep"
                 aria-label={WEIGHT_LABELS[key]}
                 aria-valuetext={`${weights[key]} percent weight`}
@@ -269,13 +284,11 @@ export default function PlayerPropsBoard({ groups, gameHref }: { groups: PropTea
         </div>
         <div className="mt-4 flex flex-wrap items-center justify-between gap-2 border-t border-ink/10 pt-3 text-xs text-ink/65">
           <span>Scores and order update as the weights move.</span>
-          <span className="nums font-mono font-semibold text-gold-deep">Total {weights.modelConfidence + weights.statisticalEdge + weights.marketValue}%</span>
         </div>
       </section>
 
       {best && (
         <div
-          role="status"
           className="flex flex-wrap items-center justify-between gap-3 border border-grass/30 bg-field/5 px-3 py-2.5 text-sm"
         >
           <span><span className="font-semibold">Current top lean:</span> {best.prop.player.fullName} {directionLabel(best.prop).toLowerCase()} {MARKET_LABELS[best.prop.marketKey].toLowerCase()} {best.prop.line}</span>
@@ -287,6 +300,11 @@ export default function PlayerPropsBoard({ groups, gameHref }: { groups: PropTea
           </a>
         </div>
       )}
+
+      <div role="status" className="sr-only">
+        {announcedBest &&
+          `Current top lean: ${announcedBest.prop.player.fullName} ${directionLabel(announcedBest.prop).toLowerCase()} ${MARKET_LABELS[announcedBest.prop.marketKey].toLowerCase()} ${announcedBest.prop.line}, score ${announcedBest.score.toFixed(1)} out of 100`}
+      </div>
 
       <div className="grid gap-4 xl:grid-cols-2">
         {groups.map((group) => <TeamColumn key={group.team.id} group={group} weights={weights} />)}
