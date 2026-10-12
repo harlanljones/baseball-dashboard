@@ -32,13 +32,47 @@ const LEAGUE_ID = "MLB";
 /** Hard cap on pagination round-trips per board load (limit is 100/page). */
 const MAX_PAGES = 3;
 
-/** Bookmaker preference order, most-preferred first. FanDuel first by product decision. */
-const PREFERRED_BOOKMAKERS = ["fanduel", "draftkings", "betmgm"] as const;
+/**
+ * Bookmakers asked for in the board request, most-preferred first.
+ *
+ * The provider bills per event rather than per book, but the response carries
+ * every requested book's line for every market, and a league-wide board is
+ * megabytes of lines this app never reads: `pickBookPair` takes the first book
+ * that quotes both sides. `bookmakerID` is the provider's documented way to keep
+ * an odds request small, so the board asks for exactly the books this app is
+ * willing to quote — the three preferred books (FanDuel first, by product
+ * decision), then Caesars and bet365 for the markets the first three don't post.
+ *
+ * The trade: a market none of these books quotes is dropped instead of being
+ * filled from some other book, in exchange for a far smaller payload to fetch,
+ * cache and parse on every read.
+ */
+const PREFERRED_BOOKMAKERS = ["fanduel", "draftkings", "betmgm", "caesars", "bet365"] as const;
+
+/**
+ * The books we ask the provider for — a deliberate product decision, not a
+ * preference. The board is the bulk of a cold cycle's payload, and three books
+ * cost roughly 40% less of it than five; the analysis then picks the best price
+ * among the three. That is a narrower "best price" than the five-book
+ * preference above would give, which is the trade this constant makes.
+ */
+const REQUESTED_BOOKMAKERS = PREFERRED_BOOKMAKERS.slice(0, 3);
+
+/** Preference rank per book, so pairing reads it instead of scanning the list per candidate. */
+const BOOK_ORDER: Record<string, number> = Object.fromEntries(
+  PREFERRED_BOOKMAKERS.map((book, rank) => [book, rank]),
+);
 
 /**
  * Our tracked prop markets mapped to SportsGameOdds statIDs (verified
  * against their published MLB market catalog — note the inconsistent
- * casing: `batting_RBI`, `batting_totalBases`, `batting_basesOnBalls`).
+ * casing: `batting_totalBases` versus `batting_hits`).
+ *
+ * Walks and RBIs are deliberately absent. A product decision, measured in
+ * `bench/`: each market is roughly 7% of a cold cycle's work, and those two
+ * fit a season-average model worst — an RBI depends on teammates reaching
+ * base, and a walk line is usually 0.5, so the evidence has least to say
+ * about them.
  */
 const MARKET_STAT_IDS: Record<PropMarketKey, string> = {
   pitcher_strikeouts: "pitching_strikeouts",
@@ -46,8 +80,6 @@ const MARKET_STAT_IDS: Record<PropMarketKey, string> = {
   batter_hits: "batting_hits",
   batter_total_bases: "batting_totalBases",
   batter_home_runs: "batting_homeRuns",
-  batter_rbis: "batting_RBI",
-  batter_walks: "batting_basesOnBalls",
 };
 
 const STAT_ID_TO_MARKET: Record<string, PropMarketKey> = Object.fromEntries(
@@ -56,9 +88,9 @@ const STAT_ID_TO_MARKET: Record<string, PropMarketKey> = Object.fromEntries(
 
 /**
  * oddID filter selecting only our markets' main over/under lines for every
- * player at once (`PLAYER_ID` is the API's wildcard participant token).
- * Requested under both parameter spellings seen across SGO's v2 docs and
- * OpenAPI spec; an unfiltered payload parses identically either way.
+ * player at once (`PLAYER_ID` is the API's wildcard participant token). Sent
+ * under both parameter spellings the provider's docs use — see
+ * {@link fetchBoard}.
  */
 const ODD_ID_FILTER = Object.values(MARKET_STAT_IDS)
   .flatMap((statId) => [`ou-over`, `ou-under`].map((tail) => `${statId}-PLAYER_ID-game-${tail}`))
@@ -192,7 +224,22 @@ async function fetchBoard(): Promise<SgoEvent[]> {
     oddsAvailable: true,
     started: false,
     limit: 100,
+    // The provider's OpenAPI spec (and its SDKs) name this filter `oddID`
+    // (singular), while its MLB docs page shows `oddIDs`. Both spellings are
+    // sent with the same value: the API honours whichever it implements, and if
+    // it honours neither the board comes back unfiltered — every moneyline,
+    // spread, total and alternate line for every event, parsed and thrown away.
+    oddID: ODD_ID_FILTER,
     oddIDs: ODD_ID_FILTER,
+    bookmakerID: REQUESTED_BOOKMAKERS.join(","),
+    // The provider's OpenAPI spec declares both as response-shaping params on
+    // `/events`. Each book block carries thirteen fields; this reader touches
+    // three (`odds`, `overUnder`, `available`), and `includeOpenCloseOdds`
+    // governs six of the other ten. Alternate lines are read nowhere either,
+    // and `oddID` filtering alone leaves their inclusion to the provider's
+    // default — so both are asked for explicitly rather than assumed.
+    includeAltLines: false,
+    includeOpenCloseOdds: false,
   };
 
   const events: SgoEvent[] = [];
@@ -264,13 +311,27 @@ export async function findSgoEvent(
 }
 
 /**
+ * Memo for {@link playerNameFromId}. An event that carries no player record
+ * names each player from his id, and one player appears once per market and
+ * side, so the same id is expanded several times on every board. The function
+ * is pure; the map is cleared wholesale past a bound rather than evicted.
+ */
+const PLAYER_NAMES = new Map<string, string>();
+const PLAYER_NAMES_LIMIT = 5000;
+
+/**
  * Derives a display name from a SportsGameOdds playerID
  * (`AARON_JUDGE_1_MLB` → `AARON JUDGE`). Used when the event carries no
  * player record for the prop.
  */
 export function playerNameFromId(playerId: string): string {
+  const cached = PLAYER_NAMES.get(playerId);
+  if (cached !== undefined) return cached;
   const stripped = /^(.*)_\d+_[A-Za-z0-9]+$/.exec(playerId)?.[1] ?? playerId;
-  return stripped.replaceAll("_", " ").trim();
+  const name = stripped.replaceAll("_", " ").trim();
+  if (PLAYER_NAMES.size >= PLAYER_NAMES_LIMIT) PLAYER_NAMES.clear();
+  PLAYER_NAMES.set(playerId, name);
+  return name;
 }
 
 function parseAmericanPrice(raw: string | undefined): number | null {
@@ -298,19 +359,28 @@ function isUsable(line: SgoBookLine | undefined): line is SgoBookLine & { odds: 
  * available book) quoting the SAME line on both sides of the pairing —
  * books disagree on lines, so a price without its line would be a false
  * quote. Returns `null` when no book posts a matched pair.
+ *
+ * One pass over the over-side's books, keeping the best-ranked usable pair:
+ * a preferred book always wins, and among equally-ranked books the first one
+ * the provider listed wins — the same order a build-then-scan produced, minus
+ * the three throwaway arrays per pairing (this runs for every market on a
+ * league-wide board).
  */
 function pickBookPair(
   over: SgoOdd,
   under: SgoOdd,
 ): { bookmaker: string; overPrice: number; underPrice: number; line: number } | null {
-  const books = Object.keys(over.byBookmaker ?? {});
-  const ordered = [
-    ...PREFERRED_BOOKMAKERS.filter((preferred) => books.includes(preferred)),
-    ...books.filter((book) => !(PREFERRED_BOOKMAKERS as readonly string[]).includes(book)),
-  ];
+  const overBooks = over.byBookmaker;
+  if (!overBooks) return null;
 
-  for (const book of ordered) {
-    const overLine = over.byBookmaker?.[book];
+  let best: { bookmaker: string; overPrice: number; underPrice: number; line: number } | null = null;
+  let bestRank: number = PREFERRED_BOOKMAKERS.length;
+
+  for (const book of Object.keys(overBooks)) {
+    const order = BOOK_ORDER[book] ?? PREFERRED_BOOKMAKERS.length;
+    if (order >= bestRank && best !== null) continue;
+
+    const overLine = overBooks[book];
     const underLine = under.byBookmaker?.[book];
     if (!isUsable(overLine) || !isUsable(underLine)) continue;
 
@@ -321,9 +391,11 @@ function pickBookPair(
     const underPrice = parseAmericanPrice(underLine.odds);
     if (overPrice === null || underPrice === null) continue;
 
-    return { bookmaker: book, overPrice, underPrice, line };
+    best = { bookmaker: book, overPrice, underPrice, line };
+    bestRank = order;
+    if (order === 0) break; // FanDuel is the top preference; nothing can beat it.
   }
-  return null;
+  return best;
 }
 
 /** statEntityID values that mark team/game markets rather than player props. */
@@ -335,34 +407,36 @@ const TEAM_ENTITY_IDS = new Set(["all", "home", "away"]);
  * the previous The Odds API behavior.
  */
 export function parseSgoProps(event: SgoEvent): PlayerProp[] {
-  const pairs = new Map<string, { over?: SgoOdd; under?: SgoOdd }>();
+  // Keyed by `<statID>|<playerID>`; the statID rides on the entry so the
+  // pairing loop never has to split the key back apart.
+  const pairs = new Map<string, { statID: string; over?: SgoOdd; under?: SgoOdd }>();
   for (const odd of Object.values(event.odds ?? {})) {
-    const marketKey = STAT_ID_TO_MARKET[odd.statID ?? ""];
-    if (!marketKey) continue;
+    const statID = odd.statID;
+    if (!statID || !STAT_ID_TO_MARKET[statID]) continue;
     if (odd.betTypeID !== "ou" || odd.periodID !== "game") continue;
     // Player props carry a playerID; all/home/away mark team-level totals.
     if (!odd.playerID || TEAM_ENTITY_IDS.has(odd.playerID)) continue;
 
-    const entry = pairs.get(`${odd.statID}|${odd.playerID}`) ?? {};
+    const key = `${statID}|${odd.playerID}`;
+    const entry = pairs.get(key) ?? { statID };
     if (odd.sideID === "over") entry.over = odd;
     else if (odd.sideID === "under") entry.under = odd;
     else continue;
-    pairs.set(`${odd.statID}|${odd.playerID}`, entry);
+    pairs.set(key, entry);
   }
 
   const props: PlayerProp[] = [];
-  for (const [key, { over, under }] of pairs) {
+  for (const { statID, over, under } of pairs.values()) {
     if (!over || !under) continue;
     const picked = pickBookPair(over, under);
     if (!picked) continue;
 
-    const statId = key.split("|")[0];
     const playerName =
       (over.playerID ? event.players?.[over.playerID]?.name : undefined) ??
       playerNameFromId(over.playerID ?? "");
 
     props.push({
-      marketKey: STAT_ID_TO_MARKET[statId],
+      marketKey: STAT_ID_TO_MARKET[statID],
       playerName,
       line: picked.line,
       overPrice: picked.overPrice,

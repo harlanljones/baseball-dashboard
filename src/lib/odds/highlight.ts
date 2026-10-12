@@ -20,6 +20,8 @@ export interface PitcherStatContext {
   k9: number;
   outsPerStart: number;
   gamesStarted: number;
+  gamesPlayed: number;
+  ip: number;
 }
 
 export interface BatterStatContext {
@@ -27,8 +29,6 @@ export interface BatterStatContext {
   hitsPerGame: number;
   totalBasesPerGame: number;
   hrPerGame: number;
-  rbiPerGame: number;
-  bbPerGame: number;
   games: number;
 }
 
@@ -50,6 +50,12 @@ export interface PitcherMatchupContext {
   recentForm?: PitcherRecentForm;
   homeAway?: PitcherSplitLine;
   isHome?: boolean;
+  /**
+   * Whether this pitcher works from the rotation. A reliever's form and
+   * home/road lines are measured over appearances, and describing them as
+   * "starts" would be wrong on both counts.
+   */
+  hasStarts?: boolean;
 }
 
 export type MatchupContext = BatterMatchupContext | PitcherMatchupContext;
@@ -80,13 +86,24 @@ const TIER_ORDER: PropTier[] = [
 /** The player's season-average count for this market's line, or `null` if the sample is too small / the market has no stat basis for this player kind. */
 function seasonAvgFor(marketKey: PropMarketKey, stats: StatContext): number | null {
   if (stats.kind === "pitcher") {
-    if (stats.gamesStarted < MIN_GAMES_STARTED_FOR_TIER) return null;
+    // A starter's line is per start; a reliever's is per appearance, and
+    // requiring starts of a reliever would leave every one of their props
+    // ungraded. The sample guard applies to whichever basis the role uses, and
+    // the arithmetic is identical for a starter (outsPerStart / 3 is his IP).
+    const perStart = stats.gamesStarted >= MIN_GAMES_STARTED_FOR_TIER;
+    const perAppearance = stats.gamesPlayed >= MIN_GAMES_STARTED_FOR_TIER;
+    if (!perStart && !perAppearance) return null;
+    const innings = perStart
+      ? stats.outsPerStart / 3
+      : stats.gamesPlayed > 0
+        ? stats.ip / stats.gamesPlayed
+        : 0;
+    if (innings <= 0) return null;
     switch (marketKey) {
       case "pitcher_strikeouts":
-        // K/9 times this pitcher's average innings per start (outsPerStart / 3 = IP).
-        return (stats.k9 / 9) * (stats.outsPerStart / 3);
+        return (stats.k9 / 9) * innings;
       case "pitcher_outs":
-        return stats.outsPerStart;
+        return innings * 3;
       default:
         return null;
     }
@@ -100,10 +117,6 @@ function seasonAvgFor(marketKey: PropMarketKey, stats: StatContext): number | nu
       return stats.totalBasesPerGame;
     case "batter_home_runs":
       return stats.hrPerGame;
-    case "batter_rbis":
-      return stats.rbiPerGame;
-    case "batter_walks":
-      return stats.bbPerGame;
     default:
       return null;
   }
@@ -124,9 +137,11 @@ function clamp(value: number, min = 0, max = 100): number {
 }
 
 function confidenceFor(stats: StatContext): number {
-  return stats.kind === "pitcher"
-    ? clamp(58 + stats.gamesStarted * 1.8)
-    : clamp(52 + stats.games * 0.42);
+  if (stats.kind === "batter") return clamp(52 + stats.games * 0.42);
+  // The sample behind a pitcher's line is innings. Keying this on starts pins
+  // every reliever to the floor for his whole career — a man with sixty
+  // appearances would carry the confidence of one who has never started.
+  return clamp(58 + stats.ip * 0.35);
 }
 
 function edgeFor(seasonAvg: number, line: number): number {
@@ -175,26 +190,34 @@ function platoonEvidenceLine(
   return `vs ${vsHand}HP this year: ${platoon.ops} OPS (${platoon.pa} PA)`;
 }
 
-/** Trailing-30-day form, when the pitcher has actually started in that window. */
-function recentFormEvidenceLine(recentForm: PitcherRecentForm | undefined): string | null {
-  if (!recentForm || recentForm.starts <= 0) return null;
+/** Trailing-30-day form, when the pitcher has actually pitched in that window. */
+function recentFormEvidenceLine(
+  recentForm: PitcherRecentForm | undefined,
+  hasStarts: boolean,
+): string | null {
+  if (!recentForm || recentForm.appearances <= 0) return null;
   const parts = [recentForm.era ? `${recentForm.era} ERA` : null, recentForm.kPct ? `${recentForm.kPct} K rate` : null].filter(
     (p): p is string => p != null,
   );
   if (parts.length === 0) return null;
-  return `Last 30 days: ${parts.join(", ")} over ${recentForm.starts} start${recentForm.starts === 1 ? "" : "s"}`;
+  const outings = hasStarts ? recentForm.starts : recentForm.appearances;
+  if (outings <= 0) return null;
+  const unit = hasStarts ? "start" : "appearance";
+  return `Last 30 days: ${parts.join(", ")} over ${outings} ${unit}${outings === 1 ? "" : "s"}`;
 }
 
 /** Season home/road split, when the pitcher has actually pitched in that split. */
 function homeAwayEvidenceLine(
   homeAway: PitcherSplitLine | undefined,
   isHome: boolean | undefined,
+  hasStarts: boolean,
 ): string | null {
   if (!homeAway || isHome == null || homeAway.ip === "0.0") return null;
   const parts = [homeAway.era ? `${homeAway.era} ERA` : null, `${homeAway.ip} IP`].filter(
     (p): p is string => p != null,
   );
-  return `${isHome ? "Home" : "Road"} starts this year: ${parts.join(", ")}`;
+  const role = hasStarts ? "starts" : "appearances";
+  return `${isHome ? "Home" : "Road"} ${role} this year: ${parts.join(", ")}`;
 }
 
 function nudgeForWeather(tier: PropTier, weather: GameWeather | null): PropTier {
@@ -301,7 +324,7 @@ export function matchupEvidence(matchup: MatchupContext | null): string[] {
     ].filter((line): line is string => line != null);
   }
   return [
-    recentFormEvidenceLine(matchup.recentForm),
-    homeAwayEvidenceLine(matchup.homeAway, matchup.isHome),
+    recentFormEvidenceLine(matchup.recentForm, matchup.hasStarts ?? true),
+    homeAwayEvidenceLine(matchup.homeAway, matchup.isHome, matchup.hasStarts ?? true),
   ].filter((line): line is string => line != null);
 }

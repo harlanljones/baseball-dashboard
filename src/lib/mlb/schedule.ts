@@ -11,6 +11,26 @@ import type {
   TeamRef,
 } from "./types";
 
+/**
+ * `fields` filter for every schedule query this module makes.
+ *
+ * A real slate's schedule response measured 107,869 bytes against 31,543 for the
+ * same query narrowed, and a season series 76,958 against 23,220 — the `team`
+ * hydrate alone drags a full team record into every game. The list is verified
+ * by shaping the full, locally pruned and API-narrowed payloads through
+ * {@link getSchedule}, {@link getGameTeams} and {@link getHeadToHead}: identical
+ * for each. Add a name whenever a reader starts reading a new field.
+ */
+export const SCHEDULE_FIELDS = [
+  "dates", "date", "totalGames", "games", "gamePk", "gameDate", "officialDate",
+  "gameType", "status", "abstractGameState", "detailedState", "teams", "away",
+  "home", "team", "id", "name", "abbreviation", "score", "isWinner",
+  "leagueRecord", "wins", "losses", "pct", "probablePitcher", "fullName", "venue",
+  "location", "city", "linescore", "currentInning", "currentInningOrdinal",
+  "inningState", "isTopInning", "scheduledInnings", "innings", "num",
+  "ordinalNum", "runs", "hits", "errors",
+].join(",");
+
 // --- Raw API shapes (only the fields we read) --------------------------------
 
 interface RawStatus {
@@ -147,6 +167,7 @@ export async function getSchedule(date?: string): Promise<ScheduleDay> {
       sportId: 1,
       date: target,
       hydrate: "team,linescore,probablePitcher(note),decisions,venue(location)",
+      fields: SCHEDULE_FIELDS,
     },
     isPast ? TTL.roster : TTL.live,
   );
@@ -174,7 +195,7 @@ export async function getGameTeams(
 ): Promise<{ away: TeamRef; home: TeamRef; gameDate: string }> {
   const data = await mlbFetch<RawSchedule>(
     "/api/v1/schedule",
-    { sportId: 1, gamePk, hydrate: "team" },
+    { sportId: 1, gamePk, hydrate: "team", fields: SCHEDULE_FIELDS },
     TTL.roster,
   );
 
@@ -218,6 +239,7 @@ export async function getHeadToHead(
       // into what should be the regular-season series.
       gameType: round ? `R,${round}` : "R",
       hydrate: "team,linescore",
+      fields: SCHEDULE_FIELDS,
     },
     TTL.headToHead,
   );

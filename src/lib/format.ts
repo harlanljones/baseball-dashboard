@@ -1,3 +1,5 @@
+import { dateFormatter } from "./formatters";
+
 /** Format a rate stat like wOBA as `.462` (three decimals, no leading zero). */
 export function rate3(n?: number): string {
   if (n == null) return "—";
@@ -17,7 +19,7 @@ export function dec2(n?: number): string {
 }
 
 export function prettyDate(date: string): string {
-  return new Intl.DateTimeFormat("en-US", {
+  return dateFormatter("en-US", {
     timeZone: "UTC",
     weekday: "long",
     month: "long",

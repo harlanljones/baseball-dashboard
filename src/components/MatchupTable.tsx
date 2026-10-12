@@ -6,7 +6,6 @@ import SortableHeaderCell from "./SortableHeaderCell";
 import { rateClass } from "@/lib/statColor";
 import { useSortableTable } from "@/lib/hooks/useSortableTable";
 import type { MatchupSide } from "@/lib/mlb/types";
-import { TD_LEFT, TD_NUM, TD_RIGHT, TH_LEFT, TH_RIGHT } from "./tableStyles";
 
 const CAREER_COLS = ["PA", "H", "HR", "BB", "K", "AVG", "OBP", "SLG"] as const;
 
@@ -31,14 +30,14 @@ function PlatoonSplitTable({ side, gamePk }: { side: MatchupSide; gamePk?: numbe
         This season vs {side.pitcherHand === "L" ? "LHP" : "RHP"}
       </h4>
       <div className="mt-1 overflow-x-auto">
-        <table className="nums w-full min-w-max text-sm">
+        <table className="table-nums">
           <caption className="sr-only">
             {name(side.battingTeam)} hitters, this season vs{" "}
             {side.pitcherHand === "L" ? "left-handed" : "right-handed"} pitching
           </caption>
           <thead>
             <tr>
-              <th scope="col" className={TH_LEFT}>
+              <th scope="col" className="th-left">
                 Batter
               </th>
               <SortableHeaderCell
@@ -82,9 +81,9 @@ function PlatoonSplitTable({ side, gamePk }: { side: MatchupSide; gamePk?: numbe
             {sorted.map((r) => (
               <tr
                 key={r.batter.id}
-                className="border-t border-ink/10"
+                className="divider-t"
               >
-                <td className={TD_LEFT}>
+                <td className="td-left">
                   <Link
                     href={vsHref(r.batter.id, r.pitcher.id, gamePk)}
                     className="hover:text-grass hover:underline"
@@ -92,17 +91,17 @@ function PlatoonSplitTable({ side, gamePk }: { side: MatchupSide; gamePk?: numbe
                     {r.batter.fullName}
                   </Link>
                 </td>
-                <td className={TD_NUM}>{r.platoon.pa}</td>
-                <td className={`${TD_NUM} ${rateClass("obp", r.platoon.obp, r.platoon.pa)}`}>
+                <td className="td-num">{r.platoon.pa}</td>
+                <td className={`td-num ${rateClass("obp", r.platoon.obp, r.platoon.pa)}`}>
                   {r.platoon.obp}
                 </td>
-                <td className={`${TD_NUM} ${rateClass("ops", r.platoon.ops, r.platoon.pa)}`}>
+                <td className={`td-num ${rateClass("ops", r.platoon.ops, r.platoon.pa)}`}>
                   {r.platoon.ops}
                 </td>
-                <td className={`${TD_NUM} ${rateClass("bbPct", r.platoon.bbPct, r.platoon.pa)}`}>
+                <td className={`td-num ${rateClass("bbPct", r.platoon.bbPct, r.platoon.pa)}`}>
                   {r.platoon.bbPct}
                 </td>
-                <td className={`${TD_NUM} ${rateClass("kPct", r.platoon.kPct, r.platoon.pa)}`}>
+                <td className={`td-num ${rateClass("kPct", r.platoon.kPct, r.platoon.pa)}`}>
                   {r.platoon.kPct}
                 </td>
               </tr>
@@ -127,19 +126,19 @@ function NoPitcherSplits({ side }: { side: MatchupSide }) {
       <h3 className="font-display text-base font-semibold">
         {name(side.pitchingTeam)} starter
       </h3>
-      <p className="mt-1 text-sm text-ink/65">
+      <p className="note-sm">
         Probable pitcher TBD — showing {name(side.battingTeam)} hitters&rsquo; {splitLabel} splits
         this season.
       </p>
 
       <div className="mt-2 overflow-x-auto">
-        <table className="nums w-full min-w-max text-sm">
+        <table className="table-nums">
           <caption className="sr-only">
             {name(side.battingTeam)} hitters, {splitLabel} splits this season
           </caption>
           <thead>
             <tr>
-              <th scope="col" className={TH_LEFT}>
+              <th scope="col" className="th-left">
                 Batter
               </th>
               <SortableHeaderCell
@@ -181,19 +180,19 @@ function NoPitcherSplits({ side }: { side: MatchupSide }) {
           </thead>
           <tbody>
             {sorted.map((r) => (
-              <tr key={r.batter.id} className="border-t border-ink/10">
-                <td className={TD_LEFT}>{r.batter.fullName}</td>
-                <td className={TD_NUM}>{r.split.pa}</td>
-                <td className={`${TD_NUM} ${rateClass("obp", r.split.obp, r.split.pa)}`}>
+              <tr key={r.batter.id} className="divider-t">
+                <td className="td-left">{r.batter.fullName}</td>
+                <td className="td-num">{r.split.pa}</td>
+                <td className={`td-num ${rateClass("obp", r.split.obp, r.split.pa)}`}>
                   {r.split.obp}
                 </td>
-                <td className={`${TD_NUM} ${rateClass("ops", r.split.ops, r.split.pa)}`}>
+                <td className={`td-num ${rateClass("ops", r.split.ops, r.split.pa)}`}>
                   {r.split.ops}
                 </td>
-                <td className={`${TD_NUM} ${rateClass("bbPct", r.split.bbPct, r.split.pa)}`}>
+                <td className={`td-num ${rateClass("bbPct", r.split.bbPct, r.split.pa)}`}>
                   {r.split.bbPct}
                 </td>
-                <td className={`${TD_NUM} ${rateClass("kPct", r.split.kPct, r.split.pa)}`}>
+                <td className={`td-num ${rateClass("kPct", r.split.kPct, r.split.pa)}`}>
                   {r.split.kPct}
                 </td>
               </tr>
@@ -213,7 +212,7 @@ export default function MatchupTable({ side, gamePk }: { side: MatchupSide; game
           <h3 className="font-display text-base font-semibold">
             {name(side.pitchingTeam)} starter
           </h3>
-          <p className="mt-1 text-sm text-ink/65">Probable pitcher TBD.</p>
+          <p className="note-sm">Probable pitcher TBD.</p>
         </div>
       );
     }
@@ -239,20 +238,20 @@ export default function MatchupTable({ side, gamePk }: { side: MatchupSide; game
       )}
 
       <div className="mt-2 overflow-x-auto">
-        <table className="nums w-full min-w-max text-sm">
+        <table className="table-nums">
           <caption className="sr-only">
             {side.pitcher.fullName} vs {name(side.battingTeam)} hitters, career
           </caption>
           <thead>
             <tr>
-              <th scope="col" className={TH_LEFT}>
+              <th scope="col" className="th-left">
                 Batter
               </th>
               {CAREER_COLS.map((c) => (
                 <th
                   key={c}
                   scope="col"
-                  className={TH_RIGHT}
+                  className="th-right"
                 >
                   {c}
                 </th>
@@ -263,9 +262,9 @@ export default function MatchupTable({ side, gamePk }: { side: MatchupSide; game
             {side.rows.map((r) => (
               <tr
                 key={r.batter.id}
-                className="border-t border-ink/10"
+                className="divider-t"
               >
-                <td className={TD_LEFT}>
+                <td className="td-left">
                   <Link
                     href={vsHref(r.batter.id, r.pitcher.id, gamePk)}
                     className="hover:text-grass hover:underline"
@@ -275,25 +274,25 @@ export default function MatchupTable({ side, gamePk }: { side: MatchupSide; game
                 </td>
                 {r.hasHistory ? (
                   <>
-                    <td className={TD_NUM}>{r.pa}</td>
-                    <td className={TD_NUM}>{r.h}</td>
-                    <td className={TD_NUM}>{r.hr}</td>
-                    <td className={TD_NUM}>{r.bb}</td>
-                    <td className={TD_NUM}>{r.k}</td>
-                    <td className={`${TD_NUM} ${rateClass("avg", r.avg, r.pa)}`}>
+                    <td className="td-num">{r.pa}</td>
+                    <td className="td-num">{r.h}</td>
+                    <td className="td-num">{r.hr}</td>
+                    <td className="td-num">{r.bb}</td>
+                    <td className="td-num">{r.k}</td>
+                    <td className={`td-num ${rateClass("avg", r.avg, r.pa)}`}>
                       {r.avg}
                     </td>
-                    <td className={`${TD_NUM} ${rateClass("obp", r.obp, r.pa)}`}>
+                    <td className={`td-num ${rateClass("obp", r.obp, r.pa)}`}>
                       {r.obp}
                     </td>
-                    <td className={`${TD_NUM} ${rateClass("slg", r.slg, r.pa)}`}>
+                    <td className={`td-num ${rateClass("slg", r.slg, r.pa)}`}>
                       {r.slg}
                     </td>
                   </>
                 ) : (
                   <td
                     colSpan={CAREER_COLS.length}
-                    className={`${TD_RIGHT} text-ink/65`}
+                    className={`td-right text-ink/65`}
                   >
                     — no career history
                   </td>

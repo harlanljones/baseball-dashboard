@@ -28,9 +28,34 @@ All notable changes to this project will be documented here. The format follows
 - Postseason game pages show the current round's games (for example the
   Division Series so far) ahead of the regular-season series, and bullpen
   pitch counts include each team's recent playoff outings.
+- Bullpen arms' props reach the props board. The provider posts strikeout and
+  outs lines for relievers as well, and matching resolved only the probable
+  starters, so those rows were parsed and discarded. Their season line, recent
+  form and home/road split now come from the same lookups the starters use,
+  measured per appearance rather than per start — including a relief form line
+  and a split described as appearances, and a model confidence that grows with
+  innings instead of starts (which had pinned every reliever to its floor).
 
 ### Changed
 
+- The board tracks five prop markets instead of seven; walks and RBIs are
+  gone. Both fit a season-average model worst — an RBI depends on teammates
+  reaching base, and a walk line is usually 0.5 — and each accounted for
+  roughly 7% of a cold request cycle's work.
+- A prop row leads with its own season-average-versus-line evidence, with the
+  player's matchup context after it. Rows render only their first line until
+  expanded, so the statistical edge the board is meant to expose used to sit
+  behind the "+N more lines" toggle whenever a prop also had matchup context.
+- Every MLB and odds request now asks only for the fields and filters its
+  reader touches: the live feed (943 KB → 75 KB), rosters, stat batches,
+  schedules, postseason boxscores and standings all carry the minimum, and the
+  SportsGameOdds board sends `includeAltLines=false` and
+  `includeOpenCloseOdds=false` for a payload less than half the size. A cold
+  request cycle's work is roughly 43% lower than before.
+- The Odds API fallback asks for the app's preferred books
+  (`bookmakers=fanduel,draftkings,betmgm`) rather than every US bookmaker in
+  the region, and widens back to `regions=us` only when none of them carries a
+  tracked market.
 - Removed the unused resizable split pane (`GameSplitPane`, pane-width
   persistence) from the game page, which now renders a plain centred column;
   props live on `/games/[gamePk]/props`.

@@ -2,11 +2,13 @@
 
 import { useSyncExternalStore } from "react";
 
+import { dateFormatter } from "@/lib/formatters";
+
 function format(
   iso: string,
   opts: { weekday?: boolean; timeZone?: string },
 ): string {
-  return new Intl.DateTimeFormat("en-US", {
+  return dateFormatter("en-US", {
     ...(opts.timeZone ? { timeZone: opts.timeZone } : {}),
     ...(opts.weekday ? { weekday: "short" as const } : {}),
     hour: "numeric",
@@ -43,7 +45,7 @@ export default function LocalTime({
 }
 
 function formatHour(iso: string, timeZone?: string): string {
-  return new Intl.DateTimeFormat("en-US", {
+  return dateFormatter("en-US", {
     ...(timeZone ? { timeZone } : {}),
     hour: "numeric",
     hour12: true,

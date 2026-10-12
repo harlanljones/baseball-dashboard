@@ -1,7 +1,6 @@
 import { rateClass } from "@/lib/statColor";
 import StatGradeLegend from "./StatGradeLegend";
 import type { VsPlayerLine, VsPlayerSeasonLine } from "@/lib/mlb/types";
-import { TD_LEFT, TD_NUM, TD_RIGHT, TH_LEFT, TH_RIGHT } from "./tableStyles";
 
 const COLS = ["PA", "H", "HR", "BB", "K", "AVG", "OBP", "SLG"] as const;
 
@@ -10,7 +9,7 @@ function StatCells({ r }: { r: VsPlayerLine }) {
     return (
       <td
         colSpan={COLS.length}
-        className={`${TD_RIGHT} text-ink/65`}
+        className={`td-right text-ink/65`}
       >
         — no history
       </td>
@@ -18,18 +17,18 @@ function StatCells({ r }: { r: VsPlayerLine }) {
   }
   return (
     <>
-      <td className={TD_NUM}>{r.pa}</td>
-      <td className={TD_NUM}>{r.h}</td>
-      <td className={TD_NUM}>{r.hr}</td>
-      <td className={TD_NUM}>{r.bb}</td>
-      <td className={TD_NUM}>{r.k}</td>
-      <td className={`${TD_NUM} ${rateClass("avg", r.avg, r.pa)}`}>
+      <td className="td-num">{r.pa}</td>
+      <td className="td-num">{r.h}</td>
+      <td className="td-num">{r.hr}</td>
+      <td className="td-num">{r.bb}</td>
+      <td className="td-num">{r.k}</td>
+      <td className={`td-num ${rateClass("avg", r.avg, r.pa)}`}>
         {r.avg}
       </td>
-      <td className={`${TD_NUM} ${rateClass("obp", r.obp, r.pa)}`}>
+      <td className={`td-num ${rateClass("obp", r.obp, r.pa)}`}>
         {r.obp}
       </td>
-      <td className={`${TD_NUM} ${rateClass("slg", r.slg, r.pa)}`}>
+      <td className={`td-num ${rateClass("slg", r.slg, r.pa)}`}>
         {r.slg}
       </td>
     </>
@@ -52,7 +51,7 @@ export default function VsPitcherLog({
     <div>
       <StatGradeLegend className="mb-3" />
       <div className="overflow-x-auto">
-        <table className="nums w-full min-w-max text-sm">
+        <table className="table-nums">
         <caption className="sr-only">
           {career.batter.fullName} vs {career.pitcher.fullName}, season-by-season history
         </caption>
@@ -60,7 +59,7 @@ export default function VsPitcherLog({
           <tr>
             <th
               scope="col"
-              className={TH_LEFT}
+              className="th-left"
             >
               Season
             </th>
@@ -68,7 +67,7 @@ export default function VsPitcherLog({
               <th
                 key={c}
                 scope="col"
-                className={TH_RIGHT}
+                className="th-right"
               >
                 {c}
               </th>
@@ -77,7 +76,7 @@ export default function VsPitcherLog({
         </thead>
         <tbody>
           <tr className="border-t border-b border-ink/15 font-semibold">
-            <td className={TD_LEFT}>Career</td>
+            <td className="td-left">Career</td>
             <StatCells r={career} />
           </tr>
           {seasons.length === 0 ? (
@@ -93,7 +92,7 @@ export default function VsPitcherLog({
             seasons.map((s) => (
               <tr
                 key={s.season}
-                className="border-t border-ink/10"
+                className="divider-t"
               >
                 <td className="font-mono px-2 py-1 text-left">{s.season}</td>
                 <StatCells r={s} />

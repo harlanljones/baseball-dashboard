@@ -1,5 +1,12 @@
 import { describe, it, expect, vi, afterEach } from "vitest";
-import { getPitcherPropStats, getSeasonHittingBasic, ipToFloat } from "../players";
+import { getPitcherPropStatsBatch, getRosterWithSeasonStats, ipToFloat } from "../players";
+
+/**
+ * Coverage for the live readers. These cases started life against the
+ * single-player helpers (`getPitcherPropStats`, `getSeasonHittingBasic`), which
+ * nothing in the app called; they now exercise the batched readers the app
+ * actually uses, which had none.
+ */
 
 afterEach(() => {
   vi.unstubAllGlobals();
@@ -16,6 +23,18 @@ function mockFetchOnce(body: unknown) {
   );
 }
 
+/** One person's `people` entry, as `fetchPeopleStats` reads it. */
+function personStats(id: number, stat: Record<string, unknown>) {
+  return {
+    people: [
+      {
+        id,
+        stats: [{ type: { displayName: "season" }, splits: [{ stat }] }],
+      },
+    ],
+  };
+}
+
 describe("ipToFloat", () => {
   it("converts whole innings", () => {
     expect(ipToFloat("123.0")).toBe(123);
@@ -30,72 +49,72 @@ describe("ipToFloat", () => {
   });
 });
 
-describe("getPitcherPropStats", () => {
+describe("getPitcherPropStatsBatch", () => {
   it("computes K/9 and outs-per-start from season totals", async () => {
-    mockFetchOnce({
-      stats: [
-        {
-          type: { displayName: "season" },
-          splits: [
-            { stat: { inningsPitched: "180.0", strikeOuts: 200, gamesStarted: 30 } },
-          ],
-        },
-      ],
-    });
+    mockFetchOnce(
+      personStats(12345, { inningsPitched: "180.0", strikeOuts: 200, gamesStarted: 30 }),
+    );
 
-    const result = await getPitcherPropStats(12345, 2026);
-    expect(result).not.toBeNull();
-    expect(result!.k9).toBeCloseTo(10, 5); // 200 * 9 / 180
-    expect(result!.outsPerStart).toBeCloseTo(18, 5); // 180 * 3 / 30
-    expect(result!.gamesStarted).toBe(30);
+    const result = (await getPitcherPropStatsBatch([12345], 2026)).get(12345);
+    expect(result?.k9).toBeCloseTo(10, 5); // 200 * 9 / 180
+    expect(result?.outsPerStart).toBeCloseTo(18, 5); // 180 * 3 / 30
+    expect(result?.gamesStarted).toBe(30);
   });
 
-  it("returns null when the pitcher has no innings pitched this season", async () => {
-    mockFetchOnce({
-      stats: [
-        {
-          type: { displayName: "season" },
-          splits: [{ stat: { inningsPitched: "0.0", strikeOuts: 0, gamesStarted: 0 } }],
-        },
-      ],
-    });
+  it("omits a pitcher with no innings pitched this season", async () => {
+    mockFetchOnce(
+      personStats(12345, { inningsPitched: "0.0", strikeOuts: 0, gamesStarted: 0 }),
+    );
 
-    expect(await getPitcherPropStats(12345, 2026)).toBeNull();
+    expect(await getPitcherPropStatsBatch([12345], 2026)).toEqual(new Map());
   });
 
-  it("returns null when the API has no season group for this player", async () => {
-    mockFetchOnce({ stats: [] });
-    expect(await getPitcherPropStats(12345, 2026)).toBeNull();
+  it("omits a pitcher the API returns no season group for", async () => {
+    mockFetchOnce({ people: [] });
+    expect(await getPitcherPropStatsBatch([12345], 2026)).toEqual(new Map());
+  });
+
+  it("does not fetch when given no ids", async () => {
+    const fetchSpy = vi.fn();
+    vi.stubGlobal("fetch", fetchSpy);
+
+    expect(await getPitcherPropStatsBatch([], 2026)).toEqual(new Map());
+    expect(fetchSpy).not.toHaveBeenCalled();
   });
 });
 
-describe("getSeasonHittingBasic", () => {
-  it("parses season hitting totals", async () => {
+describe("getRosterWithSeasonStats", () => {
+  const hitting = {
+    avg: ".280",
+    obp: ".350",
+    slg: ".480",
+    hits: 150,
+    homeRuns: 25,
+    rbi: 80,
+    baseOnBalls: 55,
+    totalBases: 260,
+    plateAppearances: 600,
+    gamesPlayed: 150,
+  };
+
+  it("carries each hitter's season hitting totals and drops pitchers", async () => {
     mockFetchOnce({
-      stats: [
+      roster: [
         {
-          type: { displayName: "season" },
-          splits: [
-            {
-              stat: {
-                avg: ".280",
-                obp: ".350",
-                slg: ".480",
-                hits: 150,
-                homeRuns: 25,
-                rbi: 80,
-                baseOnBalls: 55,
-                totalBases: 260,
-                plateAppearances: 600,
-                gamesPlayed: 150,
-              },
-            },
-          ],
+          position: { type: "Outfielder" },
+          person: {
+            id: 67890,
+            fullName: "A Hitter",
+            stats: [{ splits: [{ stat: hitting }] }],
+          },
         },
+        { position: { type: "Pitcher" }, person: { id: 11111, fullName: "A Pitcher" } },
       ],
     });
 
-    expect(await getSeasonHittingBasic(67890, 2026)).toEqual({
+    const hitters = await getRosterWithSeasonStats(147, 2026);
+    expect(hitters).toHaveLength(1);
+    expect(hitters[0].season).toEqual({
       avg: ".280",
       obp: ".350",
       slg: ".480",
@@ -107,10 +126,5 @@ describe("getSeasonHittingBasic", () => {
       pa: 600,
       games: 150,
     });
-  });
-
-  it("returns null when the API has no season group for this player", async () => {
-    mockFetchOnce({ stats: [] });
-    expect(await getSeasonHittingBasic(67890, 2026)).toBeNull();
   });
 });

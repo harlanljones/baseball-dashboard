@@ -6,9 +6,7 @@ export type PropMarketKey =
   | "pitcher_outs"
   | "batter_hits"
   | "batter_total_bases"
-  | "batter_home_runs"
-  | "batter_rbis"
-  | "batter_walks";
+  | "batter_home_runs";
 
 /** Which upstream provider resolved a game's odds event. */
 export type OddsProvider = "sgo" | "the-odds-api";

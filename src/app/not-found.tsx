@@ -10,7 +10,7 @@ export default function NotFound() {
         <h1 className="font-display text-lg font-semibold uppercase tracking-wide">
           Out of the park
         </h1>
-        <p className="mt-1 text-sm text-ink/65">
+        <p className="note-sm">
           That page doesn’t exist — the game or link may have been retired.
         </p>
         <Link

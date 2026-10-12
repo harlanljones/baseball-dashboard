@@ -1,12 +1,12 @@
 import Link from "next/link";
 import TeamLogo from "./TeamLogo";
+import { dateFormatter } from "@/lib/formatters";
 import type {
   HeadToHead as HeadToHeadData,
   PostseasonSeries,
   SeriesMeeting,
   TeamRef,
 } from "@/lib/mlb/types";
-import { TD_LEFT, TD_NUM, TD_RIGHT, TH_LEFT, TH_RIGHT } from "./tableStyles";
 
 function name(t: { abbreviation?: string; name: string }): string {
   return t.abbreviation ?? t.name;
@@ -37,7 +37,7 @@ function postseasonSummary(
 }
 
 function formatDate(iso: string): string {
-  return new Intl.DateTimeFormat("en-US", {
+  return dateFormatter("en-US", {
     timeZone: "America/New_York",
     month: "short",
     day: "numeric",
@@ -146,29 +146,29 @@ function SeriesTable({
 
   return (
     <div className="min-w-0 overflow-x-auto">
-      <table className="nums w-full min-w-max text-sm">
+      <table className="table-nums">
         <caption className="sr-only">
           {label} between {name(teamA)} and {name(teamB)}, running record for{" "}
           {name(teamA)}
         </caption>
         <thead>
           <tr>
-            <th scope="col" className={TH_LEFT}>
+            <th scope="col" className="th-left">
               Date
             </th>
-            <th scope="col" className={TH_LEFT}>
+            <th scope="col" className="th-left">
               Matchup
             </th>
-            <th scope="col" className={TH_RIGHT}>
+            <th scope="col" className="th-right">
               Score
             </th>
-            <th scope="col" className={TH_RIGHT}>
+            <th scope="col" className="th-right">
               Result
             </th>
             <th
               scope="col"
               title={`Running record for ${name(teamA)}`}
-              className={TH_RIGHT}
+              className="th-right"
             >
               {name(teamA)} record
             </th>
@@ -186,13 +186,13 @@ function SeriesTable({
                 ? m.away.score > m.home.score
                 : false;
             return (
-              <tr key={m.gamePk} className="border-t border-ink/10">
-                <td className={TD_LEFT}>
+              <tr key={m.gamePk} className="divider-t">
+                <td className="td-left">
                   <Link href={`/games/${m.gamePk}`} className="text-ink/65 hover:text-grass hover:underline">
                     {formatDate(m.date)}
                   </Link>
                 </td>
-                <td className={TD_LEFT}>
+                <td className="td-left">
                   <Link href={`/games/${m.gamePk}`} className="flex min-w-0 items-center gap-1.5 hover:text-grass">
                     <TeamMini team={m.away.team} lost={awayLost} />
                     <span className="shrink-0 text-ink/65">@</span>
@@ -200,11 +200,11 @@ function SeriesTable({
                   </Link>
                 </td>
                 <td
-                  className={`${TD_NUM} ${isFinal ? "font-semibold" : "text-ink/65"}`}
+                  className={`td-num ${isFinal ? "font-semibold" : "text-ink/65"}`}
                 >
                   {scoreText(m)}
                 </td>
-                <td className={TD_RIGHT}>
+                <td className="td-right">
                   {teamAWon == null ? (
                     <span className="text-ink/65">–</span>
                   ) : (
@@ -217,7 +217,7 @@ function SeriesTable({
                     </span>
                   )}
                 </td>
-                <td className={`${TD_NUM} text-ink/70`}>{record}</td>
+                <td className={`td-num text-ink/70`}>{record}</td>
               </tr>
             );
           })}

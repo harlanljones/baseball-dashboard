@@ -24,7 +24,7 @@ import RosterStatsSection from "@/components/RosterStatsSection";
 import TeamLogo from "@/components/TeamLogo";
 
 import { easternDateOf, MlbApiError } from "@/lib/mlb/client";
-import { getLiveFeed, seasonOf } from "@/lib/mlb/game";
+import { getLiveFeed, seasonOf, withBullpenStats } from "@/lib/mlb/game";
 import {
   getBullpenSeasonPitching,
   getBullpenWorkload,
@@ -33,11 +33,7 @@ import { getHeadToHead, isPostseason } from "@/lib/mlb/schedule";
 import { safe } from "@/lib/safe";
 import { getGameWeather } from "@/lib/weather/report";
 import type { GameWeather } from "@/lib/weather/types";
-import type {
-  BullpenPitcher,
-  GameFeed,
-  TeamBoxscore,
-} from "@/lib/mlb/types";
+import type { GameFeed } from "@/lib/mlb/types";
 
 // --- small utilities ---------------------------------------------------------
 
@@ -55,7 +51,7 @@ function Section({
   children: React.ReactNode;
 }) {
   return (
-    <section className="rounded-md border border-ink/10 bg-card p-4 shadow-sm">
+    <section className="card-pad">
       <div className="mb-3 flex items-baseline justify-between gap-3">
         <h2 className="eyebrow text-lg">{title}</h2>
         {aside}
@@ -77,7 +73,7 @@ function CollapsibleSection({
   children: React.ReactNode;
 }) {
   return (
-    <details className="group rounded-md border border-ink/10 bg-card p-4 shadow-sm">
+    <details className="group card-pad">
       <summary className="flex cursor-pointer list-none items-baseline justify-between gap-3 [&::-webkit-details-marker]:hidden">
         <h2 className="eyebrow text-base transition-colors group-hover:text-ink">{title}</h2>
         <span
@@ -99,25 +95,6 @@ function SectionSkeleton() {
 }
 
 // --- async sections ----------------------------------------------------------
-
-function withBullpenStats(
-  box: TeamBoxscore,
-  workload: Map<number, { yesterday: number; last3: number }>,
-  seasonPitching: Map<number, { ip: string; era?: string; fip?: number; k: number }>,
-): TeamBoxscore {
-  return {
-    ...box,
-    bullpen: box.bullpen.map((p): BullpenPitcher => {
-      const stats = seasonPitching.get(p.id);
-      return {
-        ...p,
-        ...(stats ?? {}),
-        pitchesYesterday: workload.get(p.id)?.yesterday,
-        pitchesLast3: workload.get(p.id)?.last3,
-      };
-    }),
-  };
-}
 
 async function BullpenSection({
   feed,
@@ -183,7 +160,13 @@ export async function generateMetadata({
 }): Promise<Metadata> {
   const { gamePk } = await params;
   const id = Number(gamePk);
-  if (!Number.isInteger(id) || id <= 0) return { title: "Game not found" };
+  // Raising this here rather than in the page resolves the not-found *document*
+  // and title (the page's own `notFound()` would otherwise arrive after the
+  // shell had already streamed, leaving a 200 shell plus a swapped-in region).
+  // It cannot change the status: this route has a `loading.tsx`, so the shell —
+  // and with it the 200 — is committed before the page renders at all. A real
+  // 404 needs the existence check to happen outside that boundary.
+  if (!Number.isInteger(id) || id <= 0) notFound();
 
   // Shares the page's fetch via per-request memoization — no extra API call.
   try {
@@ -198,7 +181,9 @@ export async function generateMetadata({
       title: `${away} @ ${home}${suffix}`,
       description: `Score, boxscore, matchups, and sabermetrics for ${feed.away.team.name} at ${feed.home.team.name}.`,
     };
-  } catch {
+  } catch (e) {
+    if (e instanceof MlbApiError && e.status === 404) notFound();
+    // Any other failure is the page's to surface: metadata only drops the title.
     return { title: "Game" };
   }
 }
@@ -242,7 +227,7 @@ export default async function GamePage({
       <BackLink href="/">All games</BackLink>
 
       {/* Header */}
-      <div className="rounded-md border border-ink/10 bg-card p-4 shadow-sm">
+      <div className="card-pad">
         <h1 className="sr-only">
           {feed.away.team.name} at {feed.home.team.name}
         </h1>
@@ -288,7 +273,7 @@ export default async function GamePage({
         )}
 
         {feed.state === "Final" && (d?.winner || d?.loser) && (
-          <p className="mt-3 border-t border-ink/10 pt-2 text-xs text-ink/65">
+          <p className="mt-3 divider-t pt-2 text-xs text-ink/65">
             {d?.winner && <>W: {d.winner.fullName}</>}
             {d?.loser && <> · L: {d.loser.fullName}</>}
             {d?.save && <> · SV: {d.save.fullName}</>}
@@ -296,7 +281,7 @@ export default async function GamePage({
         )}
 
         {isPreview && (feed.probablePitchers.away || feed.probablePitchers.home) && (
-          <div className="mt-3 border-t border-ink/10 pt-2 text-sm text-ink/65">
+          <div className="mt-3 divider-t pt-2 text-sm text-ink/65">
             <span className="mr-3">Probables:</span>
             <span className="inline-flex flex-wrap items-center gap-x-5 gap-y-1 align-middle">
               {(["away", "home"] as const).map((side) => {
@@ -402,7 +387,7 @@ export default async function GamePage({
             aside={
               <a
                 href="/glossary"
-                className="text-xs text-grass underline underline-offset-2 hover:text-field-deep dark:hover:text-grass"
+                className="text-xs link-subtle"
               >
                 Glossary
               </a>

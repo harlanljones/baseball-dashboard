@@ -86,7 +86,7 @@ export default async function VsPitcherPage({
       <div className="space-y-5">
         <ContextualBackLink />
 
-        <div className="rounded-md border border-ink/10 bg-card p-4 shadow-sm">
+        <div className="card-pad">
           <h1 className="font-display flex flex-wrap items-center gap-2 text-xl font-semibold">
             <PlayerHeadshot personId={batter.id} size={28} />
             {batter.fullName}
@@ -94,13 +94,13 @@ export default async function VsPitcherPage({
             <PlayerHeadshot personId={pitcher.id} size={28} />
             {pitcher.fullName}
           </h1>
-          <p className="mt-1 text-sm text-ink/65">
+          <p className="note-sm">
             Season-by-season history — the MLB Stats API has no per-plate-appearance
             log against a single pitcher, so each row is one season&rsquo;s totals.
           </p>
         </div>
 
-        <section className="rounded-md border border-ink/10 bg-card p-4 shadow-sm">
+        <section className="card-pad">
           <VsPitcherLog career={career} seasons={seasons} />
         </section>
       </div>

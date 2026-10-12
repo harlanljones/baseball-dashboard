@@ -1,6 +1,5 @@
 "use client";
 
-import { TH } from "./tableStyles";
 
 interface SortableHeaderCellProps {
   label: string;
@@ -35,7 +34,7 @@ export default function SortableHeaderCell({
       scope="col"
       aria-sort={isActive ? (currentDirection === "asc" ? "ascending" : "descending") : undefined}
       title={title}
-      className={`${TH} group ${
+      className={`th group ${
         align === "left" ? "text-left" : "text-right"
       } ${isActive ? "text-ink" : "text-ink/65"}`}
     >

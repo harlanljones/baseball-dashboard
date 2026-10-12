@@ -1,7 +1,6 @@
 import TeamLogo from "./TeamLogo";
 import StatGradeLegend from "./StatGradeLegend";
 import { statClass } from "@/lib/statColor";
-import { TD_LEFT, TD_NUM, TH_LEFT, TH_RIGHT } from "./tableStyles";
 import type { TeamBoxscore } from "@/lib/mlb/types";
 
 const BAT_COLS = ["AB", "R", "H", "RBI", "BB", "K", "AVG"] as const;
@@ -11,7 +10,7 @@ function Th({ children, first }: { children: React.ReactNode; first?: boolean })
   return (
     <th
       scope="col"
-      className={first ? TH_LEFT : TH_RIGHT}
+      className={first ? "th-left" : "th-right"}
     >
       {children}
     </th>
@@ -33,7 +32,7 @@ function TeamBox({ box, isLive }: { box: TeamBoxscore; isLive?: boolean }) {
       </h3>
 
       <div className="overflow-x-auto">
-        <table className="nums w-full min-w-max text-sm">
+        <table className="table-nums">
           <caption className="sr-only">{box.team.name} batting</caption>
           <thead>
             <tr>
@@ -47,21 +46,21 @@ function TeamBox({ box, isLive }: { box: TeamBoxscore; isLive?: boolean }) {
             {displayBatters.map((b) => (
               <tr
                 key={b.id}
-                className="border-t border-ink/10"
+                className="divider-t"
               >
-                <td className={TD_LEFT}>
+                <td className="td-left">
                   {b.name}
                   <span className="ml-1 text-xs text-ink/65">
                     {b.position}
                   </span>
                 </td>
-                <td className={TD_NUM}>{b.ab}</td>
-                <td className={TD_NUM}>{b.r}</td>
-                <td className={TD_NUM}>{b.h}</td>
-                <td className={TD_NUM}>{b.rbi}</td>
-                <td className={TD_NUM}>{b.bb}</td>
-                <td className={TD_NUM}>{b.k}</td>
-                <td className={`${TD_NUM} ${statClass("avg", b.avg)}`}>
+                <td className="td-num">{b.ab}</td>
+                <td className="td-num">{b.r}</td>
+                <td className="td-num">{b.h}</td>
+                <td className="td-num">{b.rbi}</td>
+                <td className="td-num">{b.bb}</td>
+                <td className="td-num">{b.k}</td>
+                <td className={`td-num ${statClass("avg", b.avg)}`}>
                   {b.avg}
                 </td>
               </tr>
@@ -72,7 +71,7 @@ function TeamBox({ box, isLive }: { box: TeamBoxscore; isLive?: boolean }) {
 
       {box.pitchers.length > 0 && (
         <div className="mt-3 overflow-x-auto">
-          <table className="nums w-full min-w-max text-sm">
+          <table className="table-nums">
             <caption className="sr-only">{box.team.name} pitching</caption>
             <thead>
               <tr>
@@ -86,16 +85,16 @@ function TeamBox({ box, isLive }: { box: TeamBoxscore; isLive?: boolean }) {
               {box.pitchers.map((p) => (
                 <tr
                   key={p.id}
-                  className="border-t border-ink/10"
+                  className="divider-t"
                 >
-                  <td className={TD_LEFT}>{p.name}</td>
-                  <td className={TD_NUM}>{p.ip}</td>
-                  <td className={TD_NUM}>{p.h}</td>
-                  <td className={TD_NUM}>{p.r}</td>
-                  <td className={TD_NUM}>{p.er}</td>
-                  <td className={TD_NUM}>{p.bb}</td>
-                  <td className={TD_NUM}>{p.k}</td>
-                  <td className={`${TD_NUM} ${statClass("era", p.era)}`}>
+                  <td className="td-left">{p.name}</td>
+                  <td className="td-num">{p.ip}</td>
+                  <td className="td-num">{p.h}</td>
+                  <td className="td-num">{p.r}</td>
+                  <td className="td-num">{p.er}</td>
+                  <td className="td-num">{p.bb}</td>
+                  <td className="td-num">{p.k}</td>
+                  <td className={`td-num ${statClass("era", p.era)}`}>
                     {p.era}
                   </td>
                 </tr>

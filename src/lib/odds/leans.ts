@@ -2,6 +2,7 @@ import { unstable_cache } from "next/cache";
 
 import { easternToday } from "@/lib/mlb/client";
 import { getSchedule } from "@/lib/mlb/schedule";
+import { getPitcherPropStatsBatch, type PitcherPropStats } from "@/lib/mlb/players";
 import { loadPropGroups } from "@/components/PropsSidebarSection";
 import type { ScheduleGame } from "@/lib/mlb/types";
 import {
@@ -11,7 +12,8 @@ import {
   propContextFromScheduleGame,
 } from "@/lib/odds/board";
 import { withOddsScope } from "@/lib/odds/requestScope";
-import type { PropDirection, PropMarketKey } from "@/lib/odds/types";
+import { safe } from "@/lib/safe";
+import type { PropDirection, PropMarketKey, ScoredProp } from "@/lib/odds/types";
 
 /** Games sampled per slate. Beyond this the provider board stops paying for itself. */
 const MAX_GAMES = 8;
@@ -65,39 +67,52 @@ function seasonOf(game: ScheduleGame): number {
  *
  * Uncached — {@link getBestLeans} is the entry point callers should use.
  */
+
+/** A scored prop before it is flattened into the row shape the list renders. */
+interface LeanCandidate {
+  game: ScheduleGame;
+  prop: ScoredProp;
+  score: number;
+}
+
 async function computeBestLeans(date: string): Promise<SlateLean[]> {
   const { games } = await getSchedule(date);
   const previewGames = games.filter((g) => g.state === "Preview").slice(0, MAX_GAMES);
 
+  // One season-line lookup for every probable starter on the slate, instead of
+  // one per game: the ids are known from the schedule rows before any game is
+  // scored, and a slate's games share a season. Started here (not awaited) so it
+  // runs alongside the games' own work.
+  const pitcherStatsBySeason = new Map<number, Promise<Map<number, PitcherPropStats>>>();
+  for (const season of new Set(previewGames.map(seasonOf))) {
+    const ids = previewGames
+      .filter((game) => seasonOf(game) === season)
+      .flatMap((game) => [game.away.probablePitcher?.id, game.home.probablePitcher?.id])
+      .filter((id): id is number => id != null);
+    pitcherStatsBySeason.set(season, safe(getPitcherPropStatsBatch(ids, season)).then((m) => m ?? new Map()));
+  }
+
   const perGame = await withOddsScope(() =>
     Promise.all(
-      previewGames.map(async (game) => {
+      previewGames.map(async (game): Promise<LeanCandidate[]> => {
         try {
+          const season = seasonOf(game);
           const groups = await loadPropGroups({
             game: propContextFromScheduleGame(game),
-            season: seasonOf(game),
+            season,
             weather: null,
+            pitcherStats: pitcherStatsBySeason.get(season) ?? null,
           });
-          return groups.flatMap((group) =>
-            group.players.flatMap((player) =>
-              player.props.map((prop) => {
+          const candidates: LeanCandidate[] = [];
+          for (const group of groups) {
+            for (const player of group.players) {
+              for (const prop of player.props) {
                 const score = calculateScore(prop, DEFAULT_WEIGHTS);
-                if (score == null) return null;
-                return {
-                  gamePk: game.gamePk,
-                  anchor: leanAnchorId(prop),
-                  matchup: `${game.away.team.abbreviation} at ${game.home.team.abbreviation}`,
-                  playerId: prop.player.id,
-                  playerName: prop.player.fullName,
-                  marketKey: prop.marketKey,
-                  line: prop.line,
-                  direction: prop.direction,
-                  price: prop.direction === "over" ? prop.overPrice : prop.underPrice,
-                  score,
-                } satisfies SlateLean;
-              }),
-            ),
-          );
+                if (score != null) candidates.push({ game, prop, score });
+              }
+            }
+          }
+          return candidates;
         } catch {
           return [];
         }
@@ -105,11 +120,28 @@ async function computeBestLeans(date: string): Promise<SlateLean[]> {
     ),
   );
 
+  // Ranking happens on the candidate, not on the row: a slate holds hundreds of
+  // scored props and only {@link MAX_LEANS} survive, so the anchor, matchup label
+  // and price of every discarded prop are never built.
   return perGame
     .flat()
-    .filter((lean): lean is SlateLean => lean != null)
     .sort((a, b) => b.score - a.score)
-    .slice(0, MAX_LEANS);
+    .slice(0, MAX_LEANS)
+    .map(
+      ({ game, prop, score }) =>
+        ({
+          gamePk: game.gamePk,
+          anchor: leanAnchorId(prop),
+          matchup: `${game.away.team.abbreviation} at ${game.home.team.abbreviation}`,
+          playerId: prop.player.id,
+          playerName: prop.player.fullName,
+          marketKey: prop.marketKey,
+          line: prop.line,
+          direction: prop.direction,
+          price: prop.direction === "over" ? prop.overPrice : prop.underPrice,
+          score,
+        }) satisfies SlateLean,
+    );
 }
 
 /**

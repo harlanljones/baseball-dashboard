@@ -50,3 +50,7 @@ next-env.d.ts
 
 # claude code
 .claude/
+
+# Profiler artifacts and ad-hoc scripts from bench runs.
+bench/*.cpuprofile
+bench/scratch-*.ts

@@ -3,7 +3,6 @@
 import Link from "next/link";
 import PlayerHeadshot from "./PlayerHeadshot";
 import TeamLogo from "./TeamLogo";
-import { TD_LEFT, TD_NUM, TH_LEFT } from "./tableStyles";
 import SortableHeaderCell from "./SortableHeaderCell";
 import StatGradeLegend from "./StatGradeLegend";
 import { statClass } from "@/lib/statColor";
@@ -38,7 +37,7 @@ function BullpenTable({ box }: { box: TeamBoxscore }) {
         <p className="text-sm text-ink/65">No bullpen listed.</p>
       ) : (
         <div className="overflow-x-auto">
-          <table className="nums w-full min-w-max text-sm">
+          <table className="table-nums">
             <caption className="sr-only">
               {box.team.name} bullpen, season pitching stats and recent pitch-count workload
             </caption>
@@ -46,7 +45,7 @@ function BullpenTable({ box }: { box: TeamBoxscore }) {
               <tr>
                 <th
                   scope="col"
-                  className={TH_LEFT}
+                  className="th-left"
                 >
                   Pitcher
                 </th>
@@ -101,24 +100,24 @@ function BullpenTable({ box }: { box: TeamBoxscore }) {
               {sorted.map((p) => (
                 <tr
                   key={p.id}
-                  className="border-t border-ink/10"
+                  className="divider-t"
                 >
-                  <td className={TD_LEFT}>
+                  <td className="td-left">
                     <span className="flex items-center gap-2">
                       <PlayerHeadshot personId={p.id} size={20} />
                       {p.name}
                     </span>
                   </td>
-                  <td className={TD_NUM}>{p.ip}</td>
-                  <td className={`${TD_NUM} ${statClass("era", p.era)}`}>
+                  <td className="td-num">{p.ip}</td>
+                  <td className={`td-num ${statClass("era", p.era)}`}>
                     {p.era ?? "—"}
                   </td>
-                  <td className={`${TD_NUM} ${statClass("fip", p.fip)}`}>
+                  <td className={`td-num ${statClass("fip", p.fip)}`}>
                     {formatStat(p.fip)}
                   </td>
-                  <td className={TD_NUM}>{p.k}</td>
-                  <td className={TD_NUM}>{pitchCount(p.pitchesYesterday)}</td>
-                  <td className={TD_NUM}>{pitchCount(p.pitchesLast3)}</td>
+                  <td className="td-num">{p.k}</td>
+                  <td className="td-num">{pitchCount(p.pitchesYesterday)}</td>
+                  <td className="td-num">{pitchCount(p.pitchesLast3)}</td>
                 </tr>
               ))}
             </tbody>
@@ -148,11 +147,11 @@ export default function Bullpen({
         <BullpenTable box={away} />
         <BullpenTable box={home} />
       </div>
-      <p className="mt-3 max-w-xl border-t border-ink/10 pt-2 text-xs text-ink/65">
+      <p className="mt-3 max-w-xl divider-t pt-2 text-xs text-ink/65">
         PY = pitches thrown yesterday · P3D = pitches over the last three days,
         heavy counts mean the arm is likely unavailable today. Definitions for
         every column live in the{" "}
-        <Link href="/glossary" className="text-grass underline underline-offset-2 hover:text-field-deep dark:hover:text-grass">
+        <Link href="/glossary" className="link-subtle">
           glossary
         </Link>
         .

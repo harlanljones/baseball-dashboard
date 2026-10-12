@@ -1,8 +1,8 @@
 import { cache } from "react";
 
+import type { RosterHitter } from "./players";
 import {
   getHomeAwaySplitBatch,
-  getPitchHand,
   getPlatoonSplitBatch,
   getRosterWithSeasonStats,
   getVsPlayerBatch,
@@ -51,6 +51,7 @@ export const lineupFor = cache(async function lineupFor(
   feed: GameFeed,
   side: Side,
   season: number,
+  roster?: Promise<RosterHitter[] | null>,
 ): Promise<{ batters: PlayerRef[]; isProxy: boolean }> {
   const box = feed.boxscore[side];
   if (
@@ -65,9 +66,9 @@ export const lineupFor = cache(async function lineupFor(
     };
   }
 
-  const roster = await getRosterWithSeasonStats(box.team.id, season);
+  const hitters = (roster ? await roster : null) ?? (await getRosterWithSeasonStats(box.team.id, season));
   return {
-    batters: roster.slice(0, LINEUP_SIZE).map((h) => h.player),
+    batters: hitters.slice(0, LINEUP_SIZE).map((h) => h.player),
     isProxy: true,
   };
 });
@@ -124,6 +125,8 @@ function assembleSide(
 export async function buildMatchups(
   feed: GameFeed,
   season: number,
+  /** Rosters the caller already started loading, so the proxy lineup reuses them. */
+  rosters?: { away: Promise<RosterHitter[] | null>; home: Promise<RosterHitter[] | null> },
 ): Promise<{ awayPitching: MatchupSide; homePitching: MatchupSide }> {
   const awayTeam = feed.away.team;
   const homeTeam = feed.home.team;
@@ -131,12 +134,15 @@ export async function buildMatchups(
   const awayPitcher = startingPitcherFor(feed, "away");
   const homePitcher = startingPitcherFor(feed, "home");
 
-  const [homeLineup, awayLineup, awayHand, homeHand] = await Promise.all([
-    lineupFor(feed, "home", season),
-    lineupFor(feed, "away", season),
-    awayPitcher ? getPitchHand(awayPitcher.id) : Promise.resolve(null),
-    homePitcher ? getPitchHand(homePitcher.id) : Promise.resolve(null),
+  const [homeLineup, awayLineup] = await Promise.all([
+    lineupFor(feed, "home", season, rosters?.home),
+    lineupFor(feed, "away", season, rosters?.away),
   ]);
+  // Throwing hands come from the feed's own player metadata, so no starter
+  // costs a request of its own; a hand the feed lacks (or a game whose feed
+  // predates it) leaves the platoon split unrequested, as a failed lookup did.
+  const awayHand = awayPitcher ? feed.pitchHands[awayPitcher.id] ?? null : null;
+  const homeHand = homePitcher ? feed.pitchHands[homePitcher.id] ?? null : null;
 
   // Away team pitching -> faces the home lineup; home pitching -> away lineup.
   const [awaySide, homeSide] = await Promise.all([

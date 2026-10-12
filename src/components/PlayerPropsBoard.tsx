@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, type CSSProperties } from "react";
 import PlayerHeadshot from "./PlayerHeadshot";
 import ScorePop from "./ScorePop";
 import TeamLogo from "./TeamLogo";
@@ -15,7 +15,7 @@ import {
   WEIGHT_LABELS,
   calculateScore,
   leanAnchorId,
-  scoreBarClass,
+  scoreBarColor,
   scoreToneClass,
   type WeightKey,
   type Weights,
@@ -69,19 +69,15 @@ function topLean(props: ScoredProp[], weights: Weights) {
     .sort((a, b) => b.score - a.score)[0];
 }
 
-function Factor({ label, value, toneClass, barClass }: { label: string; value: number | null; toneClass: string; barClass: string }) {
+function Factor({ label, value, toneClass, barColor }: { label: string; value: number | null; toneClass: string; barColor: string }) {
+  const fill = value == null ? 0 : Math.max(4, Math.min(100, value));
+  // The fill lives in custom properties on the wrapper, which the bar it draws
+  // with `::after` inherits, so the bar costs no node and no inline width.
+  const style = { "--fill": `${fill}%`, "--bar": barColor } as CSSProperties;
   return (
-    <div className="min-w-0">
-      <div className="flex items-center justify-between gap-2 text-xs uppercase tracking-[0.08em] text-ink/65">
-        <span>{label}</span>
-        <span className={`nums font-mono ${toneClass}`}>{value == null ? "—" : Math.round(value)}</span>
-      </div>
-      <div className="mt-1 h-1 overflow-hidden rounded-full bg-ink/10">
-        <div
-          className={`h-full rounded-full ${barClass}`}
-          style={{ width: `${value == null ? 0 : Math.max(4, Math.min(100, value))}%` }}
-        />
-      </div>
+    <div className="factor" style={style}>
+      <span className="factor-label">{label}</span>
+      <span className={`factor-value ${toneClass}`}>{value == null ? "—" : Math.round(value)}</span>
     </div>
   );
 }
@@ -89,7 +85,7 @@ function Factor({ label, value, toneClass, barClass }: { label: string; value: n
 /** Direction chip — the words carry the meaning; color stays out of it. */
 function DirectionChip({ prop }: { prop: ScoredProp }) {
   return (
-    <span className="rounded-sm border border-ink/25 px-1 py-px text-xs font-semibold uppercase tracking-wider text-ink/75">
+    <span className="chip">
       {directionLabel(prop)}
     </span>
   );
@@ -102,56 +98,56 @@ function PropRow({ prop, score }: { prop: ScoredProp; score: number | null }) {
   const [firstEvidence, ...restEvidence] = prop.evidence;
 
   return (
-    <article id={leanAnchorId(prop)} className="scroll-mt-20 border-b border-ink/10 px-3 py-3 last:border-b-0">
-      <div className="flex items-start gap-2.5">
+    <article id={leanAnchorId(prop)} className="prop-row">
+      <div className="prop-row-head">
         <PlayerHeadshot personId={prop.player.id} size={28} />
-        <div className="min-w-0 flex-1">
-          <div className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
-            <span className="font-display text-base font-semibold">{prop.player.fullName}</span>
-            <span className="text-xs text-ink/65">{MARKET_LABELS[prop.marketKey]}</span>
+        <div className="prop-row-body">
+          <div className="prop-row-title">
+            <span className="prop-name">{prop.player.fullName}</span>
+            <span className="prop-market">{MARKET_LABELS[prop.marketKey]}</span>
           </div>
-          <div className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs">
+          <div className="prop-line">
             <DirectionChip prop={prop} />
-            <span className="nums font-mono text-ink/75">{prop.line}</span>
-            <span className="nums font-mono text-ink/65">{formatPrice(price)}</span>
-            {prop.factors.completeness === "partial" && <span className="text-gold-deep">Partial data</span>}
+            <span className="prop-value">{prop.line}</span>
+            <span className="prop-value-muted">{formatPrice(price)}</span>
+            {prop.factors.completeness === "partial" && <span className="prop-partial">Partial data</span>}
             <span className={`text-xs ${TIER_CLASS[prop.tier]}`}>{TIER_LABEL[prop.tier]}</span>
           </div>
         </div>
-        <div className="shrink-0 text-right">
+        <div className="prop-score">
           <ScorePop value={score == null ? "—" : score.toFixed(1)} className={`nums font-mono text-2xl font-semibold ${tone}`} />
-          <div className="text-xs uppercase tracking-[0.08em] text-ink/65">lean score</div>
+          <div className="label-caps">lean score</div>
         </div>
       </div>
-      <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-3">
+      <div className="prop-factors">
         <Factor
           label="Model"
           value={prop.factors.modelConfidence}
           toneClass={scoreToneClass(prop.factors.modelConfidence)}
-          barClass={scoreBarClass(prop.factors.modelConfidence)}
+          barColor={scoreBarColor(prop.factors.modelConfidence)}
         />
         <Factor
           label="Edge"
           value={prop.factors.statisticalEdge}
           toneClass={scoreToneClass(prop.factors.statisticalEdge)}
-          barClass={scoreBarClass(prop.factors.statisticalEdge)}
+          barColor={scoreBarColor(prop.factors.statisticalEdge)}
         />
         <Factor
           label="Value"
           value={prop.factors.marketValue}
           toneClass={scoreToneClass(prop.factors.marketValue)}
-          barClass={scoreBarClass(prop.factors.marketValue)}
+          barColor={scoreBarColor(prop.factors.marketValue)}
         />
       </div>
       {(firstEvidence || restEvidence.length > 0) && (
-        <div className="mt-2 text-xs leading-snug text-ink/70">
+        <>
           {restEvidence.length > 0 && !showAllEvidence ? (
             <>
-              <p>{firstEvidence}</p>
+              <p className="prop-evidence">{firstEvidence}</p>
               <button
                 type="button"
                 onClick={() => setShowAllEvidence(true)}
-                className="mt-0.5 cursor-pointer text-grass underline underline-offset-2 hover:text-field-deep dark:hover:text-grass"
+                className="prop-more link-subtle"
               >
                 +{restEvidence.length} more {restEvidence.length === 1 ? "line" : "lines"} of evidence
               </button>
@@ -159,20 +155,22 @@ function PropRow({ prop, score }: { prop: ScoredProp; score: number | null }) {
           ) : (
             <>
               {prop.evidence.map((line, i) => (
-                <p key={i}>{line}</p>
+                <p className="prop-evidence" key={i}>
+                  {line}
+                </p>
               ))}
               {restEvidence.length > 0 && (
                 <button
                   type="button"
                   onClick={() => setShowAllEvidence(false)}
-                  className="mt-0.5 cursor-pointer text-grass underline underline-offset-2 hover:text-field-deep dark:hover:text-grass"
+                  className="prop-more link-subtle"
                 >
                   Show less
                 </button>
               )}
             </>
           )}
-        </div>
+        </>
       )}
     </article>
   );
@@ -181,14 +179,19 @@ function PropRow({ prop, score }: { prop: ScoredProp; score: number | null }) {
 function TeamColumn({ group, weights }: { group: PropTeamGroup; weights: Weights }) {
   const rows = group.players.flatMap((player) => player.props.map((prop) => ({ prop, evidence: player.evidence })));
   const sorted = rows
-    .map(({ prop, evidence }) => ({ prop: evidence.length ? { ...prop, evidence: [...evidence, ...prop.evidence] } : prop, score: calculateScore(prop, weights) }))
+    // The prop's own line (season average versus the posted line) leads, with
+    // the player's matchup context after it: a row renders only its first line
+    // until the reader expands it, and the statistical edge is the one the
+    // product promises to expose. Ordering the player's evidence first put that
+    // line behind the toggle for every prop that had matchup context.
+    .map(({ prop, evidence }) => ({ prop: evidence.length ? { ...prop, evidence: [...prop.evidence, ...evidence] } : prop, score: calculateScore(prop, weights) }))
     .sort((a, b) => (b.score ?? -1) - (a.score ?? -1));
   return (
-    <section className="min-w-0 overflow-hidden rounded-md border border-ink/10 bg-card">
-      <div className="flex items-center gap-2 border-b border-ink/10 px-3 py-2.5">
+    <section className="panel">
+      <div className="panel-head">
         <TeamLogo teamId={group.team.id} size={20} />
-        <h2 className="font-display text-base font-semibold uppercase tracking-wide">{group.team.abbreviation ?? group.team.name}</h2>
-        <span className="ml-auto text-xs text-ink/65">{sorted.length} props</span>
+        <h2 className="panel-title">{group.team.abbreviation ?? group.team.name}</h2>
+        <span className="panel-count">{sorted.length} props</span>
       </div>
       {sorted.length === 0 ? <p className="p-4 text-sm text-ink/65">No matched props.</p> : sorted.map(({ prop, score }) => <PropRow key={`${prop.player.id}-${prop.marketKey}-${prop.line}`} prop={prop} score={score} />)}
     </section>
@@ -249,7 +252,7 @@ export default function PlayerPropsBoard({ groups, gameHref }: { groups: PropTea
 
   return (
     <div className="space-y-4">
-      <section className="rounded-md border border-ink/10 bg-card p-4 shadow-sm">
+      <section className="card-pad">
         <div className="flex flex-wrap items-end justify-between gap-3">
           <div>
             <h2 className="eyebrow text-base">Lean score weights</h2>
@@ -282,14 +285,14 @@ export default function PlayerPropsBoard({ groups, gameHref }: { groups: PropTea
             </label>
           ))}
         </div>
-        <div className="mt-4 flex flex-wrap items-center justify-between gap-2 border-t border-ink/10 pt-3 text-xs text-ink/65">
+        <div className="mt-4 flex flex-wrap items-center justify-between gap-2 divider-t pt-3 text-xs text-ink/65">
           <span>Scores and order update as the weights move.</span>
         </div>
       </section>
 
       {best && (
         <div
-          className="flex flex-wrap items-center justify-between gap-3 border border-grass/30 bg-field/5 px-3 py-2.5 text-sm"
+          className="lean-banner"
         >
           <span><span className="font-semibold">Current top lean:</span> {best.prop.player.fullName} {directionLabel(best.prop).toLowerCase()} {MARKET_LABELS[best.prop.marketKey].toLowerCase()} {best.prop.line}</span>
           <a

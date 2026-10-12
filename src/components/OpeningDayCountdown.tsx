@@ -1,9 +1,10 @@
 import { daysBetween } from "@/lib/dates";
+import { dateFormatter } from "@/lib/formatters";
 import { prettyDate } from "@/lib/format";
 import type { OpeningDay } from "@/lib/mlb/types";
 
 function shortDate(date: string): string {
-  return new Intl.DateTimeFormat("en-US", {
+  return dateFormatter("en-US", {
     timeZone: "UTC",
     month: "short",
     day: "numeric",
@@ -43,7 +44,7 @@ export default function OpeningDayCountdown({
         </p>
       )}
       {daysToOpener >= 0 && (
-        <p className="mt-1 text-sm text-ink/65">{prettyDate(openingDay.date)}</p>
+        <p className="note-sm">{prettyDate(openingDay.date)}</p>
       )}
       {springDays !== null && springDays > 0 && (
         <p className="nums mt-2 text-xs text-ink/65">

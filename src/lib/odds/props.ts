@@ -13,8 +13,6 @@ const PROP_MARKETS: PropMarketKey[] = [
   "batter_hits",
   "batter_total_bases",
   "batter_home_runs",
-  "batter_rbis",
-  "batter_walks",
 ];
 
 interface RawOutcome {
@@ -40,22 +38,59 @@ interface RawEventOdds {
 }
 
 /**
+ * The books we ask The Odds API for, in preference order. These are the
+ * provider's own keys for our preferred books that it lists: its Caesars key is
+ * `williamhill_us` and it has no US `bet365`, so the list is shorter than the
+ * SportsGameOdds one. Requesting these instead of `regions=us` still costs one
+ * region against the quota (up to 10 bookmakers is 1 region) but a fraction of
+ * the payload — `us` returns every US bookmaker, and only one book is ever read.
+ */
+const ODDS_API_BOOKMAKERS = ["fanduel", "draftkings", "betmgm"] as const;
+
+const BOOK_RANK: Record<string, number> = Object.fromEntries(
+  ODDS_API_BOOKMAKERS.map((book, rank) => [book, rank]),
+);
+
+/** True when the book carries at least one of our tracked prop markets. */
+function carriesTrackedMarket(bookmaker: RawBookmaker): boolean {
+  return bookmaker.markets.some((market) => PROP_MARKETS.includes(market.key as PropMarketKey));
+}
+
+/**
+ * The most preferred book that actually carries one of our markets. Reading a
+ * single fixed book (the response's first) loses props whenever that book does
+ * not post player props, which is common outside the majors.
+ */
+function pickBookmaker(bookmakers: RawBookmaker[] | undefined): RawBookmaker | undefined {
+  return [...(bookmakers ?? [])]
+    .filter(carriesTrackedMarket)
+    .sort((a, b) => (BOOK_RANK[a.key] ?? 99) - (BOOK_RANK[b.key] ?? 99))[0];
+}
+
+/**
  * Fetches player-prop odds for one The Odds API event across the 7 tracked
- * markets, from the first bookmaker in the response. Only outcome pairs
- * where both Over and Under exist with the same line are kept.
+ * markets, from the most preferred bookmaker that carries them. Only outcome
+ * pairs where both Over and Under exist with the same line are kept.
  */
 export async function getPlayerProps(eventId: string): Promise<PlayerProp[]> {
-  const res = await oddsFetch<RawEventOdds>(
-    `/v4/sports/baseball_mlb/events/${eventId}/odds`,
-    {
-      regions: "us",
-      markets: PROP_MARKETS.join(","),
-      oddsFormat: "american",
-    },
+  const path = `/v4/sports/baseball_mlb/events/${eventId}/odds`;
+  const common = {
+    markets: PROP_MARKETS.join(","),
+    oddsFormat: "american",
+  };
+
+  const narrowed = await oddsFetch<RawEventOdds>(
+    path,
+    { ...common, bookmakers: ODDS_API_BOOKMAKERS.join(",") },
     TTL.odds,
   );
-
-  const bookmaker = res.bookmakers?.[0];
+  let bookmaker = pickBookmaker(narrowed.bookmakers);
+  if (!bookmaker) {
+    // None of the preferred books posted a tracked market. Widen to the whole
+    // region — the request this used to make — before giving up on the game.
+    const widened = await oddsFetch<RawEventOdds>(path, { ...common, regions: "us" }, TTL.odds);
+    bookmaker = pickBookmaker(widened.bookmakers);
+  }
   if (!bookmaker) return [];
 
   const props: PlayerProp[] = [];

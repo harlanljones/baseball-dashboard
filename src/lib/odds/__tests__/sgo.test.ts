@@ -93,7 +93,7 @@ describe("findSgoEvent", () => {
     expect(fetchSpy).not.toHaveBeenCalled();
   });
 
-  it("requests only MLB pre-game events for the tracked markets with header auth", async () => {
+  it("requests only MLB pre-game events for the tracked markets and books, shaped, with header auth", async () => {
     vi.stubEnv("SPORTSGAMEODDS_API_KEY", "secret-key");
     const fetchSpy = vi.fn().mockResolvedValue({ ok: true, status: 200, json: async () => ({ success: true, data: [] }) });
     vi.stubGlobal("fetch", fetchSpy);
@@ -108,7 +108,18 @@ describe("findSgoEvent", () => {
     expect(parsed.searchParams.get("oddsAvailable")).toBe("true");
     expect(parsed.searchParams.get("started")).toBe("false");
     expect(parsed.searchParams.get("oddIDs")).toContain("pitching_strikeouts-PLAYER_ID-game-ou-over");
-    expect(parsed.searchParams.get("oddIDs")).toContain("batting_RBI-PLAYER_ID-game-ou-under");
+    expect(parsed.searchParams.get("oddIDs")).toContain("batting_homeRuns-PLAYER_ID-game-ou-under");
+    // Walks and RBIs are deliberately untracked: they fit a season-average
+    // model worst, and each one costs about 7% of a cold cycle.
+    expect(parsed.searchParams.get("oddIDs")).not.toContain("batting_RBI");
+    expect(parsed.searchParams.get("oddIDs")).not.toContain("batting_basesOnBalls");
+    expect(parsed.searchParams.get("bookmakerID")).toContain("fanduel");
+    // Response shaping, measured in bench/ as 30% of a cold cycle: each book
+    // block declares thirteen fields and this reader touches three, six of them
+    // governed by includeOpenCloseOdds. Alt lines are read nowhere either, and
+    // oddID filtering alone leaves their inclusion to the provider's default.
+    expect(parsed.searchParams.get("includeAltLines")).toBe("false");
+    expect(parsed.searchParams.get("includeOpenCloseOdds")).toBe("false");
     expect(url).not.toContain("secret-key");
     expect((init.headers as Record<string, string>)["x-api-key"]).toBe("secret-key");
   });
@@ -364,14 +375,14 @@ describe("parseSgoProps", () => {
   });
 
   it("ignores unavailable bookmaker quotes", () => {
-    const odd = propOdd("batting_basesOnBalls", "AARON_JUDGE_1_MLB", "over");
+    const odd = propOdd("batting_hits", "AARON_JUDGE_1_MLB", "over");
     odd.byBookmaker = { fanduel: bookLine("-120", "0.5", false), caesars: bookLine("-118", "0.5") };
-    const under = propOdd("batting_basesOnBalls", "AARON_JUDGE_1_MLB", "under");
+    const under = propOdd("batting_hits", "AARON_JUDGE_1_MLB", "under");
     under.byBookmaker = { fanduel: bookLine("+100", "0.5", false), caesars: bookLine("+102", "0.5") };
     const event = sgoEvent({
       odds: {
-        "batting_basesOnBalls-AARON_JUDGE_1_MLB-game-ou-over": odd,
-        "batting_basesOnBalls-AARON_JUDGE_1_MLB-game-ou-under": under,
+        "batting_hits-AARON_JUDGE_1_MLB-game-ou-over": odd,
+        "batting_hits-AARON_JUDGE_1_MLB-game-ou-under": under,
       },
     });
 
@@ -381,14 +392,14 @@ describe("parseSgoProps", () => {
   });
 
   it("drops a pair when no book posts a matched line on both sides", () => {
-    const odd = propOdd("batting_RBI", "AARON_JUDGE_1_MLB", "over");
+    const odd = propOdd("batting_hits", "AARON_JUDGE_1_MLB", "over");
     odd.byBookmaker = { fanduel: bookLine("-130", "0.5") };
-    const under = propOdd("batting_RBI", "AARON_JUDGE_1_MLB", "under");
+    const under = propOdd("batting_hits", "AARON_JUDGE_1_MLB", "under");
     under.byBookmaker = { fanduel: bookLine("+110", "1.5") };
     const event = sgoEvent({
       odds: {
-        "batting_RBI-AARON_JUDGE_1_MLB-game-ou-over": odd,
-        "batting_RBI-AARON_JUDGE_1_MLB-game-ou-under": under,
+        "batting_hits-AARON_JUDGE_1_MLB-game-ou-over": odd,
+        "batting_hits-AARON_JUDGE_1_MLB-game-ou-under": under,
       },
     });
 

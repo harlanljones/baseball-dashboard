@@ -1,5 +1,7 @@
+import { cache } from "react";
+
 import { easternDateOf, MlbApiError, mlbFetch, shiftDate, TTL } from "./client";
-import { isPostseason, POSTSEASON_GAME_TYPES } from "./schedule";
+import { isPostseason, POSTSEASON_GAME_TYPES, SCHEDULE_FIELDS } from "./schedule";
 import type {
   PitcherRecentForm,
   PitcherSplitLine,
@@ -58,6 +60,44 @@ function s(v: unknown): string | undefined {
 }
 
 // --- Batched people-stats lookups ---------------------------------------------
+
+/**
+ * `fields` lists for the batched stat endpoints: every leaf the readers in this
+ * module use, and nothing else.
+ *
+ * A real response is mostly fields nobody reads — a hydrated roster measured
+ * 72,315 bytes against 12,939 for the same request narrowed, and a 25-player
+ * stat batch 16,975 against 5,669. The lists below are verified by shaping the
+ * full, locally pruned and API-narrowed payloads through the readers that
+ * consume each hydrate (`getPitcherPropStatsBatch`, `getSaberHittingBatch`,
+ * `getSaberPitchingWithSeasonStatsBatch`, `getPlatoonSplitBatch`,
+ * `getVsPlayerBatch`, `getPitcherRecentFormBatch`, `getRosterWithSeasonStats`,
+ * `getActiveRoster`) and comparing the results: identical for every one of them.
+ *
+ * Add a name here whenever a reader starts reading a new field — a missing name
+ * shapes as undefined rather than failing loudly.
+ */
+const PEOPLE_FIELDS = [
+  "people", "id", "fullName", "stats", "splits", "stat", "season", "type",
+  "displayName", "group", "batter", "pitcher",
+  // season / statSplits / gameLog / sabermetrics stat leaves
+  "plateAppearances", "atBats", "hits", "homeRuns", "rbi", "baseOnBalls",
+  "totalBases", "gamesPlayed", "avg", "obp", "slg", "babip", "strikeOuts",
+  "inningsPitched", "gamesStarted", "battersFaced", "earnedRuns", "era",
+  "woba", "wRcPlus", "war", "xwoba", "fip", "xfip", "eraMinus", "ops", "date",
+  "numberOfPitches",
+].join(",");
+
+/** A person record: the readers take an id and a name. */
+const PERSON_FIELDS = "people,id,fullName";
+
+/** The same idea for `/teams/{id}/roster`, hydrated or plain. */
+const ROSTER_FIELDS = [
+  "roster", "person", "id", "fullName", "position", "type", "role", "name",
+  "stats", "splits", "stat", "season", "plateAppearances", "atBats", "hits",
+  "homeRuns", "rbi", "baseOnBalls", "totalBases", "gamesPlayed", "avg", "obp",
+  "slg", "babip", "strikeOuts",
+].join(",");
 //
 // The game page fans out dozens of per-player stat lookups, and Workers
 // environments cap subrequests per invocation (50 on the free plan). Anything
@@ -100,7 +140,7 @@ async function fetchPeopleStats(
     chunks.map((chunk) =>
       mlbFetch<RawPeopleResponse>(
         "/api/v1/people",
-        { personIds: chunk.join(","), hydrate },
+        { personIds: chunk.join(","), hydrate, fields: PEOPLE_FIELDS },
         ttl,
       ),
     ),
@@ -116,93 +156,7 @@ async function fetchPeopleStats(
 
 // --- Sabermetrics ------------------------------------------------------------
 
-/**
- * Hitter sabermetrics (wOBA / wRC+ / WAR) plus BABIP and season stats (PA, BB%, K%).
- */
-export async function getSaberHitting(
-  personId: number,
-  season: number,
-): Promise<SaberHitting | null> {
-  const res = await mlbFetch<RawStatsResponse>(
-    `/api/v1/people/${personId}/stats`,
-    { stats: "sabermetrics,season", group: "hitting", season },
-    TTL.playerStats,
-  );
-  const saber = pickGroup(res, "sabermetrics");
-  const seasonStat = pickGroup(res, "season");
-  if (!saber && !seasonStat) return null;
-
-  const pa = n(seasonStat?.plateAppearances) ?? 0;
-  const bb = n(seasonStat?.baseOnBalls) ?? 0;
-  const k = n(seasonStat?.strikeOuts) ?? 0;
-
-  return {
-    woba: n(saber?.woba),
-    wrcPlus: n(saber?.wRcPlus),
-    war: n(saber?.war),
-    babip: s(seasonStat?.babip),
-    pa,
-    bbPct: pct(bb, pa),
-    kPct: pct(k, pa),
-    xwoba: n(saber?.xwoba),
-  };
-}
-
 /** Pitcher sabermetrics (WAR / FIP / xFIP / ERA-). */
-export async function getSaberPitching(
-  personId: number,
-  season: number,
-): Promise<SaberPitching | null> {
-  const res = await mlbFetch<RawStatsResponse>(
-    `/api/v1/people/${personId}/stats`,
-    { stats: "sabermetrics", group: "pitching", season },
-    TTL.playerStats,
-  );
-  const saber = pickGroup(res, "sabermetrics");
-  if (!saber) return null;
-  return {
-    war: n(saber.war),
-    fip: n(saber.fip),
-    xfip: n(saber.xfip),
-    eraMinus: n(saber.eraMinus),
-  };
-}
-
-/**
- * Pitcher sabermetrics (WAR / FIP / xFIP / ERA-) plus season stats (IP / ERA / BB% / K%).
- */
-export async function getSaberPitchingWithSeasonStats(
-  personId: number,
-  season: number,
-): Promise<SaberPitching | null> {
-  const res = await mlbFetch<RawStatsResponse>(
-    `/api/v1/people/${personId}/stats`,
-    { stats: "sabermetrics,season", group: "pitching", season },
-    TTL.playerStats,
-  );
-  const saber = pickGroup(res, "sabermetrics");
-  const seasonStat = pickGroup(res, "season");
-  if (!saber && !seasonStat) return null;
-
-  const bb = n(seasonStat?.baseOnBalls) ?? 0;
-  const k = n(seasonStat?.strikeOuts) ?? 0;
-  const bf = n(seasonStat?.battersFaced) ?? 1; // Avoid division by zero
-
-  const bbPctVal = bf > 0 ? bb / bf : 0;
-  const kPctVal = bf > 0 ? k / bf : 0;
-
-  return {
-    war: n(saber?.war),
-    fip: n(saber?.fip),
-    xfip: n(saber?.xfip),
-    eraMinus: n(saber?.eraMinus),
-    ip: s(seasonStat?.inningsPitched),
-    era: s(seasonStat?.era),
-    bbPct: pct(bb, bf),
-    kPct: pct(k, bf),
-    kMinusBbPct: kPctVal - bbPctVal, // Raw decimal for sorting
-  };
-}
 
 /**
  * Batched {@link getSaberHitting}: one request per stat group for the whole
@@ -313,7 +267,12 @@ function parseVsPlayerStat(
  * own `season` field). The two groups' order in `stats[]` is not stable, so
  * callers must select by `type.displayName`, never by array position.
  */
-async function fetchVsPlayer(
+/**
+ * Wrapped in `React.cache`: the vs-pitcher page asks for the same pairing's
+ * career line and its season breakdown, which are one upstream body — without
+ * this the page parses that body twice per render.
+ */
+const fetchVsPlayer = cache(async function fetchVsPlayer(
   batter: PlayerRef,
   pitcher: PlayerRef,
 ): Promise<RawStatsResponse> {
@@ -323,10 +282,11 @@ async function fetchVsPlayer(
       stats: "vsPlayer",
       group: "hitting",
       opposingPlayerId: pitcher.id,
+      fields: PEOPLE_FIELDS,
     },
     TTL.playerStats,
   );
-}
+});
 
 /**
  * Career batter-vs-pitcher line. A pairing that has never met returns a row
@@ -382,49 +342,6 @@ function parseSplitStat(stat?: Record<string, unknown>): SplitLine {
     bbPct: pct(n(stat?.baseOnBalls), pa),
     kPct: pct(n(stat?.strikeOuts), pa),
   };
-}
-
-/**
- * A batter's current-season rate line for one MLB Stats API `sitCodes` split
- * (e.g. `vl`/`vr` for platoon, `h`/`a` for home/road).
- */
-async function fetchSituationalSplit(
-  batter: PlayerRef,
-  sitCode: string,
-  season: number,
-): Promise<SplitLine> {
-  const res = await mlbFetch<RawStatsResponse>(
-    `/api/v1/people/${batter.id}/stats`,
-    { stats: "statSplits", sitCodes: sitCode, group: "hitting", season },
-    TTL.playerStats,
-  );
-  return parseSplitStat(res.stats?.[0]?.splits?.[0]?.stat);
-}
-
-/**
- * A batter's current-season line against pitchers throwing `vsHand`. Used for
- * the game page's platoon split, alongside (not instead of) the head-to-head
- * `vsPlayer` line — a batter can have no history against today's specific
- * pitcher but a well-established platoon split against that arm side.
- */
-export async function getPlatoonSplit(
-  batter: PlayerRef,
-  vsHand: "L" | "R",
-  season: number,
-): Promise<SplitLine> {
-  return fetchSituationalSplit(batter, vsHand === "L" ? "vl" : "vr", season);
-}
-
-/**
- * A batter's current-season home or road split. Used in place of the
- * vs-pitcher matchup table when no probable starter has been announced yet.
- */
-export async function getHomeAwaySplit(
-  batter: PlayerRef,
-  isHome: boolean,
-  season: number,
-): Promise<SplitLine> {
-  return fetchSituationalSplit(batter, isHome ? "h" : "a", season);
 }
 
 const EMPTY_SPLIT: SplitLine = { pa: 0, obp: "-", ops: "-", bbPct: "-", kPct: "-" };
@@ -519,23 +436,6 @@ function parsePitcherSplitStat(stat?: Record<string, unknown>): PitcherSplitLine
 }
 
 /**
- * A pitcher's current-season line for one `sitCodes` split. Mirrors
- * {@link fetchSituationalSplit} but for the `pitching` stat group.
- */
-async function fetchPitcherSituationalSplit(
-  pitcherId: number,
-  sitCode: string,
-  season: number,
-): Promise<PitcherSplitLine> {
-  const res = await mlbFetch<RawStatsResponse>(
-    `/api/v1/people/${pitcherId}/stats`,
-    { stats: "statSplits", sitCodes: sitCode, group: "pitching", season },
-    TTL.playerStats,
-  );
-  return parsePitcherSplitStat(res.stats?.[0]?.splits?.[0]?.stat);
-}
-
-/**
  * Batched pitcher situational splits: one request for every pitcher's line for
  * a single `sitCodes` split (`h`/`a` for home/road, `vl`/`vr` for vs-hand).
  */
@@ -556,34 +456,6 @@ export async function getPitcherSituationalSplitBatch(
     byId.set(id, parsePitcherSplitStat(stat));
   }
   return byId;
-}
-
-/**
- * A probable starter's current-season home or road split. Used on the game
- * page's probable-starters card, picking whichever split matches this game.
- */
-export async function getPitcherHomeAwaySplit(
-  pitcherId: number,
-  isHome: boolean,
-  season: number,
-): Promise<PitcherSplitLine> {
-  return fetchPitcherSituationalSplit(pitcherId, isHome ? "h" : "a", season);
-}
-
-/**
- * A probable starter's current-season split facing left- or right-handed
- * batters.
- */
-export async function getPitcherPlatoonSplit(
-  pitcherId: number,
-  vsBatterHand: "L" | "R",
-  season: number,
-): Promise<PitcherSplitLine> {
-  return fetchPitcherSituationalSplit(
-    pitcherId,
-    vsBatterHand === "L" ? "vl" : "vr",
-    season,
-  );
 }
 
 /**
@@ -614,21 +486,6 @@ export async function getPitcherRecentFormBatch(
 }
 
 /** Single-pitcher form line, backed by the batched gameLog lookup. */
-export async function getPitcherRecentForm(
-  pitcherId: number,
-  asOfDate: string,
-  days = 30,
-): Promise<PitcherRecentForm> {
-  const byId = await getPitcherRecentFormBatch([pitcherId], asOfDate, days);
-  return (
-    byId.get(pitcherId) ?? {
-      ip: "0.0",
-      bbPct: "-",
-      kPct: "-",
-      starts: 0,
-    }
-  );
-}
 
 /**
  * Aggregates a season gameLog into one {@link PitcherRecentForm} line for the
@@ -645,9 +502,11 @@ function summarizeGameLogWindow(
   let baseOnBalls = 0;
   let strikeOuts = 0;
   let starts = 0;
+  let appearances = 0;
 
   for (const split of splits) {
     if (!split.date || split.date < windowStart || split.date > endDate) continue;
+    appearances += 1;
     outs += outsOfInningsPitched(s(split.stat?.inningsPitched) ?? "0.0");
     earnedRuns += n(split.stat?.earnedRuns) ?? 0;
     battersFaced += n(split.stat?.battersFaced) ?? 0;
@@ -663,6 +522,7 @@ function summarizeGameLogWindow(
     bbPct: pct(baseOnBalls, battersFaced),
     kPct: pct(strikeOuts, battersFaced),
     starts,
+    appearances,
   };
 }
 
@@ -697,6 +557,12 @@ interface RawRosterResponse {
 export interface RosterHitter {
   player: PlayerRef;
   pa: number;
+  /**
+   * The same season hitting block the per-player lookups return, straight off
+   * the roster hydration. Prop scoring reads it directly, which is why the prop
+   * board needs no second request per batter.
+   */
+  season: SeasonHittingBasic | null;
 }
 
 /**
@@ -713,6 +579,7 @@ export async function getRosterWithSeasonStats(
     {
       rosterType: "active",
       hydrate: `person(stats(type=season,season=${season},group=hitting))`,
+      fields: ROSTER_FIELDS,
     },
     TTL.roster,
   );
@@ -724,6 +591,7 @@ export async function getRosterWithSeasonStats(
     hitters.push({
       player: { id: entry.person.id, fullName: entry.person.fullName },
       pa: n(stat?.plateAppearances) ?? 0,
+      season: parseSeasonHitting(stat),
     });
   }
 
@@ -745,7 +613,7 @@ export interface RosterPlayer {
 export async function getActiveRoster(teamId: number): Promise<RosterPlayer[]> {
   const res = await mlbFetch<RawRosterResponse>(
     `/api/v1/teams/${teamId}/roster`,
-    { rosterType: "active" },
+    { rosterType: "active", fields: ROSTER_FIELDS },
     TTL.roster,
   );
 
@@ -816,6 +684,18 @@ interface RawBoxscore {
 }
 
 /**
+ * `fields` filter for a boxscore read. Only the pitch counts matter here, and a
+ * real boxscore measures 179,395 bytes against 12,468 for the same game
+ * narrowed — the reader takes a pitcher id list and one stat per pitcher.
+ * Verified by shaping the full, locally pruned and API-narrowed payloads
+ * through {@link getBullpenWorkload}: identical.
+ */
+const BOXSCORE_FIELDS = [
+  "teams", "away", "home", "team", "id", "pitchers", "players", "stats",
+  "pitching", "numberOfPitches",
+].join(",");
+
+/**
  * Per-pitcher pitch counts from one team's postseason games between
  * `startDate` and `endDate` (inclusive, `YYYY-MM-DD`), shaped like gameLog
  * splits so they merge straight into the regular-season logs.
@@ -832,7 +712,7 @@ async function getPostseasonPitchCounts(
 ): Promise<Map<number, RawGameLogSplit[]>> {
   const schedule = await mlbFetch<RawPostseasonSchedule>(
     "/api/v1/schedule",
-    { sportId: 1, teamId, startDate, endDate, gameType: POSTSEASON_GAME_TYPES },
+    { sportId: 1, teamId, startDate, endDate, gameType: POSTSEASON_GAME_TYPES, fields: SCHEDULE_FIELDS },
     TTL.pitcherLog,
   );
   const games = (schedule.dates ?? [])
@@ -845,7 +725,11 @@ async function getPostseasonPitchCounts(
 
   const boxscores = await Promise.all(
     games.map((g) =>
-      mlbFetch<RawBoxscore>(`/api/v1/game/${g.gamePk}/boxscore`, {}, TTL.pitcherLog),
+      mlbFetch<RawBoxscore>(
+        `/api/v1/game/${g.gamePk}/boxscore`,
+        { fields: BOXSCORE_FIELDS },
+        TTL.pitcherLog,
+      ),
     ),
   );
 
@@ -945,7 +829,7 @@ export async function getPerson(id: number): Promise<PlayerRef | null> {
   try {
     const res = await mlbFetch<{ people?: { id: number; fullName: string }[] }>(
       `/api/v1/people/${id}`,
-      {},
+      { fields: PERSON_FIELDS },
       TTL.roster,
     );
     const person = res.people?.[0];
@@ -954,17 +838,6 @@ export async function getPerson(id: number): Promise<PlayerRef | null> {
     if (err instanceof MlbApiError && err.status === 404) return null;
     throw err;
   }
-}
-
-/** A pitcher's throwing hand, used to pick the batter platoon split to show. */
-export async function getPitchHand(id: number): Promise<"L" | "R" | null> {
-  const res = await mlbFetch<{ people?: { pitchHand?: { code?: string } }[] }>(
-    `/api/v1/people/${id}`,
-    {},
-    TTL.roster,
-  );
-  const code = res.people?.[0]?.pitchHand?.code;
-  return code === "L" || code === "R" ? code : null;
 }
 
 // --- Player-prop scoring stats ------------------------------------------------
@@ -978,40 +851,12 @@ export function ipToFloat(ip: string): number {
 
 export interface PitcherPropStats {
   k9: number;
+  /** Outs recorded per start. Zero for a pitcher who has not started. */
   outsPerStart: number;
   ip: number;
   gamesStarted: number;
-}
-
-/**
- * Season K/9 and outs-per-start for pitcher prop scoring. Returns `null` if
- * the player has no innings pitched this season (rookies, injured, or a
- * two-way/position player with no pitching record).
- */
-export async function getPitcherPropStats(
-  personId: number,
-  season: number,
-): Promise<PitcherPropStats | null> {
-  const res = await mlbFetch<RawStatsResponse>(
-    `/api/v1/people/${personId}/stats`,
-    { stats: "season", group: "pitching", season },
-    TTL.playerStats,
-  );
-  const stat = pickGroup(res, "season");
-  if (!stat) return null;
-
-  const ip = ipToFloat(s(stat.inningsPitched) ?? "0.0");
-  if (ip <= 0) return null;
-
-  const k = n(stat.strikeOuts) ?? 0;
-  const gamesStarted = n(stat.gamesStarted) ?? 0;
-
-  return {
-    k9: (k * 9) / ip,
-    outsPerStart: gamesStarted > 0 ? (ip * 3) / gamesStarted : 0,
-    ip,
-    gamesStarted,
-  };
+  /** Appearances, which is the sample a reliever's prop line is measured over. */
+  gamesPlayed: number;
 }
 
 export interface SeasonHittingBasic {
@@ -1028,18 +873,16 @@ export interface SeasonHittingBasic {
 }
 
 /** Season counting/rate stats for batter prop scoring. Returns `null` if the API has no season hitting record for this player. */
-export async function getSeasonHittingBasic(
-  personId: number,
-  season: number,
-): Promise<SeasonHittingBasic | null> {
-  const res = await mlbFetch<RawStatsResponse>(
-    `/api/v1/people/${personId}/stats`,
-    { stats: "season", group: "hitting", season },
-    TTL.playerStats,
-  );
-  const stat = pickGroup(res, "season");
-  if (!stat) return null;
 
+/**
+ * Maps one raw `season`/`hitting` stat block to the fields prop scoring reads.
+ * Shared by the per-player and batched lookups and by
+ * {@link getRosterWithSeasonStats}, whose roster hydration already carries the
+ * same block — that is what lets the prop board score batters without a second
+ * request per player.
+ */
+function parseSeasonHitting(stat?: Record<string, unknown>): SeasonHittingBasic | null {
+  if (!stat) return null;
   return {
     avg: s(stat.avg) ?? "-",
     obp: s(stat.obp) ?? "-",
@@ -1082,40 +925,7 @@ export async function getPitcherPropStatsBatch(
       outsPerStart: gamesStarted > 0 ? (ip * 3) / gamesStarted : 0,
       ip,
       gamesStarted,
-    });
-  }
-  return byId;
-}
-
-/**
- * Batched {@link getSeasonHittingBasic}: one request for every prop batter.
- * Players without a season hitting record are omitted.
- */
-export async function getSeasonHittingBasicBatch(
-  personIds: number[],
-  season: number,
-): Promise<Map<number, SeasonHittingBasic>> {
-  if (personIds.length === 0) return new Map();
-  const statsById = await fetchPeopleStats(
-    personIds,
-    `stats(type=season,season=${season},group=hitting)`,
-  );
-
-  const byId = new Map<number, SeasonHittingBasic>();
-  for (const id of new Set(personIds)) {
-    const stat = pickGroup({ stats: statsById.get(id) ?? [] }, "season");
-    if (!stat) continue;
-    byId.set(id, {
-      avg: s(stat.avg) ?? "-",
-      obp: s(stat.obp) ?? "-",
-      slg: s(stat.slg) ?? "-",
-      h: n(stat.hits) ?? 0,
-      hr: n(stat.homeRuns) ?? 0,
-      rbi: n(stat.rbi) ?? 0,
-      bb: n(stat.baseOnBalls) ?? 0,
-      totalBases: n(stat.totalBases) ?? 0,
-      pa: n(stat.plateAppearances) ?? 0,
-      games: n(stat.gamesPlayed) ?? 0,
+      gamesPlayed: n(stat.gamesPlayed) ?? 0,
     });
   }
   return byId;

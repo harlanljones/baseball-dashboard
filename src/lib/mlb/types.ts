@@ -199,6 +199,13 @@ export interface GameFeed {
   decisions?: { winner?: PlayerRef; loser?: PlayerRef; save?: PlayerRef };
   /** Convenience lookup: player id -> full name, spanning both teams. */
   playerNames: Record<number, string>;
+  /**
+   * Pitcher throwing hands (id -> "L"/"R"), straight from the feed's player
+   * metadata. Both the matchup tables and the probable-starter cards need them
+   * to pick a platoon split, and the feed already carries them, so neither has
+   * to ask the people endpoint for a hand it is holding.
+   */
+  pitchHands: Record<number, "L" | "R">;
 }
 
 // ---------------------------------------------------------------------------
@@ -238,7 +245,12 @@ export interface PitcherSplitLine {
 
 /** A pitcher's trailing-N-day form as of some reference date. */
 export interface PitcherRecentForm extends PitcherSplitLine {
-  starts: number; // gamesStarted in the window — 0 means "didn't pitch," used to gate a fallback message
+  starts: number; // gamesStarted in the window
+  /**
+   * Appearances in the window. `starts` alone cannot tell "didn't pitch" from
+   * "pitched out of the bullpen": a reliever who worked ten times has none.
+   */
+  appearances: number;
 }
 
 export interface VsPlayerLine {

@@ -6,6 +6,8 @@
  * any persistence of our own.
  */
 
+import { dateFormatter } from "@/lib/formatters";
+
 const BASE = "https://statsapi.mlb.com";
 
 /** Cache TTLs in seconds, keyed by how fast the underlying data changes. */
@@ -82,7 +84,7 @@ export function easternToday(): string {
 /** The `YYYY-MM-DD` Eastern-time date a given instant falls on. */
 export function easternDateOf(instant: Date | string): string {
   // en-CA formats as YYYY-MM-DD.
-  return new Intl.DateTimeFormat("en-CA", {
+  return dateFormatter("en-CA", {
     timeZone: "America/New_York",
   }).format(new Date(instant));
 }
