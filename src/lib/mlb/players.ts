@@ -502,9 +502,11 @@ function summarizeGameLogWindow(
   let baseOnBalls = 0;
   let strikeOuts = 0;
   let starts = 0;
+  let appearances = 0;
 
   for (const split of splits) {
     if (!split.date || split.date < windowStart || split.date > endDate) continue;
+    appearances += 1;
     outs += outsOfInningsPitched(s(split.stat?.inningsPitched) ?? "0.0");
     earnedRuns += n(split.stat?.earnedRuns) ?? 0;
     battersFaced += n(split.stat?.battersFaced) ?? 0;
@@ -520,6 +522,7 @@ function summarizeGameLogWindow(
     bbPct: pct(baseOnBalls, battersFaced),
     kPct: pct(strikeOuts, battersFaced),
     starts,
+    appearances,
   };
 }
 

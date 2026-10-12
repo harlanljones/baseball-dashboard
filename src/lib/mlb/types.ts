@@ -245,7 +245,12 @@ export interface PitcherSplitLine {
 
 /** A pitcher's trailing-N-day form as of some reference date. */
 export interface PitcherRecentForm extends PitcherSplitLine {
-  starts: number; // gamesStarted in the window — 0 means "didn't pitch," used to gate a fallback message
+  starts: number; // gamesStarted in the window
+  /**
+   * Appearances in the window. `starts` alone cannot tell "didn't pitch" from
+   * "pitched out of the bullpen": a reliever who worked ten times has none.
+   */
+  appearances: number;
 }
 
 export interface VsPlayerLine {

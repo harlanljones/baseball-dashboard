@@ -193,6 +193,8 @@ export async function loadPropGroups({
         recentForm: pitcherRecentFormById.get(id) ?? undefined,
         homeAway: pitcherHomeAwayById.get(id) ?? undefined,
         isHome: pitcherIsHomeById.get(id),
+        // Drives the wording (and the sample) of the form and home/road lines.
+        hasStarts: (pitcherStatsById.get(id)?.gamesStarted ?? 0) > 0,
       });
     }
   }

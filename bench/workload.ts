@@ -54,6 +54,7 @@ import {
   PHANTOM_NAMES,
   PROPS_GAME,
   expectedMatchedProps,
+  relieverIds,
 } from "./fixture";
 
 /** The props page's feed, built straight from the fixture game (Preview state). */
@@ -443,6 +444,18 @@ export function checkInvariants(
   );
   if (ungradedPitchers.length > 0) {
     failures.push(`${ungradedPitchers.length} pitcher props came back ungraded`);
+  }
+
+  // A reliever's form and home/road lines are measured over appearances, so
+  // saying "starts" about one is a role-wording bug, not a wording choice.
+  const arms = new Set(relieverIds(PROPS_GAME));
+  const relieverStarts = result.groups
+    .flatMap((group) => group.players)
+    .filter((entry) => arms.has(entry.player.id))
+    .flatMap((entry) => entry.evidence)
+    .filter((line) => line.includes("starts"));
+  if (relieverStarts.length > 0) {
+    failures.push(`a reliever's evidence is worded in starts: ${relieverStarts[0]}`);
   }
 
   const evidenceLines = result.groups.flatMap((group) => group.players.flatMap((player) => player.evidence));

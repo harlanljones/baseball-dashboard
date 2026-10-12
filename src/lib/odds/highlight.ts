@@ -52,6 +52,12 @@ export interface PitcherMatchupContext {
   recentForm?: PitcherRecentForm;
   homeAway?: PitcherSplitLine;
   isHome?: boolean;
+  /**
+   * Whether this pitcher works from the rotation. A reliever's form and
+   * home/road lines are measured over appearances, and describing them as
+   * "starts" would be wrong on both counts.
+   */
+  hasStarts?: boolean;
 }
 
 export type MatchupContext = BatterMatchupContext | PitcherMatchupContext;
@@ -188,26 +194,34 @@ function platoonEvidenceLine(
   return `vs ${vsHand}HP this year: ${platoon.ops} OPS (${platoon.pa} PA)`;
 }
 
-/** Trailing-30-day form, when the pitcher has actually started in that window. */
-function recentFormEvidenceLine(recentForm: PitcherRecentForm | undefined): string | null {
-  if (!recentForm || recentForm.starts <= 0) return null;
+/** Trailing-30-day form, when the pitcher has actually pitched in that window. */
+function recentFormEvidenceLine(
+  recentForm: PitcherRecentForm | undefined,
+  hasStarts: boolean,
+): string | null {
+  if (!recentForm || recentForm.appearances <= 0) return null;
   const parts = [recentForm.era ? `${recentForm.era} ERA` : null, recentForm.kPct ? `${recentForm.kPct} K rate` : null].filter(
     (p): p is string => p != null,
   );
   if (parts.length === 0) return null;
-  return `Last 30 days: ${parts.join(", ")} over ${recentForm.starts} start${recentForm.starts === 1 ? "" : "s"}`;
+  const outings = hasStarts ? recentForm.starts : recentForm.appearances;
+  if (outings <= 0) return null;
+  const unit = hasStarts ? "start" : "appearance";
+  return `Last 30 days: ${parts.join(", ")} over ${outings} ${unit}${outings === 1 ? "" : "s"}`;
 }
 
 /** Season home/road split, when the pitcher has actually pitched in that split. */
 function homeAwayEvidenceLine(
   homeAway: PitcherSplitLine | undefined,
   isHome: boolean | undefined,
+  hasStarts: boolean,
 ): string | null {
   if (!homeAway || isHome == null || homeAway.ip === "0.0") return null;
   const parts = [homeAway.era ? `${homeAway.era} ERA` : null, `${homeAway.ip} IP`].filter(
     (p): p is string => p != null,
   );
-  return `${isHome ? "Home" : "Road"} starts this year: ${parts.join(", ")}`;
+  const role = hasStarts ? "starts" : "appearances";
+  return `${isHome ? "Home" : "Road"} ${role} this year: ${parts.join(", ")}`;
 }
 
 function nudgeForWeather(tier: PropTier, weather: GameWeather | null): PropTier {
@@ -314,7 +328,7 @@ export function matchupEvidence(matchup: MatchupContext | null): string[] {
     ].filter((line): line is string => line != null);
   }
   return [
-    recentFormEvidenceLine(matchup.recentForm),
-    homeAwayEvidenceLine(matchup.homeAway, matchup.isHome),
+    recentFormEvidenceLine(matchup.recentForm, matchup.hasStarts ?? true),
+    homeAwayEvidenceLine(matchup.homeAway, matchup.isHome, matchup.hasStarts ?? true),
   ].filter((line): line is string => line != null);
 }

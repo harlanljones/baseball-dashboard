@@ -253,6 +253,13 @@ export function isReliever(id: number): boolean {
   return RELIEVER_IDS.has(id);
 }
 
+/** The bullpen arms of a game — the players whose evidence is per appearance. */
+export function relieverIds(game: BenchGame): number[] {
+  return [game.away, game.home].flatMap((side) =>
+    side.pitchers.slice(PROP_PITCHERS_PER_TEAM, PROP_PITCHERS_PER_TEAM + PROP_RELIEVERS_PER_TEAM).map((p) => p.id),
+  );
+}
+
 // --- Season stat lines -------------------------------------------------------
 
 export interface HitterCounts {
@@ -1271,24 +1278,39 @@ function vsPlayerStat(id: number, pitcherId: number): Record<string, unknown> {
 
 function gameLogSplits(id: number, season: number): { date: string; stat: Record<string, unknown> }[] {
   const counts = pitcherCounts(id);
-  const starts = [4, 9, 17, 24, 30].map((daysAgo) => {
+  // A starter works every fourth or fifth day, so a month holds about five
+  // outings; a reliever appears every few days. Modelling only the starter's
+  // cadence left relievers with no recent form at all.
+  const reliever = counts.gamesStarted === 0;
+  const daysAgo = reliever ? [1, 3, 5, 8, 11, 14, 18, 22, 26, 29] : [4, 9, 17, 24, 30];
+  const splits = daysAgo.map((days, i) => {
     const date = new Date(`${BENCH_DATE}T00:00:00Z`);
-    date.setUTCDate(date.getUTCDate() - daysAgo);
-    return date.toISOString().slice(0, 10);
+    date.setUTCDate(date.getUTCDate() - days);
+    return {
+      date: date.toISOString().slice(0, 10),
+      season: String(season),
+      stat: reliever
+        ? {
+            inningsPitched: `${hash32(id + i * 23) % 3}.${hash32(id + i * 3) % 3}`,
+            earnedRuns: hash32(id + i * 5) % 2,
+            battersFaced: 3 + (hash32(id + i * 7) % 5),
+            baseOnBalls: hash32(id + i * 11) % 2,
+            strikeOuts: hash32(id + i * 13) % 3,
+            gamesStarted: 0,
+            numberOfPitches: 12 + (hash32(id + i * 17) % 18),
+          }
+        : {
+            inningsPitched: `${5 + (hash32(id + i) % 3)}.${hash32(id + i * 3) % 3}`,
+            earnedRuns: hash32(id + i * 5) % 5,
+            battersFaced: 22 + (hash32(id + i * 7) % 8),
+            baseOnBalls: hash32(id + i * 11) % 4,
+            strikeOuts: 3 + (hash32(id + i * 13) % 8),
+            gamesStarted: 1,
+            numberOfPitches: 78 + (hash32(id + i * 17) % 30),
+          },
+    };
   });
-  return starts.map((date, i) => ({
-    date,
-    season: String(season),
-    stat: {
-      inningsPitched: `${5 + (hash32(id + i) % 3)}.${hash32(id + i * 3) % 3}`,
-      earnedRuns: hash32(id + i * 5) % 5,
-      battersFaced: 22 + (hash32(id + i * 7) % 8),
-      baseOnBalls: hash32(id + i * 11) % 4,
-      strikeOuts: 3 + (hash32(id + i * 13) % 8),
-      gamesStarted: 1,
-      numberOfPitches: 78 + (hash32(id + i * 17) % 30),
-    },
-  })).filter((_, i) => counts.gamesStarted > 0 && i < 5);
+  return splits.filter((_, i) => counts.gamesPlayed > 0 && i < daysAgo.length);
 }
 
 /**

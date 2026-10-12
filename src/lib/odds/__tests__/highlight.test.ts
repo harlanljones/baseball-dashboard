@@ -449,7 +449,14 @@ describe("matchupEvidence — batter", () => {
 
 describe("matchupEvidence — pitcher", () => {
   it("adds recent form and home/road split", () => {
-    const recentForm: PitcherRecentForm = { ip: "24.0", era: "2.50", bbPct: "6.0%", kPct: "32.0%", starts: 4 };
+    const recentForm: PitcherRecentForm = {
+      ip: "24.0",
+      era: "2.50",
+      bbPct: "6.0%",
+      kPct: "32.0%",
+      starts: 4,
+      appearances: 4,
+    };
     const homeAway: PitcherSplitLine = { ip: "80.0", era: "3.10", bbPct: "7.0%", kPct: "28.0%" };
     const matchup: MatchupContext = { kind: "pitcher", recentForm, homeAway, isHome: true };
     const result = matchupEvidence(matchup);
@@ -457,10 +464,35 @@ describe("matchupEvidence — pitcher", () => {
     expect(result).toContain("Home starts this year: 3.10 ERA, 80.0 IP");
   });
 
-  it("omits recent form when the pitcher hasn't started in the window", () => {
-    const recentForm: PitcherRecentForm = { ip: "0.0", bbPct: "-", kPct: "-", starts: 0 };
+  it("omits recent form when the pitcher hasn't pitched in the window", () => {
+    const recentForm: PitcherRecentForm = { ip: "0.0", bbPct: "-", kPct: "-", starts: 0, appearances: 0 };
     const matchup: MatchupContext = { kind: "pitcher", recentForm, isHome: true };
     expect(matchupEvidence(matchup).some((l) => l.startsWith("Last 30 days"))).toBe(false);
+  });
+
+  it("describes a reliever's form and split as appearances, not starts", () => {
+    // A reliever who worked eight times has no starts; gating on starts would
+    // drop both lines, and calling them starts would be wrong.
+    const recentForm: PitcherRecentForm = {
+      ip: "9.1",
+      era: "1.93",
+      bbPct: "5.0%",
+      kPct: "30.0%",
+      starts: 0,
+      appearances: 8,
+    };
+    const homeAway: PitcherSplitLine = { ip: "32.0", era: "2.81", bbPct: "8.0%", kPct: "27.0%" };
+    const matchup: MatchupContext = {
+      kind: "pitcher",
+      recentForm,
+      homeAway,
+      isHome: false,
+      hasStarts: false,
+    };
+    const result = matchupEvidence(matchup);
+    expect(result).toContain("Last 30 days: 1.93 ERA, 30.0% K rate over 8 appearances");
+    expect(result).toContain("Road appearances this year: 2.81 ERA, 32.0 IP");
+    expect(result.some((l) => l.includes("starts"))).toBe(false);
   });
 
   it("omits the home/road split when the pitcher hasn't pitched in it", () => {
