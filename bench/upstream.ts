@@ -59,6 +59,15 @@ const CAPTURED_FEED_FIELDS_PATH = new URL("./fixtures/game-feed-fields.json.gz",
  * block) — which a name-based local model cannot reproduce. So the narrowed
  * payload is served verbatim when the request asks for exactly this list, and
  * the local model (conservative, i.e. larger) covers every other request.
+ *
+ * Measured against the live API, that conservatism only ever inflates the
+ * benchmark: the slate the harness serves is 21,173 B where a real Preview
+ * slate of the same 15 games is 10,335 B (2.05x), while the hydrated roster
+ * (14.6 KB vs 12,939 B) and the stat batches (5.7 KB vs 5,669 B) sit within
+ * 13%. The synthetic feed errs the other way, at 0.79x of the real narrowed
+ * one. Keeping the model conservative rather than capturing each narrowed body
+ * is deliberate: a real capture carries the real league's player and team ids,
+ * which would no longer match the synthetic fixture the board is built from.
  */
 const CAPTURED_FEED_FIELDS = [
   "gamePk", "gameData", "players", "pitchHand", "code", "game", "type", "status",
