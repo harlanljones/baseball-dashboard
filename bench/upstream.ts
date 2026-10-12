@@ -47,12 +47,42 @@ export type WeatherProfile = "out-hot" | "in-cold" | "calm";
  */
 export const CAPTURED_FEED_PK = 849832;
 const CAPTURED_FEED_PATH = new URL("./fixtures/game-feed.json.gz", import.meta.url);
+const CAPTURED_FEED_FIELDS_PATH = new URL("./fixtures/game-feed-fields.json.gz", import.meta.url);
+
+/**
+ * The field list the narrowed fixture was captured with. The API's `fields`
+ * filter is schema-aware — it keeps a listed name only where the response
+ * schema has that field (e.g. `errors` under `linescore`, not under a stat
+ * block) — which a name-based local model cannot reproduce. So the narrowed
+ * payload is served verbatim when the request asks for exactly this list, and
+ * the local model (conservative, i.e. larger) covers every other request.
+ */
+const CAPTURED_FEED_FIELDS = [
+  "gamePk", "gameData", "players", "pitchHand", "code", "game", "type", "status",
+  "abstractGameState", "detailedState", "datetime", "dateTime", "venue", "id", "name",
+  "abbreviation", "location", "city", "weather", "condition", "temp", "wind", "teams",
+  "away", "home", "probablePitchers", "fullName", "liveData", "linescore",
+  "scheduledInnings", "innings", "num", "ordinalNum", "runs", "hits", "errors",
+  "boxscore", "team", "batters", "pitchers", "bullpen", "battingOrder", "person",
+  "position", "stats", "batting", "pitching", "seasonStats", "atBats", "baseOnBalls",
+  "strikeOuts", "avg", "inningsPitched", "earnedRuns", "era", "decisions", "winner",
+  "loser", "save", "plays", "allPlays", "about", "halfInning", "inning", "result",
+  "eventType", "description", "awayScore", "homeScore", "rbi", "matchup", "batter",
+  "pitcher",
+].join(",");
+
 let capturedFeed: string | null = null;
+let capturedFeedFields: string | null = null;
+function readFixture(path: URL): string {
+  return gunzipSync(readFileSync(path)).toString("utf8");
+}
 function capturedFeedBody(): string {
-  if (capturedFeed == null) {
-    capturedFeed = gunzipSync(readFileSync(CAPTURED_FEED_PATH)).toString("utf8");
-  }
+  capturedFeed ??= readFixture(CAPTURED_FEED_PATH);
   return capturedFeed;
+}
+function capturedNarrowedFeedBody(): string {
+  capturedFeedFields ??= readFixture(CAPTURED_FEED_FIELDS_PATH);
+  return capturedFeedFields;
 }
 
 export interface FetchRecord {
@@ -288,10 +318,13 @@ function mlbBody(url: URL): string {
     if (Number(liveFeed[1]) === CAPTURED_FEED_PK) {
       const fields = url.searchParams.get("fields");
       return memoized(`feed:captured:${fields ?? ""}`, () => {
-        const body = capturedFeedBody();
-        if (!fields) return body;
-        const wanted = new Set(fields.split(",").map((f) => f.trim()).filter(Boolean));
-        return JSON.stringify(pruneFields(JSON.parse(body), wanted));
+        if (!fields) return capturedFeedBody();
+        const wanted = fieldSet(fields);
+        const captured = fieldSet(CAPTURED_FEED_FIELDS);
+        if (wanted.size === captured.size && [...wanted].every((name) => captured.has(name))) {
+          return capturedNarrowedFeedBody();
+        }
+        return JSON.stringify(pruneFields(JSON.parse(capturedFeedBody()), wanted));
       });
     }
     const game = GAMES.find((g) => String(g.gamePk) === liveFeed[1]);
