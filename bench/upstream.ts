@@ -129,6 +129,15 @@ const SEASON_DATES_FIELDS = [
 ].join(",");
 const OPENING_DAY_FIELDS = "dates,date";
 
+/**
+ * Raw request URL -> response body. The cycle repeats the same 52 requests every
+ * time, and routing them means parsing a URL and matching a chain of regexes in
+ * JavaScript — work the real network does natively and which would otherwise be
+ * counted as application time. Bodies are still returned fresh per call, and
+ * every call is still logged.
+ */
+const routeCache = new Map<string, string>();
+
 const fixtureCache = new Map<string, string>();
 function fixture(path: URL): string {
   let body = fixtureCache.get(path.href);
@@ -520,6 +529,12 @@ export function installUpstream(): Upstream {
   const stub = async (input: RequestInfo | URL, init?: RequestInit): Promise<Response> => {
     const started = performance.now();
     const raw = typeof input === "string" ? input : input instanceof URL ? input.href : input.url;
+    const cached = routeCache.get(raw);
+    if (cached != null) {
+      log.calls.push({ url: raw, status: 200, bytes: cached.length });
+      log.stubMs += performance.now() - started;
+      return stubResponse(cached);
+    }
     const url = new URL(raw);
     void init;
     let body: string;
@@ -541,10 +556,10 @@ export function installUpstream(): Upstream {
       log.unexpected.push(`${raw}: ${(error as Error).message}`);
       throw error;
     }
-    const response = stubResponse(body);
+    routeCache.set(raw, body);
     log.calls.push({ url: raw, status: 200, bytes: body.length });
     log.stubMs += performance.now() - started;
-    return response;
+    return stubResponse(body);
   };
 
   // The DOM `fetch` type carries extra overloads (Request, URL); the routing
