@@ -4,6 +4,8 @@
  * "next") an off-day home page should talk about.
  */
 
+import { cache } from "react";
+
 import { mlbFetch, TTL } from "./client";
 import { mapGame, type RawGame } from "./schedule";
 import type {
@@ -124,8 +126,16 @@ const POSTSEASON_SERIES_FIELDS = [
   "pct", "probablePitcher", "fullName", "venue", "location", "city",
 ].join(",");
 
-/** Key dates for a season: spring training start, regular season start/end. */
-export async function getSeasonDates(season: number): Promise<SeasonDates | null> {
+/**
+ * Key dates for a season: spring training start, regular season start/end.
+ *
+ * Wrapped in `React.cache`: the offseason home page asks for these twice per
+ * render — once to decide whether the date is an offseason date at all
+ * (`getOffseasonContext`) and once inside `getOpeningDay`.
+ */
+export const getSeasonDates = cache(async function getSeasonDates(
+  season: number,
+): Promise<SeasonDates | null> {
   try {
     const data = await mlbFetch<RawSeasonsResponse>(
       `/api/v1/seasons/${season}`,
@@ -142,7 +152,7 @@ export async function getSeasonDates(season: number): Promise<SeasonDates | null
   } catch {
     return null;
   }
-}
+});
 
 /**
  * The postseason recap for a season: every series (World Series first, then
