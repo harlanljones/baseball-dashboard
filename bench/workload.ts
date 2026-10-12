@@ -44,8 +44,15 @@ import {
 /** The props page's feed, built straight from the fixture game (Preview state). */
 export function feedFor(game: BenchGame): GameFeed {
   const playerNames: Record<number, string> = {};
+  // The live feed's player metadata carries throwing hands; the fixture derives
+  // them from the same rule the stub's /people/{id} route uses, so a caller that
+  // reads them from the feed and one that asks the people endpoint agree.
+  const pitchHands: Record<number, "L" | "R"> = {};
   for (const side of [game.away, game.home]) {
-    for (const player of [...side.hitters, ...side.pitchers]) playerNames[player.id] = player.fullName;
+    for (const player of [...side.hitters, ...side.pitchers]) {
+      playerNames[player.id] = player.fullName;
+      pitchHands[player.id] = player.id % 3 === 0 ? "L" : "R";
+    }
   }
   return {
     gamePk: game.gamePk,
@@ -65,6 +72,7 @@ export function feedFor(game: BenchGame): GameFeed {
     },
     probablePitchers: { away: game.away.probable, home: game.home.probable },
     playerNames,
+    pitchHands,
   };
 }
 

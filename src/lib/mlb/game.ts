@@ -51,9 +51,16 @@ interface RawInning {
   away?: { runs?: number; hits?: number; errors?: number };
 }
 
+/** A `gameData.players` entry: the only feed section carrying throwing hands. */
+interface RawFeedPlayer {
+  id?: number;
+  pitchHand?: { code?: string };
+}
+
 interface RawFeed {
   gamePk: number;
   gameData: {
+    players?: Record<string, RawFeedPlayer>;
     game?: { type?: string };
     status: { abstractGameState?: string; detailedState?: string };
     datetime?: { dateTime?: string };
@@ -201,6 +208,20 @@ function mapBoxTeam(t: RawBoxTeam): TeamBoxscore {
 
 function mapProbable(p?: RawPersonRef): PlayerRef | undefined {
   return p ? { id: p.id, fullName: p.fullName } : undefined;
+}
+
+/**
+ * Throwing hands from the feed's player metadata. The boxscore's embedded
+ * person objects carry only id/name/link (verified against the live API), so
+ * this reads `gameData.players` instead — same response, no extra request.
+ */
+function collectPitchHands(players: Record<string, RawFeedPlayer> | undefined): Record<number, "L" | "R"> {
+  const hands: Record<number, "L" | "R"> = {};
+  for (const player of Object.values(players ?? {})) {
+    const code = player.pitchHand?.code;
+    if (player.id != null && (code === "L" || code === "R")) hands[player.id] = code;
+  }
+  return hands;
 }
 
 function collectNames(...teams: RawBoxTeam[]): Record<number, string> {
@@ -372,6 +393,7 @@ export const getLiveFeed = cache(async function getLiveFeed(
         }
       : undefined,
     playerNames: collectNames(ld.boxscore.teams.away, ld.boxscore.teams.home),
+    pitchHands: collectPitchHands(gd.players),
   };
 });
 

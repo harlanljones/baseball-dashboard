@@ -2,7 +2,6 @@ import { cache } from "react";
 
 import {
   getHomeAwaySplitBatch,
-  getPitchHand,
   getPlatoonSplitBatch,
   getRosterWithSeasonStats,
   getVsPlayerBatch,
@@ -131,12 +130,15 @@ export async function buildMatchups(
   const awayPitcher = startingPitcherFor(feed, "away");
   const homePitcher = startingPitcherFor(feed, "home");
 
-  const [homeLineup, awayLineup, awayHand, homeHand] = await Promise.all([
+  const [homeLineup, awayLineup] = await Promise.all([
     lineupFor(feed, "home", season),
     lineupFor(feed, "away", season),
-    awayPitcher ? getPitchHand(awayPitcher.id) : Promise.resolve(null),
-    homePitcher ? getPitchHand(homePitcher.id) : Promise.resolve(null),
   ]);
+  // Throwing hands come from the feed's own player metadata, so no starter
+  // costs a request of its own; a hand the feed lacks (or a game whose feed
+  // predates it) leaves the platoon split unrequested, as a failed lookup did.
+  const awayHand = awayPitcher ? feed.pitchHands[awayPitcher.id] ?? null : null;
+  const homeHand = homePitcher ? feed.pitchHands[homePitcher.id] ?? null : null;
 
   // Away team pitching -> faces the home lineup; home pitching -> away lineup.
   const [awaySide, homeSide] = await Promise.all([

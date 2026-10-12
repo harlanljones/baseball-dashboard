@@ -963,17 +963,6 @@ export async function getPerson(id: number): Promise<PlayerRef | null> {
   }
 }
 
-/** A pitcher's throwing hand, used to pick the batter platoon split to show. */
-export async function getPitchHand(id: number): Promise<"L" | "R" | null> {
-  const res = await mlbFetch<{ people?: { pitchHand?: { code?: string } }[] }>(
-    `/api/v1/people/${id}`,
-    {},
-    TTL.roster,
-  );
-  const code = res.people?.[0]?.pitchHand?.code;
-  return code === "L" || code === "R" ? code : null;
-}
-
 // --- Player-prop scoring stats ------------------------------------------------
 
 /** Converts MLB's innings-pitched notation ("123.1" = 123⅓, "123.2" = 123⅔) to a float. */
