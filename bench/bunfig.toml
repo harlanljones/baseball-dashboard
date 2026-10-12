@@ -1,0 +1,4 @@
+# Bun config for the benchmark only: `bench/` is the working directory when the
+# harness runs, so this file (and its preload) never applies to the app's own
+# `bun run …` scripts, which execute from the repository root.
+preload = ["./preload.ts"]
