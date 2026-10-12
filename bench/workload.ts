@@ -501,6 +501,20 @@ export function checkInvariants(
   // from a name the roster cannot resolve leaked into the board.
   if (result.boardHtml.length === 0) failures.push("props board rendered empty");
   if (result.slateHtml.length === 0) failures.push("slate rendered empty");
+  // Every row renders only its first evidence line until the reader expands it,
+  // and the product promises each lean exposes the statistical edge versus the
+  // posted line — so that line, not the matchup context, has to lead.
+  const firstLines = [...result.boardHtml.matchAll(/class="prop-row"[\s\S]*?<p class="prop-evidence">([^<]*)<\/p>/g)].map(
+    (match) => match[1],
+  );
+  const misordered = firstLines.filter(
+    (line) => !line.startsWith("Season avg:") && line !== "No stats available",
+  );
+  if (firstLines.length === 0) failures.push("no prop row carries a leading evidence line");
+  if (misordered.length > 0) {
+    failures.push(`${misordered.length} prop rows lead with matchup evidence: ${misordered[0]}`);
+  }
+
   const anchors = result.boardHtml.match(/id="lean-/g)?.length ?? 0;
   if (anchors !== result.matchedProps) failures.push(`board HTML has ${anchors} prop anchors for ${result.matchedProps} props`);
   for (const phantom of PHANTOM_NAMES) {

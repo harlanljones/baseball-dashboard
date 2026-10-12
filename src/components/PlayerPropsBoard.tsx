@@ -180,7 +180,12 @@ function PropRow({ prop, score }: { prop: ScoredProp; score: number | null }) {
 function TeamColumn({ group, weights }: { group: PropTeamGroup; weights: Weights }) {
   const rows = group.players.flatMap((player) => player.props.map((prop) => ({ prop, evidence: player.evidence })));
   const sorted = rows
-    .map(({ prop, evidence }) => ({ prop: evidence.length ? { ...prop, evidence: [...evidence, ...prop.evidence] } : prop, score: calculateScore(prop, weights) }))
+    // The prop's own line (season average versus the posted line) leads, with
+    // the player's matchup context after it: a row renders only its first line
+    // until the reader expands it, and the statistical edge is the one the
+    // product promises to expose. Ordering the player's evidence first put that
+    // line behind the toggle for every prop that had matchup context.
+    .map(({ prop, evidence }) => ({ prop: evidence.length ? { ...prop, evidence: [...prop.evidence, ...evidence] } : prop, score: calculateScore(prop, weights) }))
     .sort((a, b) => (b.score ?? -1) - (a.score ?? -1));
   return (
     <section className="panel">
