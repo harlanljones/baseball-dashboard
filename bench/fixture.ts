@@ -71,7 +71,15 @@ export const HITTERS_PER_TEAM = 13;
 export const PITCHERS_PER_TEAM = 13;
 /** Players per team that carry prop markets on the provider board. */
 export const PROP_HITTERS_PER_TEAM = 10;
+/** Pitchers whose props the app can resolve: the probable starter. */
 export const PROP_PITCHERS_PER_TEAM = 1;
+/**
+ * Bullpen arms the provider also posts strikeout/outs props for. The app's
+ * pitcher matching resolves only the probables, so these are parsed, matched
+ * and then dropped — modelling them keeps the board the size a real one is,
+ * and makes that waste visible in the cycle instead of invisible.
+ */
+export const PROP_RELIEVERS_PER_TEAM = 6;
 /** Sportsbooks quoting each prop line. */
 /** Books quoting each market (see BOOK_NAMES). */
 export const BOOKS = 12;
@@ -411,13 +419,38 @@ export function propPairsForEvent(game: BenchGame): EventPropPair[] {
     for (const pitcher of side.pitchers.slice(0, PROP_PITCHERS_PER_TEAM)) {
       for (const market of PITCHER_MARKETS) add(pitcher, market);
     }
+    for (const reliever of side.pitchers.slice(
+      PROP_PITCHERS_PER_TEAM,
+      PROP_PITCHERS_PER_TEAM + PROP_RELIEVERS_PER_TEAM,
+    )) {
+      for (const market of PITCHER_MARKETS) add(reliever, market);
+    }
   }
   return pairs;
 }
 
-/** Props the reader must resolve for one event — the harness's expected board size. */
+/**
+ * Props the app resolves for one event: the provider's usable pairs minus the
+ * bullpen arms, which the app's pitcher matching cannot attribute to a roster
+ * player. The difference against {@link expectedProviderProps} is the coverage
+ * the analysis currently drops.
+ */
 export function expectedMatchedProps(game: BenchGame): number {
+  return propPairsForEvent(game).filter((pair) => pair.usable && isMatchable(game, pair)).length;
+}
+
+/** Every usable pair the provider posts for one event, whether the app keeps it or not. */
+export function expectedProviderProps(game: BenchGame): number {
   return propPairsForEvent(game).filter((pair) => pair.usable).length;
+}
+
+/** True when the app can attribute the pair: a prop hitter, or a probable starter. */
+function isMatchable(game: BenchGame, pair: EventPropPair): boolean {
+  for (const side of [game.away, game.home]) {
+    if (side.hitters.slice(0, PROP_HITTERS_PER_TEAM).some((p) => p.id === pair.player.id)) return true;
+    if (side.pitchers.slice(0, PROP_PITCHERS_PER_TEAM).some((p) => p.id === pair.player.id)) return true;
+  }
+  return false;
 }
 
 /** SportsGameOdds playerID convention: `AARON_JUDGE_1_MLB`. */

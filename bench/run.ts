@@ -21,7 +21,13 @@
  * fails (a fast but wrong result), 2 when the pass itself throws.
  */
 
-import { GAMES, LEAN_GAME_COUNT, PROPS_GAME, expectedMatchedProps } from "./fixture";
+import {
+  GAMES,
+  LEAN_GAME_COUNT,
+  PROPS_GAME,
+  expectedMatchedProps,
+  expectedProviderProps,
+} from "./fixture";
 import { installUpstream } from "./upstream";
 import { checkInvariants, runCycle, type WorkloadResult } from "./workload";
 
@@ -103,6 +109,7 @@ async function main(): Promise<number> {
     ["live_plays", timed[0].live.plays],
     ["upstream_bytes", lastCycleCalls.reduce((sum, call) => sum + call.bytes, 0)],
     ["props_matched", timed[0].matchedProps],
+    ["provider_prop_pairs", expectedProviderProps(PROPS_GAME)],
     ["leans_returned", timed[0].leans.length],
     ["board_html_bytes", timed[0].boardHtml.length],
     ["slate_html_bytes", timed[0].slateHtml.length],
