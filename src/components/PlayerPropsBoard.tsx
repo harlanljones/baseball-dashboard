@@ -141,14 +141,14 @@ function PropRow({ prop, score }: { prop: ScoredProp; score: number | null }) {
         />
       </div>
       {(firstEvidence || restEvidence.length > 0) && (
-        <div className="prop-evidence">
+        <>
           {restEvidence.length > 0 && !showAllEvidence ? (
             <>
-              <p>{firstEvidence}</p>
+              <p className="prop-evidence">{firstEvidence}</p>
               <button
                 type="button"
                 onClick={() => setShowAllEvidence(true)}
-                className="mt-0.5 cursor-pointer link-subtle"
+                className="prop-more link-subtle"
               >
                 +{restEvidence.length} more {restEvidence.length === 1 ? "line" : "lines"} of evidence
               </button>
@@ -156,20 +156,22 @@ function PropRow({ prop, score }: { prop: ScoredProp; score: number | null }) {
           ) : (
             <>
               {prop.evidence.map((line, i) => (
-                <p key={i}>{line}</p>
+                <p className="prop-evidence" key={i}>
+                  {line}
+                </p>
               ))}
               {restEvidence.length > 0 && (
                 <button
                   type="button"
                   onClick={() => setShowAllEvidence(false)}
-                  className="mt-0.5 cursor-pointer link-subtle"
+                  className="prop-more link-subtle"
                 >
                   Show less
                 </button>
               )}
             </>
           )}
-        </div>
+        </>
       )}
     </article>
   );

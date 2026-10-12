@@ -247,8 +247,21 @@ html {
       transparent var(--fill)
     );
   }
+  /* Evidence lines carry their own type, and only the first one opens the gap
+     above the block — consecutive lines sit flush, as they did inside the
+     wrapper element this used to render. */
   .prop-evidence {
     @apply mt-2 text-xs leading-snug text-ink/70;
+  }
+  .prop-evidence + .prop-evidence {
+    @apply mt-0;
+  }
+  /* The "more lines" toggle sits inside the evidence block, so it carries the
+     block's type itself now that the block has no wrapper to inherit from. It
+     is a shrink-wrapped block rather than an inline one so its line box is its
+     own: an inline button would take the row's 16px strut and grow every row. */
+  .prop-more {
+    @apply mt-0.5 block w-fit cursor-pointer text-xs leading-snug;
   }
   /* Table cells: roster, box-score and standings tables render hundreds of
      these, and the header/cell clusters were TS string constants that
