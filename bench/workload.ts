@@ -1,11 +1,24 @@
 /**
- * The benchmark workload: one cold pass over the two surfaces that do betting
- * line analysis, plus the server render of the pages they feed.
+ * The benchmark workload: one cold pass over every surface the app serves.
  *
- * Every step goes through the real application code (`getBestLeans`,
- * `loadPropGroups`, the React components) against the fixture upstream, so a
- * regression in shaping, matching, scoring or rendering shows up either as a
- * slower number or as a failed invariant.
+ * Six phases, in the order a reader would meet them:
+ *   1. the slate-wide leans API (`getBestLeans`) — one schedule read, a
+ *      provider-wide odds board shared across games, per-game roster and stat
+ *      lookups, name matching, scoring, ranking;
+ *   2. the props page (`loadPropGroups` with matchup evidence), including its
+ *      own feed read;
+ *   3. the server render of the props board and the home slate;
+ *   4. the game page's feed-derived core — linescore, boxscore tables, game log
+ *      — and its season series (the page's other read);
+ *   5. the bullpen section — per-arm season pitching and recent workload, which
+ *      on a postseason game reads the team's last three days of boxscores;
+ *   6. the offseason home view — opening-day countdown, postseason recap and
+ *      final standings, which is what an empty date renders.
+ *
+ * Every step goes through the real application code (the loaders above and the
+ * React components) against the fixture upstream, so a regression in shaping,
+ * matching, scoring or rendering shows up either as a slower number or as a
+ * failed invariant.
  *
  * "Cold" is deliberate: `unstable_cache` is stubbed to the identity (what Next
  * does on a cache miss) and React's `cache` does not memoize outside a render,

@@ -2,14 +2,19 @@
 #
 # Benchmark entrypoint for the autoresearch loop.
 #
-# Measures the mean cost of one cold request cycle over the app's two betting
-# surfaces — the slate-wide leans API (`getBestLeans`) and the props page
-# (`loadPropGroups` with matchup evidence) — plus the server render of the home
-# slate and the props board. Caches are bypassed inside the benchmark (see
-# bench/preload.ts), so a cycle costs what a cache miss costs in production.
+# Measures the mean cost of one cold request cycle over every surface the app
+# serves: the slate-wide leans API, the props page, the home slate, the game
+# page's feed-derived core and bullpen section, and the offseason home view.
+# See bench/workload.ts's header for the phase breakdown. Caches are bypassed
+# inside the benchmark (see bench/preload.ts), so a cycle costs what a cache
+# miss costs in production.
 #
-# Deterministic and offline: every upstream response comes from bench/fixture.ts
-# keyed off player/team ids, so no network, clock or RNG enters the numbers.
+# Deterministic and offline: upstream responses come from bench/fixture.ts,
+# which generates synthetic bodies keyed off player/team ids and serves
+# captured real payloads (gzipped under bench/fixtures/) when a request's field
+# list matches what was captured. No network, clock or RNG enters the numbers.
+# The local prune model that narrows synthetic bodies errs in both directions;
+# bench/upstream.ts records the measured ratios.
 #
 # `bun bench/run.ts` prints one line per metric per process; this script runs it
 # several times and reports, per metric:
