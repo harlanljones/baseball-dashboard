@@ -790,78 +790,131 @@ export function rosterBody(side: BenchSide, season: number, hydrate: boolean): s
     const counts = hitterCounts(player.id);
     const pa = 520 - i * 37 - (side.team.id % 3) * 11;
     entries.push({
-      person: {
-        id: player.id,
-        fullName: player.fullName,
-        ...(hydrate
-          ? {
-              stats: [
-                {
-                  type: { displayName: "season" },
-                  group: { displayName: "hitting" },
-                  splits: [{ season: String(season), stat: seasonHittingStat({ ...counts, pa }) }],
-                },
-              ],
-            }
-          : {}),
-      },
-      position: { type: "Outfielder", abbreviation: "OF" },
-      status: { code: "A" },
+      person: personEnvelope(
+        player.id,
+        hydrate
+          ? [
+              {
+                type: { displayName: "season" },
+                group: { displayName: "hitting" },
+                exemptions: [],
+                splits: [splitEnvelope(player.id, season, seasonHittingStat({ ...counts, pa }))],
+              },
+            ]
+          : [],
+      ),
+      jerseyNumber: String(i + 1),
+      position: { code: "9", name: "Outfielder", type: "Outfielder", abbreviation: "OF" },
+      status: { code: "A", description: "Active" },
+      parentTeamId: side.team.id,
     });
   });
   side.pitchers.forEach((player, i) => {
     const counts = pitcherCounts(player.id);
     entries.push({
-      person: {
-        id: player.id,
-        fullName: player.fullName,
-        ...(hydrate
-          ? {
-              stats: [
-                {
-                  type: { displayName: "season" },
-                  group: { displayName: "pitching" },
-                  splits: [{ season: String(season), stat: seasonPitchingStat(counts) }],
-                },
-              ],
-            }
-          : {}),
-      },
-      position: { type: "Pitcher", abbreviation: i === 0 ? "SP" : "RP" },
-      status: { code: "A" },
+      person: personEnvelope(
+        player.id,
+        hydrate
+          ? [
+              {
+                type: { displayName: "season" },
+                group: { displayName: "pitching" },
+                exemptions: [],
+                splits: [splitEnvelope(player.id, season, seasonPitchingStat(counts))],
+              },
+            ]
+          : [],
+      ),
+      jerseyNumber: String(i + 30),
+      position: { code: "1", name: "Pitcher", type: "Pitcher", abbreviation: i === 0 ? "SP" : "RP" },
+      status: { code: "A", description: "Active" },
+      parentTeamId: side.team.id,
+      role: { code: i === 0 ? "SP" : "RP", name: i === 0 ? "Starter" : "Relief" },
     });
   });
   return JSON.stringify({ roster: entries, link: `/api/v1/teams/${side.team.id}/roster` });
 }
 
 function seasonHittingStat(counts: HitterCounts): Record<string, unknown> {
+  // Field set mirrors a real response (34 fields; the readers use ten of them).
   return {
+    age: 27,
     gamesPlayed: counts.games,
     plateAppearances: counts.pa,
     atBats: counts.ab,
+    runs: Math.round(counts.games * 0.55),
     hits: counts.h,
+    doubles: Math.round(counts.h * 0.18),
+    triples: 1,
     homeRuns: counts.hr,
     rbi: counts.rbi,
     baseOnBalls: counts.bb,
+    intentionalWalks: 2,
     strikeOuts: Math.round(counts.pa * 0.22),
+    hitByPitch: 4,
+    sacBunts: 1,
+    sacFlies: 3,
+    groundIntoDoublePlay: 9,
+    groundOuts: Math.round(counts.ab * 0.42),
+    airOuts: Math.round(counts.ab * 0.38),
     totalBases: counts.totalBases,
+    leftOnBase: Math.round(counts.pa * 0.24),
+    numberOfPitches: Math.round(counts.pa * 3.9),
     avg: counts.avg,
     obp: counts.obp,
     slg: counts.slg,
-    babip: counts.babip,
     ops: (Number(counts.obp) + Number(counts.slg)).toFixed(3).replace(/^0/, ""),
+    babip: counts.babip,
+    stolenBases: 5,
+    caughtStealing: 2,
+    stolenBasePercentage: ".714",
+    caughtStealingPercentage: ".286",
+    groundOutsToAirouts: "1.11",
+    atBatsPerHomeRun: "21.4",
+    catchersInterference: 0,
   };
 }
 
 function seasonPitchingStat(counts: PitcherCounts): Record<string, unknown> {
   return {
+    age: 29,
+    gamesPlayed: counts.gamesStarted + 3,
     gamesStarted: counts.gamesStarted,
+    wins: 9,
+    losses: 7,
+    completeGames: 1,
+    shutouts: 0,
+    saves: 0,
+    holds: 3,
+    blownSaves: 2,
     inningsPitched: counts.ipText,
     strikeOuts: counts.k,
     baseOnBalls: counts.bb,
     battersFaced: counts.battersFaced,
+    runs: counts.earnedRuns + 3,
     earnedRuns: counts.earnedRuns,
+    homeRuns: 15,
+    hitBatsmen: 3,
+    wildPitches: 2,
+    balks: 0,
+    pickoffs: 1,
+    totalBases: Math.round(counts.ip * 1.3),
+    groundOuts: Math.round(counts.battersFaced * 0.35),
+    airOuts: Math.round(counts.battersFaced * 0.3),
+    leftOnBase: Math.round(counts.battersFaced * 0.2),
+    numberOfPitches: Math.round(counts.ip * 15.5),
+    inheritedRunners: 0,
+    inheritedRunnersScored: 0,
     era: counts.era,
+    whip: "1.14",
+    avg: ".238",
+    strikeoutsPer9Inn: counts.k9.toFixed(2),
+    walksPer9Inn: "2.41",
+    hitsPer9Inn: "8.10",
+    homeRunsPer9: "1.02",
+    strikeoutWalkRatio: "3.62",
+    runsScoredPer9: "4.12",
+    groundOutsToAirouts: "1.17",
   };
 }
 
@@ -944,6 +997,72 @@ function gameLogSplits(id: number, season: number): { date: string; stat: Record
   })).filter((_, i) => counts.gamesStarted > 0 && i < 5);
 }
 
+/**
+ * The envelope a real `splits[]` entry carries around its stat block (player,
+ * team, league, sport, game type). The readers take `splits[0].stat`; the rest
+ * is the bulk a real response pays for.
+ */
+function splitEnvelope(id: number, season: number, stat: Record<string, unknown>): Record<string, unknown> {
+  return {
+    season: String(season),
+    stat,
+    team: { id: 147, name: "New York Yankees", link: "/api/v1/teams/147" },
+    player: { id, fullName: playerNameById(id), link: `/api/v1/people/${id}` },
+    league: { id: 103, name: "American League", link: "/api/v1/league/103" },
+    sport: { id: 1, name: "Major League Baseball", link: "/api/v1/sport/1" },
+    gameType: "R",
+    isHome: true,
+  };
+}
+
+/** The metadata a real person record carries (38 fields; the readers use two). */
+function personEnvelope(id: number, stats: unknown[]): Record<string, unknown> {
+  const name = playerNameById(id);
+  const [first, ...rest] = name.split(" ");
+  const last = rest.join(" ") || first;
+  return {
+    id,
+    fullName: name,
+    link: `/api/v1/people/${id}`,
+    firstName: first,
+    lastName: last,
+    primaryNumber: String((id % 60) + 1),
+    birthDate: `199${id % 10}-0${(id % 9) + 1}-1${id % 9}`,
+    currentAge: 22 + (id % 14),
+    birthCity: "Springfield",
+    birthStateProvince: "MO",
+    birthCountry: "USA",
+    height: `${5 + (id % 2)}' ${8 + (id % 4)}"`,
+    weight: 180 + (id % 60),
+    active: true,
+    primaryPosition: { code: "9", name: "Outfielder", type: "Outfielder", abbreviation: "OF" },
+    useName: first,
+    useLastName: last,
+    middleName: "",
+    boxscoreName: last,
+    nickName: first,
+    gender: "M",
+    isPlayer: true,
+    isVerified: true,
+    draftYear: 2012 + (id % 10),
+    pronunciation: "",
+    mlbDebutDate: "2018-04-01",
+    batSide: { code: "R", description: "Right" },
+    pitchHand: { code: id % 3 === 0 ? "L" : "R", description: "Right" },
+    nameFirstLast: name,
+    nameSlug: name.toLowerCase().replace(/[^a-z]+/g, "-"),
+    firstLastName: `${first[0]}. ${last}`,
+    lastFirstName: `${last}, ${first}`,
+    lastInitName: `${last[0]}. ${first}`,
+    initLastName: `${first[0]}. ${last}`,
+    fullFMLName: name,
+    fullLFMName: `${last} ${first}`,
+    strikeZoneTop: 3.4,
+    strikeZoneBottom: 1.6,
+    stats,
+  };
+}
+
 export interface HydrateQuery {
   type: string;
   group?: string;
@@ -985,11 +1104,9 @@ export function peopleBody(personIds: number[], hydrate: string): string {
           {
             type: { displayName: "season" },
             group: { displayName: group },
+            exemptions: [],
             splits: [
-              {
-                season: String(season),
-                stat: group === "pitching" ? seasonPitchingStat(pitcherCounts(id)) : seasonHittingStat(hitterCounts(id)),
-              },
+              splitEnvelope(id, season, group === "pitching" ? seasonPitchingStat(pitcherCounts(id)) : seasonHittingStat(hitterCounts(id))),
             ],
           },
         ];
@@ -999,7 +1116,7 @@ export function peopleBody(personIds: number[], hydrate: string): string {
           {
             type: { displayName: "sabermetrics" },
             group: { displayName: group },
-            splits: [{ season: String(season), stat: sabermetricStat(id, group) }],
+            splits: [splitEnvelope(id, season, sabermetricStat(id, group))],
           },
         ];
         break;
@@ -1009,13 +1126,13 @@ export function peopleBody(personIds: number[], hydrate: string): string {
             type: { displayName: "statSplits" },
             group: { displayName: group },
             splits: [
-              {
-                season: String(season),
-                stat:
-                  group === "pitching"
-                    ? splitPitchingStat(id, query.sitCodes === "h" ? 31 : 41)
-                    : splitHittingStat(id, query.sitCodes === "vl" ? 51 : 61),
-              },
+              splitEnvelope(
+                id,
+                season,
+                group === "pitching"
+                  ? splitPitchingStat(id, query.sitCodes === "h" ? 31 : 41)
+                  : splitHittingStat(id, query.sitCodes === "vl" ? 51 : 61),
+              ),
             ],
           },
         ];
@@ -1032,8 +1149,8 @@ export function peopleBody(personIds: number[], hydrate: string): string {
             type: { displayName: "vsPlayer" },
             group: { displayName: "hitting" },
             splits: [
-              { season: String(season), stat: vsPlayerStat(id, pitcherId) },
-              { season: String(season - 1), stat: vsPlayerStat(id + 3, pitcherId) },
+              splitEnvelope(id, season, vsPlayerStat(id, pitcherId)),
+              splitEnvelope(id, season - 1, vsPlayerStat(id + 3, pitcherId)),
             ],
           },
         ];
@@ -1051,7 +1168,7 @@ export function peopleBody(personIds: number[], hydrate: string): string {
       default:
         stats = [];
     }
-    return { id, fullName: playerNameById(id), stats };
+    return personEnvelope(id, stats);
   });
   return JSON.stringify({ people });
 }
