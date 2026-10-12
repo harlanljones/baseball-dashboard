@@ -49,6 +49,11 @@ const MAX_PAGES = 3;
  */
 const PREFERRED_BOOKMAKERS = ["fanduel", "draftkings", "betmgm", "caesars", "bet365"] as const;
 
+/** Preference rank per book, so pairing reads it instead of scanning the list per candidate. */
+const BOOK_ORDER: Record<string, number> = Object.fromEntries(
+  PREFERRED_BOOKMAKERS.map((book, rank) => [book, rank]),
+);
+
 /**
  * Our tracked prop markets mapped to SportsGameOdds statIDs (verified
  * against their published MLB market catalog — note the inconsistent
@@ -337,8 +342,7 @@ function pickBookPair(
   let bestRank: number = PREFERRED_BOOKMAKERS.length;
 
   for (const book of Object.keys(overBooks)) {
-    const rank = PREFERRED_BOOKMAKERS.findIndex((preferred) => preferred === book);
-    const order = rank === -1 ? PREFERRED_BOOKMAKERS.length : rank;
+    const order = BOOK_ORDER[book] ?? PREFERRED_BOOKMAKERS.length;
     if (order >= bestRank && best !== null) continue;
 
     const overLine = overBooks[book];
