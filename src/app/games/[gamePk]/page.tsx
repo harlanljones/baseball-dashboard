@@ -160,7 +160,13 @@ export async function generateMetadata({
 }): Promise<Metadata> {
   const { gamePk } = await params;
   const id = Number(gamePk);
-  if (!Number.isInteger(id) || id <= 0) return { title: "Game not found" };
+  // Raising this here rather than in the page resolves the not-found *document*
+  // and title (the page's own `notFound()` would otherwise arrive after the
+  // shell had already streamed, leaving a 200 shell plus a swapped-in region).
+  // It cannot change the status: this route has a `loading.tsx`, so the shell —
+  // and with it the 200 — is committed before the page renders at all. A real
+  // 404 needs the existence check to happen outside that boundary.
+  if (!Number.isInteger(id) || id <= 0) notFound();
 
   // Shares the page's fetch via per-request memoization — no extra API call.
   try {
@@ -175,7 +181,9 @@ export async function generateMetadata({
       title: `${away} @ ${home}${suffix}`,
       description: `Score, boxscore, matchups, and sabermetrics for ${feed.away.team.name} at ${feed.home.team.name}.`,
     };
-  } catch {
+  } catch (e) {
+    if (e instanceof MlbApiError && e.status === 404) notFound();
+    // Any other failure is the page's to surface: metadata only drops the title.
     return { title: "Game" };
   }
 }
