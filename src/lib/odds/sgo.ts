@@ -298,19 +298,29 @@ function isUsable(line: SgoBookLine | undefined): line is SgoBookLine & { odds: 
  * available book) quoting the SAME line on both sides of the pairing —
  * books disagree on lines, so a price without its line would be a false
  * quote. Returns `null` when no book posts a matched pair.
+ *
+ * One pass over the over-side's books, keeping the best-ranked usable pair:
+ * a preferred book always wins, and among equally-ranked books the first one
+ * the provider listed wins — the same order a build-then-scan produced, minus
+ * the three throwaway arrays per pairing (this runs for every market on a
+ * league-wide board).
  */
 function pickBookPair(
   over: SgoOdd,
   under: SgoOdd,
 ): { bookmaker: string; overPrice: number; underPrice: number; line: number } | null {
-  const books = Object.keys(over.byBookmaker ?? {});
-  const ordered = [
-    ...PREFERRED_BOOKMAKERS.filter((preferred) => books.includes(preferred)),
-    ...books.filter((book) => !(PREFERRED_BOOKMAKERS as readonly string[]).includes(book)),
-  ];
+  const overBooks = over.byBookmaker;
+  if (!overBooks) return null;
 
-  for (const book of ordered) {
-    const overLine = over.byBookmaker?.[book];
+  let best: { bookmaker: string; overPrice: number; underPrice: number; line: number } | null = null;
+  let bestRank: number = PREFERRED_BOOKMAKERS.length;
+
+  for (const book of Object.keys(overBooks)) {
+    const rank = PREFERRED_BOOKMAKERS.findIndex((preferred) => preferred === book);
+    const order = rank === -1 ? PREFERRED_BOOKMAKERS.length : rank;
+    if (order >= bestRank && best !== null) continue;
+
+    const overLine = overBooks[book];
     const underLine = under.byBookmaker?.[book];
     if (!isUsable(overLine) || !isUsable(underLine)) continue;
 
@@ -321,9 +331,11 @@ function pickBookPair(
     const underPrice = parseAmericanPrice(underLine.odds);
     if (overPrice === null || underPrice === null) continue;
 
-    return { bookmaker: book, overPrice, underPrice, line };
+    best = { bookmaker: book, overPrice, underPrice, line };
+    bestRank = order;
+    if (order === 0) break; // FanDuel is the top preference; nothing can beat it.
   }
-  return null;
+  return best;
 }
 
 /** statEntityID values that mark team/game markets rather than player props. */
@@ -335,34 +347,36 @@ const TEAM_ENTITY_IDS = new Set(["all", "home", "away"]);
  * the previous The Odds API behavior.
  */
 export function parseSgoProps(event: SgoEvent): PlayerProp[] {
-  const pairs = new Map<string, { over?: SgoOdd; under?: SgoOdd }>();
+  // Keyed by `<statID>|<playerID>`; the statID rides on the entry so the
+  // pairing loop never has to split the key back apart.
+  const pairs = new Map<string, { statID: string; over?: SgoOdd; under?: SgoOdd }>();
   for (const odd of Object.values(event.odds ?? {})) {
-    const marketKey = STAT_ID_TO_MARKET[odd.statID ?? ""];
-    if (!marketKey) continue;
+    const statID = odd.statID;
+    if (!statID || !STAT_ID_TO_MARKET[statID]) continue;
     if (odd.betTypeID !== "ou" || odd.periodID !== "game") continue;
     // Player props carry a playerID; all/home/away mark team-level totals.
     if (!odd.playerID || TEAM_ENTITY_IDS.has(odd.playerID)) continue;
 
-    const entry = pairs.get(`${odd.statID}|${odd.playerID}`) ?? {};
+    const key = `${statID}|${odd.playerID}`;
+    const entry = pairs.get(key) ?? { statID };
     if (odd.sideID === "over") entry.over = odd;
     else if (odd.sideID === "under") entry.under = odd;
     else continue;
-    pairs.set(`${odd.statID}|${odd.playerID}`, entry);
+    pairs.set(key, entry);
   }
 
   const props: PlayerProp[] = [];
-  for (const [key, { over, under }] of pairs) {
+  for (const { statID, over, under } of pairs.values()) {
     if (!over || !under) continue;
     const picked = pickBookPair(over, under);
     if (!picked) continue;
 
-    const statId = key.split("|")[0];
     const playerName =
       (over.playerID ? event.players?.[over.playerID]?.name : undefined) ??
       playerNameFromId(over.playerID ?? "");
 
     props.push({
-      marketKey: STAT_ID_TO_MARKET[statId],
+      marketKey: STAT_ID_TO_MARKET[statID],
       playerName,
       line: picked.line,
       overPrice: picked.overPrice,
