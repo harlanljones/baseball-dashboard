@@ -201,6 +201,11 @@ function pruneFields(value: unknown, wanted: Set<string>, listed = false): unkno
   return listed ? value : undefined;
 }
 
+/** The caller's `fields` list as a lookup set. */
+function fieldSet(fields: string): Set<string> {
+  return new Set(fields.split(",").map((field) => field.trim()).filter(Boolean));
+}
+
 function hasListedDescendant(value: unknown, wanted: Set<string>): boolean {
   if (Array.isArray(value)) return value.some((item) => hasListedDescendant(item, wanted));
   if (value && typeof value === "object") {
@@ -250,8 +255,15 @@ function mlbBody(url: URL): string {
     const side = SIDE_BY_TEAM_ID.get(teamId);
     const hydrate = url.searchParams.get("hydrate") ?? "";
     if (!side) return JSON.stringify({ roster: [] });
-    if (hydrate.includes("stats(")) return ROSTER_BODIES.get(teamId) ?? JSON.stringify({ roster: [] });
-    return memoized(`roster-plain:${teamId}`, () => rosterBody(side, BENCH_SEASON, false));
+    const hydrated = hydrate.includes("stats(");
+    const fields = url.searchParams.get("fields");
+    return memoized(`roster:${teamId}:${hydrated ? "h" : "p"}:${fields ?? ""}`, () => {
+      const body = hydrated
+        ? ROSTER_BODIES.get(teamId) ?? JSON.stringify({ roster: [] })
+        : rosterBody(side, BENCH_SEASON, false);
+      if (!fields) return body;
+      return JSON.stringify(pruneFields(JSON.parse(body), fieldSet(fields)));
+    });
   }
 
   if (path === "/api/v1/people") {
@@ -260,7 +272,12 @@ function mlbBody(url: URL): string {
       .map(Number)
       .filter((id) => Number.isInteger(id) && id > 0);
     const hydrate = url.searchParams.get("hydrate") ?? "";
-    return memoized(`people:${ids.join(",")}:${hydrate}`, () => peopleBody(ids, hydrate));
+    const fields = url.searchParams.get("fields");
+    return memoized(`people:${ids.join(",")}:${hydrate}:${fields ?? ""}`, () => {
+      const body = peopleBody(ids, hydrate);
+      if (!fields) return body;
+      return JSON.stringify(pruneFields(JSON.parse(body), fieldSet(fields)));
+    });
   }
 
   const person = /^\/api\/v1\/people\/(\d+)$/.exec(path);
@@ -286,8 +303,7 @@ function mlbBody(url: URL): string {
     return memoized(`feed:${liveFeed[1]}:${fields ?? ""}`, () => {
       const body = liveFeedBody(game);
       if (!fields) return body;
-      const wanted = new Set(fields.split(",").map((f) => f.trim()).filter(Boolean));
-      return JSON.stringify(pruneFields(JSON.parse(body), wanted));
+      return JSON.stringify(pruneFields(JSON.parse(body), fieldSet(fields)));
     });
   }
 
