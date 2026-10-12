@@ -121,6 +121,16 @@ describe("scoreProp — a reliever", () => {
     expect(result.tier).toBe("strong-over");
   });
 
+  it("carries confidence proportional to innings, not starts", () => {
+    // Sixty innings is a real sample: a reliever must not sit on the floor just
+    // because he has never started.
+    const outs = scoreProp(prop({ marketKey: "pitcher_outs", line: 2.5 }), player, reliever, null);
+    expect(outs.factors.modelConfidence).toBeGreaterThan(70);
+    const rotation: PitcherStatContext = { ...reliever, gamesStarted: 24, gamesPlayed: 24, ip: 150 };
+    const starter = scoreProp(prop({ line: 6 }), player, rotation, null);
+    expect(starter.factors.modelConfidence).toBeGreaterThan(outs.factors.modelConfidence ?? 0);
+  });
+
   it("stays ungraded when the appearance sample is small too", () => {
     const result = scoreProp(prop({ marketKey: "pitcher_outs", line: 2.5 }), player, { ...reliever, gamesPlayed: 2 }, null);
     expect(result.evidence[0]).toBe("No stats available");

@@ -143,9 +143,11 @@ function clamp(value: number, min = 0, max = 100): number {
 }
 
 function confidenceFor(stats: StatContext): number {
-  return stats.kind === "pitcher"
-    ? clamp(58 + stats.gamesStarted * 1.8)
-    : clamp(52 + stats.games * 0.42);
+  if (stats.kind === "batter") return clamp(52 + stats.games * 0.42);
+  // The sample behind a pitcher's line is innings. Keying this on starts pins
+  // every reliever to the floor for his whole career — a man with sixty
+  // appearances would carry the confidence of one who has never started.
+  return clamp(58 + stats.ip * 0.35);
 }
 
 function edgeFor(seasonAvg: number, line: number): number {

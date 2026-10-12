@@ -446,6 +446,19 @@ export function checkInvariants(
     failures.push(`${ungradedPitchers.length} pitcher props came back ungraded`);
   }
 
+  // Confidence grows with the sample behind the line. Every prop-carrying
+  // pitcher in the fixture has innings behind him, so sitting on the floor
+  // means the sample was read from the wrong field (starts, for a reliever).
+  const flooredPitchers = result.scored.filter(
+    (prop) =>
+      prop.marketKey.startsWith("pitcher_") &&
+      prop.factors.modelConfidence != null &&
+      prop.factors.modelConfidence <= 60,
+  );
+  if (flooredPitchers.length > 0) {
+    failures.push(`${flooredPitchers.length} pitcher props sit on the confidence floor`);
+  }
+
   // A reliever's form and home/road lines are measured over appearances, so
   // saying "starts" about one is a role-wording bug, not a wording choice.
   const arms = new Set(relieverIds(PROPS_GAME));
