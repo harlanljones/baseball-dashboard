@@ -106,8 +106,15 @@ function sgoBoardBody(url: URL): string {
   const limit = Number(url.searchParams.get("limit") ?? 100) || 100;
   const cursor = Number(url.searchParams.get("cursor") ?? 0) || 0;
   const eventIDs = url.searchParams.get("eventIDs");
-  const requested = allRequestedStatIds(url.searchParams.get("oddIDs"));
+  const oddIDs = url.searchParams.get("oddIDs");
+  // The assembled page is cached by request shape: joining 2 MB of per-event
+  // strings is the fixture's own work, and counting it as application time
+  // would dilute everything the benchmark is meant to measure.
+  const pageKey = `sgo:${cursor}:${limit}:${eventIDs ?? ""}:${oddIDs ?? ""}`;
+  const cachedPage = memo.get(pageKey);
+  if (cachedPage != null) return cachedPage;
 
+  const requested = allRequestedStatIds(oddIDs);
   const wanted = new Set<number>();
   if (eventIDs) {
     for (const id of eventIDs.split(",")) {
@@ -141,7 +148,9 @@ function sgoBoardBody(url: URL): string {
   }
 
   const next = cursor + limit < GAMES.length ? `c${cursor + limit}` : null;
-  return `{"success":true,"data":[${selected.join(",")}],"nextCursor":${next === null ? "null" : JSON.stringify(next)}}`;
+  const page = `{"success":true,"data":[${selected.join(",")}],"nextCursor":${next === null ? "null" : JSON.stringify(next)}}`;
+  memo.set(pageKey, page);
+  return page;
 }
 
 function memoized(key: string, build: () => string): string {
