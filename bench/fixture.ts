@@ -980,38 +980,15 @@ export function liveFeedBody(game: BenchGame): string {
   });
 }
 
-/** Schedule response body (`getSchedule`, `getGameTeams`). */
 /**
- * The `team` hydrate's bulk: a real schedule response drags a full team record
- * into every game (measured: 6.7 KB per game against ~2 KB without it), which
- * the reader ignores apart from id/name/abbreviation.
+ * The team reference a *schedule* row carries. The API's `team` hydrate under
+ * the app's field list returns id, name and abbreviation only — no division,
+ * league, sport or spring fields — and the local prune model keeps those
+ * extras wherever an `id` or `name` leaf appears, which made the served slate
+ * twice the size of a real one.
  */
-function teamEnvelope(team: BenchTeam): Record<string, unknown> {
-  return {
-    id: team.id,
-    name: team.name,
-    link: `/api/v1/teams/${team.id}`,
-    season: BENCH_SEASON,
-    venue: { id: team.venueId, name: team.venue, link: `/api/v1/venues/${team.venueId}` },
-    springVenue: { id: 2529, link: "/api/v1/venues/2529" },
-    teamCode: team.abbreviation.toLowerCase(),
-    fileCode: team.abbreviation.toLowerCase(),
-    abbreviation: team.abbreviation,
-    teamName: team.name.split(" ").slice(-1)[0],
-    locationName: team.city,
-    firstYearOfPlay: "1901",
-    league: { id: 103, name: "American League", link: "/api/v1/league/103" },
-    division: { id: 201, name: "American League East", link: "/api/v1/divisions/201" },
-    sport: { id: 1, name: "Major League Baseball", link: "/api/v1/sports/1" },
-    shortName: team.name,
-    franchiseName: team.name,
-    clubName: team.name,
-    active: true,
-    parentOrgName: "",
-    parentOrgId: 0,
-    springLeague: { id: 114, name: "Cactus League", link: "/api/v1/league/114", abbreviation: "CL" },
-    allStarStatus: "N",
-  };
+function scheduleTeamRef(team: BenchTeam): Record<string, unknown> {
+  return { id: team.id, name: team.name, abbreviation: team.abbreviation };
 }
 
 function scheduleGame(game: BenchGame, date: string): Record<string, unknown> {
@@ -1032,7 +1009,7 @@ function scheduleGame(game: BenchGame, date: string): Record<string, unknown> {
     },
     teams: {
       away: {
-        team: teamEnvelope(game.away.team),
+        team: scheduleTeamRef(game.away.team),
         leagueRecord: { wins: 48, losses: 42, pct: ".533" },
         probablePitcher: {
           id: game.away.probable.id,
@@ -1041,7 +1018,7 @@ function scheduleGame(game: BenchGame, date: string): Record<string, unknown> {
         },
       },
       home: {
-        team: teamEnvelope(game.home.team),
+        team: scheduleTeamRef(game.home.team),
         leagueRecord: { wins: 51, losses: 39, pct: ".567" },
         probablePitcher: {
           id: game.home.probable.id,
@@ -1076,7 +1053,7 @@ function scheduleGame(game: BenchGame, date: string): Record<string, unknown> {
     ifNecessary: "N",
     ifNecessaryDescription: "Normal Game",
     description: "Preview",
-    linescore: { scheduledInnings: 9, currentInning: 1, currentInningOrdinal: "1st", inningState: "Top", isTopInning: true, innings: [], teams: { away: {}, home: {} } },
+    linescore: { scheduledInnings: 9, innings: [], teams: { away: {}, home: {} } },
     decisions: {},
   };
 }
