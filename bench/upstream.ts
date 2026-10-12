@@ -26,6 +26,7 @@ import {
   peopleBody,
   personBody,
   rosterBody,
+  liveFeedBody,
   scheduleBody,
   sgoEvent,
   type BenchSide,
@@ -213,6 +214,13 @@ function mlbBody(url: URL): string {
 
   const person = /^\/api\/v1\/people\/(\d+)$/.exec(path);
   if (person) return memoized(`person:${person[1]}`, () => personBody(Number(person[1])));
+
+  const liveFeed = /^\/api\/v1\.1\/game\/(\d+)\/feed\/live$/.exec(path);
+  if (liveFeed) {
+    const game = GAMES.find((g) => String(g.gamePk) === liveFeed[1]);
+    if (!game) return JSON.stringify({ gamePk: 0, gameData: { teams: { away: { id: 0 } } }, liveData: {} });
+    return memoized(`feed:${liveFeed[1]}`, () => liveFeedBody(game));
+  }
 
   throw new Error(`bench upstream: unhandled statsapi route ${url.pathname}`);
 }

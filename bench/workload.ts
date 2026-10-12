@@ -25,6 +25,7 @@ import type { PropTeamGroup } from "@/lib/odds/board";
 import { propContextFromFeed } from "@/lib/odds/board";
 import { getBestLeans, type SlateLean } from "@/lib/odds/leans";
 import type { ScoredProp } from "@/lib/odds/types";
+import { getLiveFeed } from "@/lib/mlb/game";
 import { getSchedule } from "@/lib/mlb/schedule";
 import type { GameFeed } from "@/lib/mlb/types";
 import { safe } from "@/lib/safe";
@@ -38,44 +39,9 @@ import {
   PHANTOM_NAMES,
   PROPS_GAME,
   expectedMatchedProps,
-  type BenchGame,
 } from "./fixture";
 
 /** The props page's feed, built straight from the fixture game (Preview state). */
-export function feedFor(game: BenchGame): GameFeed {
-  const playerNames: Record<number, string> = {};
-  // The live feed's player metadata carries throwing hands; the fixture derives
-  // them from the same rule the stub's /people/{id} route uses, so a caller that
-  // reads them from the feed and one that asks the people endpoint agree.
-  const pitchHands: Record<number, "L" | "R"> = {};
-  for (const side of [game.away, game.home]) {
-    for (const player of [...side.hitters, ...side.pitchers]) {
-      playerNames[player.id] = player.fullName;
-      pitchHands[player.id] = player.id % 3 === 0 ? "L" : "R";
-    }
-  }
-  return {
-    gamePk: game.gamePk,
-    state: "Preview",
-    detailedState: "Scheduled",
-    startTime: game.startTimeISO,
-    gameType: "R",
-    venue: game.venue,
-    venueCity: game.city,
-    venueId: game.venueId,
-    away: { team: game.away.team },
-    home: { team: game.home.team },
-    linescore: { innings: [], home: {}, away: {}, scheduledInnings: 9 },
-    boxscore: {
-      away: { team: game.away.team, batters: [], pitchers: [], bullpen: [], battingOrderIds: [], pitcherIds: [] },
-      home: { team: game.home.team, batters: [], pitchers: [], bullpen: [], battingOrderIds: [], pitcherIds: [] },
-    },
-    probablePitchers: { away: game.away.probable, home: game.home.probable },
-    playerNames,
-    pitchHands,
-  };
-}
-
 export interface PhaseTimings {
   leansMs: number;
   propsMs: number;
@@ -141,7 +107,9 @@ export async function runCycle(): Promise<WorkloadResult> {
   // Phase 2 — the props page: the same board plus the per-player matchup
   // evidence (career vs-starter, platoon split, pitcher form and home/road).
   const propsStart = performance.now();
-  const feed = feedFor(PROPS_GAME);
+  // The page reads the game's live feed itself; fetching and shaping it is part
+  // of the work being measured, not something the harness hands over for free.
+  const feed = await getLiveFeed(PROPS_GAME.gamePk);
   const weather: Promise<GameWeather | null> = safe(
     getGameWeather({
       venueId: feed.venueId,

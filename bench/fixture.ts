@@ -573,6 +573,188 @@ export function sgoEvent(game: BenchGame, withPlayers: boolean): SgoEventFixture
   return event;
 }
 
+/**
+ * Live-feed body for one game, shaped like the real `feed/live` response a
+ * Preview game returns (measured: ~180 KB, 52 `gameData.players` entries with
+ * full metadata and a boxscore carrying every player's season stats). The
+ * benchmark fetches and shapes it so the props page's own upstream read is part
+ * of the measured cycle instead of being handed to it for free.
+ */
+export function liveFeedBody(game: BenchGame): string {
+  const handOf = (id: number) => (id % 3 === 0 ? "L" : "R");
+  const personMeta = (player: BenchPlayer, index: number) => ({
+    id: player.id,
+    fullName: player.fullName,
+    link: `/api/v1/people/${player.id}`,
+    firstName: player.fullName.split(" ")[0],
+    lastName: player.fullName.split(" ").slice(-1)[0],
+    primaryNumber: String((index % 60) + 1),
+    birthDate: `199${index % 10}-0${(index % 9) + 1}-1${index % 9}`,
+    currentAge: 22 + (index % 14),
+    birthCity: "Springfield",
+    birthStateProvince: "MO",
+    birthCountry: "USA",
+    height: `${5 + (index % 2)}' ${8 + (index % 4)}"`,
+    weight: 180 + (index % 60),
+    active: true,
+    primaryPosition: { code: "1", name: "Pitcher", type: "Pitcher", abbreviation: "P" },
+    useName: player.fullName.split(" ")[0],
+    useLastName: player.fullName.split(" ").slice(-1)[0],
+    boxscoreName: player.fullName.split(" ").slice(-1)[0],
+    gender: "M",
+    isPlayer: true,
+    isVerified: true,
+    batSide: { code: handOf(player.id + 1), description: "Switch" },
+    pitchHand: { code: handOf(player.id), description: handOf(player.id) === "L" ? "Left" : "Right" },
+    nameFirstLast: player.fullName,
+    nameSlug: player.fullName.toLowerCase().replace(/[^a-z]+/g, "-"),
+    nickName: player.fullName.split(" ")[0],
+    draftYear: 2012 + (index % 10),
+    mlbDebutDate: "2018-04-01",
+    lastPlayedDate: "2026-10-01",
+    pronunciation: "",
+  });
+
+  const boxSide = (side: BenchSide) => {
+    const players: Record<string, unknown> = {};
+    side.hitters.forEach((hitter, index) => {
+      const counts = hitterCounts(hitter.id);
+      players[`ID${hitter.id}`] = {
+        person: { id: hitter.id, fullName: hitter.fullName, link: `/api/v1/people/${hitter.id}` },
+        jerseyNumber: String(index + 1),
+        position: { code: "9", name: "Outfielder", type: "Outfielder", abbreviation: "OF" },
+        status: { code: "A", description: "Active" },
+        parentTeamId: side.team.id,
+        battingOrder: "100",
+        gameStatus: { isCurrentBatter: false, isCurrentPitcher: false, isOnBench: true, isSubstitute: false },
+        stats: {
+          batting: {
+            gamesPlayed: counts.games, plateAppearances: counts.pa, atBats: counts.ab, runs: Math.round(counts.games * 0.5),
+            hits: counts.h, doubles: 20, triples: 1, homeRuns: counts.hr, rbi: counts.rbi, baseOnBalls: counts.bb,
+            strikeOuts: Math.round(counts.pa * 0.22), stolenBases: 4, avg: counts.avg, obp: counts.obp, slg: counts.slg,
+          },
+          pitching: {},
+        },
+        seasonStats: {
+          batting: {
+            gamesPlayed: counts.games, plateAppearances: counts.pa, atBats: counts.ab, runs: Math.round(counts.games * 0.5),
+            hits: counts.h, doubles: 20, triples: 1, homeRuns: counts.hr, rbi: counts.rbi, baseOnBalls: counts.bb,
+            intentionalWalks: 2, strikeOuts: Math.round(counts.pa * 0.22), hitByPitch: 5, sacBunts: 1, sacFlies: 3,
+            groundIntoDoublePlay: 9, groundOuts: 120, airOuts: 130, stolenBases: 4, caughtStealing: 2, stolenBasePercentage: ".667",
+            totalBases: counts.totalBases, avg: counts.avg, obp: counts.obp, slg: counts.slg, ops: ".812", babip: counts.babip,
+            atBatsPerHomeRun: "18.4", groundOutsToAirouts: "0.92", caughtStealingPercentage: ".500",
+          },
+          pitching: {},
+          fielding: {
+            gamesStarted: counts.games, assists: 40, putOuts: 90, errors: 2, chances: 132, fielding: ".985",
+            caughtStealing: 3, passedBall: 1, stolenBases: 12, caughtStealingPercentage: ".200",
+          },
+        },
+      };
+    });
+    side.pitchers.forEach((pitcher, index) => {
+      const counts = pitcherCounts(pitcher.id);
+      const pitching = {
+        gamesPlayed: counts.gamesStarted + 4, gamesStarted: counts.gamesStarted, inningsPitched: counts.ipText,
+        wins: 8, losses: 5, earnedRuns: counts.earnedRuns, runs: counts.earnedRuns + 3, hits: Math.round(counts.ip * 0.9),
+        baseOnBalls: counts.bb, strikeOuts: counts.k, battersFaced: counts.battersFaced, era: counts.era, whip: "1.12", avg: ".240",
+      };
+      players[`ID${pitcher.id}`] = {
+        person: { id: pitcher.id, fullName: pitcher.fullName, link: `/api/v1/people/${pitcher.id}` },
+        jerseyNumber: String(index + 30),
+        position: { code: "1", name: "Pitcher", type: "Pitcher", abbreviation: "P" },
+        status: { code: "A", description: "Active" },
+        parentTeamId: side.team.id,
+        gameStatus: { isCurrentBatter: false, isCurrentPitcher: index === 0, isOnBench: index !== 0, isSubstitute: false },
+        stats: { batting: {}, pitching },
+        seasonStats: {
+          batting: { gamesPlayed: 4, plateAppearances: 7, atBats: 6, runs: 0, hits: 1, doubles: 0, triples: 0, homeRuns: 0, rbi: 1, baseOnBalls: 1, strikeOuts: 3, avg: ".167", obp: ".286", slg: ".167", ops: ".453" },
+          pitching: {
+            ...pitching,
+            completeGames: 1, shutouts: 0, saves: 0, blownSaves: 1, holds: 2, hitBatsmen: 3, wildPitches: 2, balks: 0,
+            homeRuns: 14, atBats: Math.round(counts.ip * 3.8), groundOuts: 140, airOuts: 120, groundOutsToAirouts: "1.17",
+            strikeoutsPer9Inn: (counts.k9).toFixed(2), walksPer9Inn: "2.41", hitsPer9Inn: "8.10", homeRunsPer9: "1.02",
+            strikeoutWalkRatio: "3.62", runsScoredPer9: "4.12", inheritedRunners: 0, inheritedRunnersScored: 0, pickoffs: 1,
+          },
+          fielding: { gamesStarted: counts.gamesStarted, assists: 14, putOuts: 8, errors: 1, chances: 23, fielding: ".957" },
+        },
+      };
+    });
+    return {
+      team: { id: side.team.id, name: side.team.name, abbreviation: side.team.abbreviation },
+      players,
+      // A Preview game has no posted order yet, which is what sends the prop
+      // board down its roster-proxy lineup path.
+      batters: [],
+      pitchers: [],
+      bullpen: [],
+      battingOrder: [],
+      info: [],
+      note: [],
+    };
+  };
+
+  const feedPlayers: Record<string, unknown> = {};
+  let index = 0;
+  for (const side of [game.away, game.home]) {
+    for (const player of [...side.hitters, ...side.pitchers]) {
+      feedPlayers[`ID${player.id}`] = personMeta(player, index);
+      index += 1;
+    }
+  }
+
+  return JSON.stringify({
+    copyright: "Copyright 2026 MLB Advanced Media, L.P.",
+    gamePk: game.gamePk,
+    link: `/api/v1.1/game/${game.gamePk}/feed/live`,
+    metaData: { wait: 10, timeStamp: "20261011_190000" },
+    gameData: {
+      game: { pk: game.gamePk, type: "R", season: String(BENCH_SEASON), gameNumber: 1 },
+      status: { abstractGameState: "Preview", codedGameState: "S", detailedState: "Scheduled", statusCode: "S" },
+      datetime: { dateTime: game.startTimeISO, dayNight: "night", timeZone: { id: "America/New_York" } },
+      venue: { id: game.venueId, name: game.venue, link: `/api/v1/venues/${game.venueId}`, location: { city: game.city } },
+      teams: {
+        away: { id: game.away.team.id, name: game.away.team.name, abbreviation: game.away.team.abbreviation, link: `/api/v1/teams/${game.away.team.id}` },
+        home: { id: game.home.team.id, name: game.home.team.name, abbreviation: game.home.team.abbreviation, link: `/api/v1/teams/${game.home.team.id}` },
+      },
+      players: feedPlayers,
+      probablePitchers: {
+        away: { id: game.away.probable.id, fullName: game.away.probable.fullName, link: `/api/v1/people/${game.away.probable.id}` },
+        home: { id: game.home.probable.id, fullName: game.home.probable.fullName, link: `/api/v1/people/${game.home.probable.id}` },
+      },
+      gameInfo: { attendance: 0, firstPitch: "", gameDurationMinutes: 0, delayDurationMinutes: 0 },
+      flags: { noHitter: false, perfectGame: false, awayTeamNoHitter: false, homeTeamNoHitter: false },
+      alerts: [],
+      review: { hasChallenges: false, away: { used: 0, remaining: 1 }, home: { used: 0, remaining: 1 } },
+      absChallenges: { hasChallenges: false, away: { used: 0, remaining: 2 }, home: { used: 0, remaining: 2 } },
+      moundVisits: { away: { used: 0, remaining: 5 }, home: { used: 0, remaining: 5 } },
+      officialVenue: { id: game.venueId, name: game.venue, link: `/api/v1/venues/${game.venueId}` },
+      weather: { condition: "Clear", temp: "72", wind: "5 mph, L To R" },
+    },
+    liveData: {
+      plays: { allPlays: [], currentPlay: {}, scoringPlays: [], playsByInning: [] },
+      linescore: { currentInning: 1, currentInningOrdinal: "1st", inningState: "Top", isTopInning: true, scheduledInnings: 9, innings: [], teams: { away: {}, home: {} } },
+      boxscore: {
+        teams: { away: boxSide(game.away), home: boxSide(game.home) },
+        officials: [
+          { official: { id: 427044, fullName: "Alan Porter", link: "/api/v1/people/427044" }, officialType: "Home Plate" },
+          { official: { id: 427045, fullName: "Mark Carlson", link: "/api/v1/people/427045" }, officialType: "First Base" },
+        ],
+        info: [
+          { label: "Balls", value: "0" },
+          { label: "Strikes", value: "0" },
+          { label: "Weather", value: "72 degrees, Clear." },
+          { label: "Wind", value: "5 mph, L To R." },
+          { label: "First pitch", value: "Scheduled." },
+        ],
+        pitchingNotes: [],
+      },
+      decisions: {},
+      leaders: { hitDistance: [], hitSpeed: [], pitchSpeed: [], exitVelocity: [] },
+    },
+  });
+}
+
 /** Schedule response body (`getSchedule`, `getGameTeams`). */
 export function scheduleBody(games: BenchGame[], date: string): string {
   const raw = games.map((game) => ({
