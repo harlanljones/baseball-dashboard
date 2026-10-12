@@ -13,8 +13,6 @@ export const MARKET_LABELS: Record<PropMarketKey, string> = {
   batter_hits: "Hits",
   batter_total_bases: "Total bases",
   batter_home_runs: "Home runs",
-  batter_rbis: "RBIs",
-  batter_walks: "Walks",
 };
 
 /**

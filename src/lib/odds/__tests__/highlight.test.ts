@@ -164,8 +164,6 @@ describe("scoreProp — batter markets", () => {
     hitsPerGame: 1.0,
     totalBasesPerGame: 1.6,
     hrPerGame: 0.345,
-    rbiPerGame: 0.6,
-    bbPerGame: 0.4,
     games: 100,
   };
 
@@ -208,8 +206,6 @@ describe("scoreProp — weather nudge", () => {
     hitsPerGame: 1.0,
     totalBasesPerGame: 1.6,
     hrPerGame: 0.345, // vs line 0.3 -> ratio 1.15 -> lean-over baseline
-    rbiPerGame: 0.6,
-    bbPerGame: 0.4,
     games: 100,
   };
 
@@ -341,8 +337,6 @@ describe("scoreProp — evidence", () => {
     hitsPerGame: 1.0,
     totalBasesPerGame: 1.6,
     hrPerGame: 0.345,
-    rbiPerGame: 0.6,
-    bbPerGame: 0.4,
     games: 100,
   };
 

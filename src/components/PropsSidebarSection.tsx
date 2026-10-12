@@ -232,8 +232,6 @@ export async function loadPropGroups({
           hitsPerGame: h.h / h.games,
           totalBasesPerGame: h.totalBases / h.games,
           hrPerGame: h.hr / h.games,
-          rbiPerGame: h.rbi / h.games,
-          bbPerGame: h.bb / h.games,
           games: h.games,
         };
       }

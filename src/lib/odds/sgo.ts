@@ -66,7 +66,13 @@ const BOOK_ORDER: Record<string, number> = Object.fromEntries(
 /**
  * Our tracked prop markets mapped to SportsGameOdds statIDs (verified
  * against their published MLB market catalog — note the inconsistent
- * casing: `batting_RBI`, `batting_totalBases`, `batting_basesOnBalls`).
+ * casing: `batting_totalBases` versus `batting_hits`).
+ *
+ * Walks and RBIs are deliberately absent. A product decision, measured in
+ * `bench/`: each market is roughly 7% of a cold cycle's work, and those two
+ * fit a season-average model worst — an RBI depends on teammates reaching
+ * base, and a walk line is usually 0.5, so the evidence has least to say
+ * about them.
  */
 const MARKET_STAT_IDS: Record<PropMarketKey, string> = {
   pitcher_strikeouts: "pitching_strikeouts",
@@ -74,8 +80,6 @@ const MARKET_STAT_IDS: Record<PropMarketKey, string> = {
   batter_hits: "batting_hits",
   batter_total_bases: "batting_totalBases",
   batter_home_runs: "batting_homeRuns",
-  batter_rbis: "batting_RBI",
-  batter_walks: "batting_basesOnBalls",
 };
 
 const STAT_ID_TO_MARKET: Record<string, PropMarketKey> = Object.fromEntries(

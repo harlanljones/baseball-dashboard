@@ -75,7 +75,7 @@ subscription.
 - Authentication: server-only `SPORTSGAMEODDS_API_KEY` sent as an `x-api-key`
   header, so the key never appears in cached or logged URLs.
 - Used for the primary player-prop board: pre-game MLB props for strikeouts,
-  outs recorded, hits, total bases, home runs, RBIs, and walks, priced at
+  outs recorded, hits, total bases, and home runs, priced at
   FanDuel first, then DraftKings, BetMGM, then any other available book.
 - Cache TTL: 6 hours.
 

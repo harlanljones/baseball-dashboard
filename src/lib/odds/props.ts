@@ -13,8 +13,6 @@ const PROP_MARKETS: PropMarketKey[] = [
   "batter_hits",
   "batter_total_bases",
   "batter_home_runs",
-  "batter_rbis",
-  "batter_walks",
 ];
 
 interface RawOutcome {

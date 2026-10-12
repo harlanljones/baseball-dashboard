@@ -29,8 +29,6 @@ export interface BatterStatContext {
   hitsPerGame: number;
   totalBasesPerGame: number;
   hrPerGame: number;
-  rbiPerGame: number;
-  bbPerGame: number;
   games: number;
 }
 
@@ -119,10 +117,6 @@ function seasonAvgFor(marketKey: PropMarketKey, stats: StatContext): number | nu
       return stats.totalBasesPerGame;
     case "batter_home_runs":
       return stats.hrPerGame;
-    case "batter_rbis":
-      return stats.rbiPerGame;
-    case "batter_walks":
-      return stats.bbPerGame;
     default:
       return null;
   }

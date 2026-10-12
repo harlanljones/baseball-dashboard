@@ -389,10 +389,8 @@ export function propLineFor(id: number, market: PropMarketKey, salt: number): nu
     batter_hits: c.h / c.games,
     batter_total_bases: c.totalBases / c.games,
     batter_home_runs: c.hr / c.games,
-    batter_rbis: c.rbi / c.games,
-    batter_walks: c.bb / c.games,
   };
-  const max = market === "batter_total_bases" ? 3.5 : market === "batter_walks" ? 1.5 : 1.5;
+  const max = market === "batter_total_bases" ? 3.5 : 1.5;
   const min = market === "batter_home_runs" ? 0.5 : 0.5;
   return halfLine(perGame[market] / factor, min, max);
 }
@@ -404,9 +402,7 @@ export type PropMarketKey =
   | "pitcher_outs"
   | "batter_hits"
   | "batter_total_bases"
-  | "batter_home_runs"
-  | "batter_rbis"
-  | "batter_walks";
+  | "batter_home_runs";
 
 export const MARKETS: readonly PropMarketKey[] = [
   "pitcher_strikeouts",
@@ -414,8 +410,6 @@ export const MARKETS: readonly PropMarketKey[] = [
   "batter_hits",
   "batter_total_bases",
   "batter_home_runs",
-  "batter_rbis",
-  "batter_walks",
 ];
 
 export const STAT_ID_BY_MARKET: Record<PropMarketKey, string> = {
@@ -424,16 +418,12 @@ export const STAT_ID_BY_MARKET: Record<PropMarketKey, string> = {
   batter_hits: "batting_hits",
   batter_total_bases: "batting_totalBases",
   batter_home_runs: "batting_homeRuns",
-  batter_rbis: "batting_RBI",
-  batter_walks: "batting_basesOnBalls",
 };
 
 export const BATTER_MARKETS: readonly PropMarketKey[] = [
   "batter_hits",
   "batter_total_bases",
   "batter_home_runs",
-  "batter_rbis",
-  "batter_walks",
 ];
 export const PITCHER_MARKETS: readonly PropMarketKey[] = [
   "pitcher_strikeouts",
