@@ -70,6 +70,7 @@ export const PITCHERS_PER_TEAM = 13;
 export const PROP_HITTERS_PER_TEAM = 10;
 export const PROP_PITCHERS_PER_TEAM = 1;
 /** Sportsbooks quoting each prop line. */
+/** Books quoting each market (see BOOK_NAMES). */
 export const BOOKS = 12;
 
 const FIRST_NAMES = [
@@ -424,7 +425,25 @@ export function sgoPlayerId(fullName: string): string {
     .replace(/^_+|_+$/g, "")}_1_MLB`;
 }
 
-export const BOOK_NAMES = ["fanduel", "draftkings", "betmgm", "caesars", "pointsbet", "betrivers", "espnbet", "fanatics"];
+/**
+ * The books the fixture quotes each market from — the provider's real MLB prop
+ * book universe, trimmed to the majors. `bookmakerID` requests are served from
+ * this set, so narrowing a request shrinks the payload exactly as upstream does.
+ */
+export const BOOK_NAMES = [
+  "fanduel",
+  "draftkings",
+  "betmgm",
+  "caesars",
+  "bet365",
+  "espnbet",
+  "fanatics",
+  "pointsbet",
+  "betrivers",
+  "hardrock",
+  "tipico",
+  "wynnbet",
+];
 
 export interface SgoBookLine {
   odds?: string;

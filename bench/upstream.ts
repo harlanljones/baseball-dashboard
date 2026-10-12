@@ -29,6 +29,7 @@ import {
   scheduleBody,
   sgoEvent,
   type BenchSide,
+  type SgoBookLine,
   type SgoOddFixture,
 } from "./fixture";
 
@@ -107,14 +108,18 @@ function sgoBoardBody(url: URL): string {
   const cursor = Number(url.searchParams.get("cursor") ?? 0) || 0;
   const eventIDs = url.searchParams.get("eventIDs");
   const oddIDs = url.searchParams.get("oddIDs");
+  const bookmakerIDs = url.searchParams.get("bookmakerID") ?? url.searchParams.get("bookmakerIDs");
   // The assembled page is cached by request shape: joining 2 MB of per-event
   // strings is the fixture's own work, and counting it as application time
   // would dilute everything the benchmark is meant to measure.
-  const pageKey = `sgo:${cursor}:${limit}:${eventIDs ?? ""}:${oddIDs ?? ""}`;
+  const pageKey = `sgo:${cursor}:${limit}:${eventIDs ?? ""}:${oddIDs ?? ""}:${bookmakerIDs ?? ""}`;
   const cachedPage = memo.get(pageKey);
   if (cachedPage != null) return cachedPage;
 
   const requested = allRequestedStatIds(oddIDs);
+  // `bookmakerID` shapes the response: only the named books come back, which is
+  // the provider's documented way to keep an odds request small.
+  const books = bookmakerIDs ? new Set(bookmakerIDs.split(",").map((book) => book.trim())) : null;
   const wanted = new Set<number>();
   if (eventIDs) {
     for (const id of eventIDs.split(",")) {
@@ -124,7 +129,7 @@ function sgoBoardBody(url: URL): string {
   }
 
   const everyStatId = Object.values(STAT_ID_BY_MARKET);
-  const unfiltered = requested == null || everyStatId.every((statId) => requested.has(statId));
+  const unfiltered = (requested == null || everyStatId.every((statId) => requested.has(statId))) && books == null;
   const selected: string[] = [];
   for (let i = cursor; i < Math.min(GAMES.length, cursor + limit); i += 1) {
     const game = GAMES[i];
@@ -133,13 +138,14 @@ function sgoBoardBody(url: URL): string {
       selected.push(EVENT_STRINGS[i]);
       continue;
     }
-    const key = `ev:${i}:${[...(requested ?? [])].sort().join("|")}`;
+    const key = `ev:${i}:${[...(requested ?? [])].sort().join("|")}:${bookmakerIDs ?? ""}`;
     let body = memo.get(key);
     if (body == null) {
       const event = EVENT_OBJECTS[i];
       const odds: Record<string, SgoOddFixture> = {};
       for (const [oddID, odd] of Object.entries(event.odds)) {
-        if (odd.statID && requested?.has(odd.statID)) odds[oddID] = odd;
+        if (odd.statID && requested && !requested.has(odd.statID)) continue;
+        odds[oddID] = books ? { ...odd, byBookmaker: pickBooks(odd.byBookmaker, books) } : odd;
       }
       body = JSON.stringify({ ...event, odds });
       memo.set(key, body);
@@ -151,6 +157,18 @@ function sgoBoardBody(url: URL): string {
   const page = `{"success":true,"data":[${selected.join(",")}],"nextCursor":${next === null ? "null" : JSON.stringify(next)}}`;
   memo.set(pageKey, page);
   return page;
+}
+
+/** The named books' lines for one odd, in provider order. */
+function pickBooks(
+  byBookmaker: Record<string, SgoBookLine> | undefined,
+  books: Set<string>,
+): Record<string, SgoBookLine> {
+  const picked: Record<string, SgoBookLine> = {};
+  for (const [book, line] of Object.entries(byBookmaker ?? {})) {
+    if (books.has(book)) picked[book] = line;
+  }
+  return picked;
 }
 
 function memoized(key: string, build: () => string): string {
