@@ -276,7 +276,12 @@ function mlbBody(url: URL): string {
       return game ? scheduleBody([game], BENCH_DATE) : JSON.stringify({ dates: [] });
     }
     const date = url.searchParams.get("date") ?? BENCH_DATE;
-    return date === BENCH_DATE ? SCHEDULE_BODY : memoized(`sched:${date}`, () => JSON.stringify({ dates: [] }));
+    const fields = url.searchParams.get("fields");
+    return memoized(`sched:${date}:${fields ?? ""}`, () => {
+      const body = date === BENCH_DATE ? SCHEDULE_BODY : JSON.stringify({ dates: [] });
+      if (!fields) return body;
+      return JSON.stringify(pruneFields(JSON.parse(body), fieldSet(fields)));
+    });
   }
 
   const roster = /^\/api\/v1\/teams\/(\d+)\/roster$/.exec(path);

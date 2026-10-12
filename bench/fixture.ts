@@ -756,28 +756,116 @@ export function liveFeedBody(game: BenchGame): string {
 }
 
 /** Schedule response body (`getSchedule`, `getGameTeams`). */
-export function scheduleBody(games: BenchGame[], date: string): string {
-  const raw = games.map((game) => ({
+/**
+ * The `team` hydrate's bulk: a real schedule response drags a full team record
+ * into every game (measured: 6.7 KB per game against ~2 KB without it), which
+ * the reader ignores apart from id/name/abbreviation.
+ */
+function teamEnvelope(team: BenchTeam): Record<string, unknown> {
+  return {
+    id: team.id,
+    name: team.name,
+    link: `/api/v1/teams/${team.id}`,
+    season: BENCH_SEASON,
+    venue: { id: team.venueId, name: team.venue, link: `/api/v1/venues/${team.venueId}` },
+    springVenue: { id: 2529, link: "/api/v1/venues/2529" },
+    teamCode: team.abbreviation.toLowerCase(),
+    fileCode: team.abbreviation.toLowerCase(),
+    abbreviation: team.abbreviation,
+    teamName: team.name.split(" ").slice(-1)[0],
+    locationName: team.city,
+    firstYearOfPlay: "1901",
+    league: { id: 103, name: "American League", link: "/api/v1/league/103" },
+    division: { id: 201, name: "American League East", link: "/api/v1/divisions/201" },
+    sport: { id: 1, name: "Major League Baseball", link: "/api/v1/sports/1" },
+    shortName: team.name,
+    franchiseName: team.name,
+    clubName: team.name,
+    active: true,
+    parentOrgName: "",
+    parentOrgId: 0,
+    springLeague: { id: 114, name: "Cactus League", link: "/api/v1/league/114", abbreviation: "CL" },
+    allStarStatus: "N",
+  };
+}
+
+function scheduleGame(game: BenchGame, date: string): Record<string, unknown> {
+  return {
     gamePk: game.gamePk,
+    link: `/api/v1.1/game/${game.gamePk}/feed/live`,
+    gameType: "R",
+    season: String(BENCH_SEASON),
     gameDate: game.startTimeISO,
     officialDate: date,
-    gameType: "R",
-    status: { abstractGameState: "Preview", detailedState: "Scheduled" },
-    venue: { id: game.venueId, name: game.venue, location: { city: game.city } },
+    status: {
+      abstractGameState: "Preview",
+      codedGameState: "S",
+      detailedState: "Scheduled",
+      statusCode: "S",
+      startTimeTBD: false,
+      abstractGameCode: "P",
+    },
     teams: {
       away: {
-        team: { id: game.away.team.id, name: game.away.team.name, abbreviation: game.away.team.abbreviation },
+        team: teamEnvelope(game.away.team),
         leagueRecord: { wins: 48, losses: 42, pct: ".533" },
-        probablePitcher: { id: game.away.probable.id, fullName: game.away.probable.fullName },
+        probablePitcher: {
+          id: game.away.probable.id,
+          fullName: game.away.probable.fullName,
+          link: `/api/v1/people/${game.away.probable.id}`,
+        },
       },
       home: {
-        team: { id: game.home.team.id, name: game.home.team.name, abbreviation: game.home.team.abbreviation },
+        team: teamEnvelope(game.home.team),
         leagueRecord: { wins: 51, losses: 39, pct: ".567" },
-        probablePitcher: { id: game.home.probable.id, fullName: game.home.probable.fullName },
+        probablePitcher: {
+          id: game.home.probable.id,
+          fullName: game.home.probable.fullName,
+          link: `/api/v1/people/${game.home.probable.id}`,
+        },
       },
     },
-  }));
-  return JSON.stringify({ dates: [{ date, totalGames: raw.length, games: raw }] });
+    venue: {
+      id: game.venueId,
+      name: game.venue,
+      link: `/api/v1/venues/${game.venueId}`,
+      location: { city: game.city, state: "", country: "USA" },
+      timeZone: { id: "America/New_York", offset: -4, tz: "EDT" },
+      fieldInfo: { capacity: 40000, turfType: "Grass", roofType: "Open", leftLine: 330, center: 400, rightLine: 330 },
+    },
+    content: { link: `/api/v1/game/${game.gamePk}/content` },
+    isTie: false,
+    gameNumber: 1,
+    publicFacing: true,
+    doubleHeader: "N",
+    gamedayType: "P",
+    tiebreaker: "N",
+    calendarEventID: `14-${game.gamePk}-2026`,
+    seasonDisplay: "2026",
+    dayNight: "night",
+    scheduledInnings: 9,
+    gamesInSeries: 3,
+    seriesGameNumber: 1,
+    seriesDescription: "Regular Season",
+    recordSource: "unknown",
+    ifNecessary: "N",
+    ifNecessaryDescription: "Normal Game",
+    description: "Preview",
+    linescore: { scheduledInnings: 9, currentInning: 1, currentInningOrdinal: "1st", inningState: "Top", isTopInning: true, innings: [], teams: { away: {}, home: {} } },
+    decisions: {},
+  };
+}
+
+export function scheduleBody(games: BenchGame[], date: string): string {
+  const raw = games.map((game) => scheduleGame(game, date));
+  return JSON.stringify({
+    copyright: "Copyright 2026 MLB Advanced Media, L.P.",
+    totalItems: raw.length,
+    totalEvents: 0,
+    totalGames: raw.length,
+    totalGamesInProgress: 0,
+    dates: [{ date, totalItems: raw.length, totalEvents: 0, totalGames: raw.length, totalGamesInProgress: 0, games: raw }],
+  });
 }
 
 /**
