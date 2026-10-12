@@ -93,7 +93,7 @@ describe("findSgoEvent", () => {
     expect(fetchSpy).not.toHaveBeenCalled();
   });
 
-  it("requests only MLB pre-game events for the tracked markets with header auth", async () => {
+  it("requests only MLB pre-game events for the tracked markets and books, shaped, with header auth", async () => {
     vi.stubEnv("SPORTSGAMEODDS_API_KEY", "secret-key");
     const fetchSpy = vi.fn().mockResolvedValue({ ok: true, status: 200, json: async () => ({ success: true, data: [] }) });
     vi.stubGlobal("fetch", fetchSpy);
@@ -109,6 +109,13 @@ describe("findSgoEvent", () => {
     expect(parsed.searchParams.get("started")).toBe("false");
     expect(parsed.searchParams.get("oddIDs")).toContain("pitching_strikeouts-PLAYER_ID-game-ou-over");
     expect(parsed.searchParams.get("oddIDs")).toContain("batting_RBI-PLAYER_ID-game-ou-under");
+    expect(parsed.searchParams.get("bookmakerID")).toContain("fanduel");
+    // Response shaping, measured in bench/ as 30% of a cold cycle: each book
+    // block declares thirteen fields and this reader touches three, six of them
+    // governed by includeOpenCloseOdds. Alt lines are read nowhere either, and
+    // oddID filtering alone leaves their inclusion to the provider's default.
+    expect(parsed.searchParams.get("includeAltLines")).toBe("false");
+    expect(parsed.searchParams.get("includeOpenCloseOdds")).toBe("false");
     expect(url).not.toContain("secret-key");
     expect((init.headers as Record<string, string>)["x-api-key"]).toBe("secret-key");
   });
