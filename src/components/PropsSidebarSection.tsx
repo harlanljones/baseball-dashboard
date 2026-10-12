@@ -9,7 +9,7 @@ import type {
 } from "@/lib/mlb/types";
 import type { GameWeather } from "@/lib/weather/types";
 import { getGamePlayerProps } from "@/lib/odds/props";
-import { matchPlayerName } from "@/lib/odds/playerMatch";
+import { indexByNormalizedName, normalizePlayerName } from "@/lib/odds/playerMatch";
 import { matchupEvidence, scoreProp, type MatchupContext, type StatContext } from "@/lib/odds/highlight";
 import type { PlayerProp, ScoredProp } from "@/lib/odds/types";
 import { easternDateOf } from "@/lib/mlb/client";
@@ -27,15 +27,6 @@ import { safe } from "@/lib/safe";
 interface RosterEntry {
   player: PlayerRef;
   team: TeamRef;
-}
-
-function findEntry(name: string, entries: RosterEntry[]): RosterEntry | null {
-  const matched = matchPlayerName(
-    name,
-    entries.map((e) => e.player),
-  );
-  if (!matched) return null;
-  return entries.find((e) => e.player.id === matched.id) ?? null;
 }
 
 /** Per-player matchup evidence for one game; see {@link loadPropGroups}. */
@@ -141,11 +132,16 @@ export async function loadPropGroups({
     ...(homeRoster ?? []).map((r) => ({ player: r.player, team: game.home })),
   ];
 
+  // One index per roster, so resolving a board's worth of provider names costs
+  // one normalization per name instead of one per name per roster entry.
+  const pitcherIndex = indexByNormalizedName(pitcherEntries, (entry) => entry.player.fullName);
+  const batterIndex = indexByNormalizedName(batterEntries, (entry) => entry.player.fullName);
+
   const matched: { prop: PlayerProp; entry: RosterEntry; isPitcher: boolean }[] = [];
   for (const prop of props) {
     const isPitcher =
       prop.marketKey === "pitcher_strikeouts" || prop.marketKey === "pitcher_outs";
-    const entry = findEntry(prop.playerName, isPitcher ? pitcherEntries : batterEntries);
+    const entry = (isPitcher ? pitcherIndex : batterIndex).get(normalizePlayerName(prop.playerName));
     if (entry) matched.push({ prop, entry, isPitcher });
   }
 

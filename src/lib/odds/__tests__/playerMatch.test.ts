@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { normalizePlayerName, matchPlayerName } from "../playerMatch";
+import { indexByNormalizedName, normalizePlayerName } from "../playerMatch";
 import type { PlayerRef } from "@/lib/mlb/types";
 
 describe("normalizePlayerName", () => {
@@ -29,26 +29,42 @@ describe("normalizePlayerName", () => {
   });
 });
 
-describe("matchPlayerName", () => {
+describe("indexByNormalizedName", () => {
   const roster: PlayerRef[] = [
     { id: 1, fullName: "Ronald Acuna Jr." },
     { id: 2, fullName: "JD Martinez" },
     { id: 3, fullName: "Aaron Judge" },
   ];
+  const byName = indexByNormalizedName(roster, (player) => player.fullName);
 
   it("matches an exact normalized name", () => {
-    expect(matchPlayerName("Aaron Judge", roster)).toEqual(roster[2]);
+    expect(byName.get(normalizePlayerName("Aaron Judge"))).toEqual(roster[2]);
   });
 
   it("matches across accent and suffix differences", () => {
-    expect(matchPlayerName("Ronald Acuña Jr.", roster)).toEqual(roster[0]);
+    expect(byName.get(normalizePlayerName("Ronald Acuña Jr."))).toEqual(roster[0]);
   });
 
   it("matches across initial-punctuation differences", () => {
-    expect(matchPlayerName("J.D. Martinez", roster)).toEqual(roster[1]);
+    expect(byName.get(normalizePlayerName("J.D. Martinez"))).toEqual(roster[1]);
   });
 
-  it("returns null when no roster entry matches", () => {
-    expect(matchPlayerName("Mike Trout", roster)).toBeNull();
+  it("leaves a name that no roster entry normalizes to unattributed", () => {
+    expect(byName.get(normalizePlayerName("Mike Trout"))).toBeUndefined();
+  });
+
+  it("keeps the first entry when two roster entries normalize to one name", () => {
+    const duplicated: PlayerRef[] = [
+      { id: 7, fullName: "J.D. Martinez" },
+      { id: 8, fullName: "JD Martinez" },
+    ];
+    const index = indexByNormalizedName(duplicated, (player) => player.fullName);
+    expect(index.get("jd martinez")).toEqual(duplicated[0]);
+  });
+
+  it("keys on whichever field holds the name", () => {
+    const entries = [{ player: roster[2], team: { id: 147, name: "New York Yankees" } }];
+    const index = indexByNormalizedName(entries, (entry) => entry.player.fullName);
+    expect(index.get("aaron judge")).toEqual(entries[0]);
   });
 });

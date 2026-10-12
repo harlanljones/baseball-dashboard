@@ -1,5 +1,3 @@
-import type { PlayerRef } from "@/lib/mlb/types";
-
 /**
  * Normalizes a player name for cross-source matching: strips accents,
  * periods (so "J.D." and "JD" agree), hyphens (treated as a space so
@@ -20,14 +18,25 @@ export function normalizePlayerName(name: string): string {
 }
 
 /**
- * Finds the roster entry whose name normalizes to the same string as
- * `oddsName`. No fuzzy/Levenshtein matching — an unmatched name returns
- * `null` rather than risking a wrong player attribution.
+ * Normalized-name index over a list of records, keyed by whichever field holds
+ * the player's name.
+ *
+ * A prop board posts hundreds of names that all resolve against the same
+ * roster, and a scan per name re-runs the normalization pipeline above against
+ * every roster entry for every prop. Indexing once turns each lookup into a
+ * single normalization of the incoming name plus a map hit.
+ *
+ * The first record with a given normalized name wins, which is the attribution
+ * a first-match scan produces, so a roster holding two spellings of one name
+ * resolves identically either way. Unmatched names are simply absent — no
+ * fuzzy matching, so a name that normalizes differently stays unattributed
+ * rather than being attached to the wrong player.
  */
-export function matchPlayerName(
-  oddsName: string,
-  roster: PlayerRef[],
-): PlayerRef | null {
-  const target = normalizePlayerName(oddsName);
-  return roster.find((p) => normalizePlayerName(p.fullName) === target) ?? null;
+export function indexByNormalizedName<T>(items: T[], nameOf: (item: T) => string): Map<string, T> {
+  const byName = new Map<string, T>();
+  for (const item of items) {
+    const key = normalizePlayerName(nameOf(item));
+    if (!byName.has(key)) byName.set(key, item);
+  }
+  return byName;
 }
