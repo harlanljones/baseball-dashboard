@@ -1,9 +1,10 @@
 import { daysBetween } from "@/lib/dates";
+import { dateFormatter } from "@/lib/formatters";
 import { prettyDate } from "@/lib/format";
 import type { OpeningDay } from "@/lib/mlb/types";
 
 function shortDate(date: string): string {
-  return new Intl.DateTimeFormat("en-US", {
+  return dateFormatter("en-US", {
     timeZone: "UTC",
     month: "short",
     day: "numeric",

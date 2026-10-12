@@ -1,5 +1,6 @@
 import Link from "next/link";
 import TeamLogo from "./TeamLogo";
+import { dateFormatter } from "@/lib/formatters";
 import type {
   HeadToHead as HeadToHeadData,
   PostseasonSeries,
@@ -36,7 +37,7 @@ function postseasonSummary(
 }
 
 function formatDate(iso: string): string {
-  return new Intl.DateTimeFormat("en-US", {
+  return dateFormatter("en-US", {
     timeZone: "America/New_York",
     month: "short",
     day: "numeric",
