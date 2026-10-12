@@ -1,10 +1,30 @@
 /**
+ * Memo for {@link normalizePlayerName}. A board repeats each player's name
+ * across every market and side it posts, so the same string is normalized ten
+ * or more times per player while matching a single game. The pipeline is pure,
+ * so caching it changes nothing but the work; the map is cleared wholesale past
+ * a bound rather than evicted per entry, so a provider posting unbounded names
+ * cannot grow it without limit.
+ */
+const NORMALIZED = new Map<string, string>();
+const NORMALIZED_LIMIT = 5000;
+
+/**
  * Normalizes a player name for cross-source matching: strips accents,
  * periods (so "J.D." and "JD" agree), hyphens (treated as a space so
  * "Jean-Segura" agrees with "Jean Segura"), and Jr./Sr./numeral suffixes,
  * then lowercases and collapses whitespace.
  */
 export function normalizePlayerName(name: string): string {
+  const cached = NORMALIZED.get(name);
+  if (cached !== undefined) return cached;
+  const normalized = normalizeUncached(name);
+  if (NORMALIZED.size >= NORMALIZED_LIMIT) NORMALIZED.clear();
+  NORMALIZED.set(name, normalized);
+  return normalized;
+}
+
+function normalizeUncached(name: string): string {
   return name
     .normalize("NFD")
     .replace(/[̀-ͯ]/g, "") // strip combining accent marks
