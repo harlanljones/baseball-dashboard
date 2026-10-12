@@ -1169,7 +1169,7 @@ export function rosterBody(side: BenchSide, season: number, hydrate: boolean): s
                 type: { displayName: "season" },
                 group: { displayName: "hitting" },
                 exemptions: [],
-                splits: [splitEnvelope(player.id, season, seasonHittingStat({ ...counts, pa }))],
+                splits: [splitEnvelope(season, seasonHittingStat({ ...counts, pa }))],
               },
             ]
           : [],
@@ -1191,7 +1191,7 @@ export function rosterBody(side: BenchSide, season: number, hydrate: boolean): s
                 type: { displayName: "season" },
                 group: { displayName: "pitching" },
                 exemptions: [],
-                splits: [splitEnvelope(player.id, season, seasonPitchingStat(counts))],
+                splits: [splitEnvelope(season, seasonPitchingStat(counts))],
               },
             ]
           : [],
@@ -1388,14 +1388,16 @@ function gameLogSplits(id: number, season: number): { date: string; stat: Record
  * team, league, sport, game type). The readers take `splits[0].stat`; the rest
  * is the bulk a real response pays for.
  */
-function splitEnvelope(id: number, season: number, stat: Record<string, unknown>): Record<string, unknown> {
+/**
+ * One split. The API returns `season`, `stat`, `gameType` and `isHome` for a
+ * hydrated stat group; it does *not* embed team, player, league and sport
+ * objects, which an earlier version of this fixture carried and the local prune
+ * model then kept. Nothing reads them.
+ */
+function splitEnvelope(season: number, stat: Record<string, unknown>): Record<string, unknown> {
   return {
     season: String(season),
     stat,
-    team: { id: 147, name: "New York Yankees", link: "/api/v1/teams/147" },
-    player: { id, fullName: playerNameById(id), link: `/api/v1/people/${id}` },
-    league: { id: 103, name: "American League", link: "/api/v1/league/103" },
-    sport: { id: 1, name: "Major League Baseball", link: "/api/v1/sport/1" },
     gameType: "R",
     isHome: true,
   };
@@ -1421,7 +1423,7 @@ function personEnvelope(id: number, stats: unknown[]): Record<string, unknown> {
     height: `${5 + (id % 2)}' ${8 + (id % 4)}"`,
     weight: 180 + (id % 60),
     active: true,
-    primaryPosition: { code: "9", name: "Outfielder", type: "Outfielder", abbreviation: "OF" },
+
     useName: first,
     useLastName: last,
     middleName: "",
@@ -1492,7 +1494,7 @@ export function peopleBody(personIds: number[], hydrate: string): string {
             group: { displayName: group },
             exemptions: [],
             splits: [
-              splitEnvelope(id, season, group === "pitching" ? seasonPitchingStat(pitcherCounts(id)) : seasonHittingStat(hitterCounts(id))),
+              splitEnvelope(season, group === "pitching" ? seasonPitchingStat(pitcherCounts(id)) : seasonHittingStat(hitterCounts(id))),
             ],
           },
         ];
@@ -1502,7 +1504,7 @@ export function peopleBody(personIds: number[], hydrate: string): string {
           {
             type: { displayName: "sabermetrics" },
             group: { displayName: group },
-            splits: [splitEnvelope(id, season, sabermetricStat(id, group))],
+            splits: [splitEnvelope(season, sabermetricStat(id, group))],
           },
         ];
         break;
@@ -1512,10 +1514,7 @@ export function peopleBody(personIds: number[], hydrate: string): string {
             type: { displayName: "statSplits" },
             group: { displayName: group },
             splits: [
-              splitEnvelope(
-                id,
-                season,
-                group === "pitching"
+              splitEnvelope(season, group === "pitching"
                   ? splitPitchingStat(id, query.sitCodes === "h" ? 31 : 41)
                   : splitHittingStat(id, query.sitCodes === "vl" ? 51 : 61),
               ),
@@ -1535,8 +1534,8 @@ export function peopleBody(personIds: number[], hydrate: string): string {
             type: { displayName: "vsPlayer" },
             group: { displayName: "hitting" },
             splits: [
-              splitEnvelope(id, season, vsPlayerStat(id, pitcherId)),
-              splitEnvelope(id, season - 1, vsPlayerStat(id + 3, pitcherId)),
+              splitEnvelope(season, vsPlayerStat(id, pitcherId)),
+              splitEnvelope(season - 1, vsPlayerStat(id + 3, pitcherId)),
             ],
           },
         ];
