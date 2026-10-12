@@ -697,6 +697,12 @@ interface RawRosterResponse {
 export interface RosterHitter {
   player: PlayerRef;
   pa: number;
+  /**
+   * The same season hitting block the per-player lookups return, straight off
+   * the roster hydration. Prop scoring reads it directly, which is why the prop
+   * board needs no second request per batter.
+   */
+  season: SeasonHittingBasic | null;
 }
 
 /**
@@ -724,6 +730,7 @@ export async function getRosterWithSeasonStats(
     hitters.push({
       player: { id: entry.person.id, fullName: entry.person.fullName },
       pa: n(stat?.plateAppearances) ?? 0,
+      season: parseSeasonHitting(stat),
     });
   }
 
@@ -1037,9 +1044,18 @@ export async function getSeasonHittingBasic(
     { stats: "season", group: "hitting", season },
     TTL.playerStats,
   );
-  const stat = pickGroup(res, "season");
-  if (!stat) return null;
+  return parseSeasonHitting(pickGroup(res, "season"));
+}
 
+/**
+ * Maps one raw `season`/`hitting` stat block to the fields prop scoring reads.
+ * Shared by the per-player and batched lookups and by
+ * {@link getRosterWithSeasonStats}, whose roster hydration already carries the
+ * same block — that is what lets the prop board score batters without a second
+ * request per player.
+ */
+function parseSeasonHitting(stat?: Record<string, unknown>): SeasonHittingBasic | null {
+  if (!stat) return null;
   return {
     avg: s(stat.avg) ?? "-",
     obp: s(stat.obp) ?? "-",
@@ -1082,40 +1098,6 @@ export async function getPitcherPropStatsBatch(
       outsPerStart: gamesStarted > 0 ? (ip * 3) / gamesStarted : 0,
       ip,
       gamesStarted,
-    });
-  }
-  return byId;
-}
-
-/**
- * Batched {@link getSeasonHittingBasic}: one request for every prop batter.
- * Players without a season hitting record are omitted.
- */
-export async function getSeasonHittingBasicBatch(
-  personIds: number[],
-  season: number,
-): Promise<Map<number, SeasonHittingBasic>> {
-  if (personIds.length === 0) return new Map();
-  const statsById = await fetchPeopleStats(
-    personIds,
-    `stats(type=season,season=${season},group=hitting)`,
-  );
-
-  const byId = new Map<number, SeasonHittingBasic>();
-  for (const id of new Set(personIds)) {
-    const stat = pickGroup({ stats: statsById.get(id) ?? [] }, "season");
-    if (!stat) continue;
-    byId.set(id, {
-      avg: s(stat.avg) ?? "-",
-      obp: s(stat.obp) ?? "-",
-      slg: s(stat.slg) ?? "-",
-      h: n(stat.hits) ?? 0,
-      hr: n(stat.homeRuns) ?? 0,
-      rbi: n(stat.rbi) ?? 0,
-      bb: n(stat.baseOnBalls) ?? 0,
-      totalBases: n(stat.totalBases) ?? 0,
-      pa: n(stat.plateAppearances) ?? 0,
-      games: n(stat.gamesPlayed) ?? 0,
     });
   }
   return byId;

@@ -17,9 +17,9 @@ import { buildMatchups } from "@/lib/mlb/matchup";
 import {
   getRosterWithSeasonStats,
   getPitcherPropStatsBatch,
-  getSeasonHittingBasicBatch,
   getPitcherRecentFormBatch,
   getPitcherSituationalSplitBatch,
+  type SeasonHittingBasic,
 } from "@/lib/mlb/players";
 import type { PropGameContext, PropPlayerGroup, PropTeamGroup } from "@/lib/odds/board";
 import { safe } from "@/lib/safe";
@@ -96,22 +96,15 @@ export async function loadPropGroups({
   };
 
   // With a feed (the props page, where a reader is waiting) the lookups run
-  // alongside the odds, so the board's latency hides theirs. Batter stats then
-  // cover each whole roster rather than just the players with props (still one
-  // batched request per team), so they need not wait on the board either.
-  // Without a feed (the slate-wide leans) everything waits for the odds, so a
-  // game with no lines costs no MLB lookups at all. Every lookup is fail-soft,
-  // so an early return below leaves nothing to reject unobserved.
+  // alongside the odds, so the board's latency hides theirs. Without a feed
+  // (the slate-wide leans) everything waits for the odds, so a game with no
+  // lines costs no MLB lookups at all. Every lookup is fail-soft, so an early
+  // return below leaves nothing to reject unobserved.
+  //
+  // Batter scoring stats ride on the rosters themselves
+  // ({@link getRosterWithSeasonStats} hydrates each hitter's season line), so no
+  // separate per-player stats request is needed — for either caller.
   const early = feed ? startLookups() : null;
-  const earlyBatterStats = early?.rosters
-    .then((teams) =>
-      Promise.all(
-        teams.map((roster) =>
-          safe(getSeasonHittingBasicBatch((roster ?? []).map((r) => r.player.id), season)),
-        ),
-      ),
-    )
-    .then((maps) => new Map(maps.flatMap((m) => [...(m ?? [])])));
 
   const props =
     (await safe(
@@ -146,8 +139,14 @@ export async function loadPropGroups({
   }
 
   const batterIds = [...new Set(matched.filter((m) => !m.isPitcher).map((m) => m.entry.player.id))];
-  const batterStatsById = await (earlyBatterStats ??
-    safe(getSeasonHittingBasicBatch(batterIds, season)).then((m) => m ?? new Map()));
+  // Each matched batter's season line came down with the roster, so the board
+  // scores without a second request per player.
+  const batterStatsById = new Map<number, SeasonHittingBasic>();
+  for (const roster of [awayRoster, homeRoster]) {
+    for (const hitter of roster ?? []) {
+      if (hitter.season) batterStatsById.set(hitter.player.id, hitter.season);
+    }
+  }
   const matchups = evidence?.matchups ?? null;
   const pitcherRecentFormById = evidence?.pitcherRecentFormById ?? new Map<number, PitcherRecentForm>();
   const pitcherHomeAwayById = evidence?.pitcherHomeAwayById ?? new Map<number, PitcherSplitLine>();
