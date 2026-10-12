@@ -561,6 +561,8 @@ export const OPEN_CLOSE_FIELDS = [
 
 export interface SgoOddFixture {
   oddID?: string;
+  /** The other side's oddID, as the provider's `Odds` schema declares. */
+  opposingOddID?: string;
   statID?: string;
   statEntityID?: string;
   playerID?: string;
@@ -584,11 +586,11 @@ export interface SgoEventFixture {
   sportID: string;
   leagueID: string;
   type: string;
-  activity: string;
+  activity: { count: number; score: number };
   manual: boolean;
   aliases: string[];
-  info: Record<string, string>;
-  results: Record<string, string>;
+  info: { seasonWeek: string; venue: { name: string; countryName: string; countryCode: string; regionName: string; city: string } };
+  results: Record<string, Record<string, { points: number }>>;
   teams: { away: SgoTeamEnvelope; home: SgoTeamEnvelope };
   status: { startsAt: string; started: boolean; completed: boolean };
   odds: Record<string, SgoOddFixture>;
@@ -713,6 +715,7 @@ export function sgoEvent(game: BenchGame, withPlayers: boolean): SgoEventFixture
       }
       odds[oddID] = {
         oddID,
+        opposingOddID: `${statID}-${playerID}-game-ou-${sideID === "over" ? "under" : "over"}`,
         statID,
         statEntityID: "player",
         playerID,
@@ -746,6 +749,7 @@ export function sgoEvent(game: BenchGame, withPlayers: boolean): SgoEventFixture
       const oddID = `batting_hits-${playerID}-game-ou-${sideID}`;
       odds[oddID] = {
         oddID,
+        opposingOddID: `batting_hits-${playerID}-game-ou-${sideID === "over" ? "under" : "over"}`,
         statID: "batting_hits",
         statEntityID: "player",
         playerID,
@@ -767,13 +771,22 @@ export function sgoEvent(game: BenchGame, withPlayers: boolean): SgoEventFixture
     sportID: "BASEBALL",
     leagueID: "MLB",
     type: "match",
-    activity: "baseball",
+    activity: { count: 0, score: 0 },
     manual: false,
     aliases: [`${game.away.team.name} at ${game.home.team.name}`],
-    info: { venue: game.venue, city: game.city, dayNight: "night" },
-    // The provider returns a results object for every event; the reader ignores
-    // it, and `expandResults` only widens it.
-    results: { game: "0", period: "0" },
+    info: {
+      seasonWeek: "regular",
+      venue: {
+        name: game.venue,
+        countryName: "United States",
+        countryCode: "US",
+        regionName: game.city,
+        city: game.city,
+      },
+    },
+    // An upcoming game has nothing to report yet; the schema's shape is a map of
+    // stat denominators per period, and the reader ignores it either way.
+    results: {},
     teams: { away: sgoTeamEnvelope(game.away.team), home: sgoTeamEnvelope(game.home.team) },
     status: { startsAt: game.startTimeISO, started: false, completed: false },
     odds,
