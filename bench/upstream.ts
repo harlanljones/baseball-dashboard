@@ -447,6 +447,13 @@ function mlbBody(url: URL): string {
     });
   }
 
+  // A roster entry's own fields, and the stat group's name, survive the
+  // `fields` filter: the API narrows inside the hydrated person stats, not the
+  // entry envelope. The name-based local model would drop them and understate
+  // what the app parses.
+  const ROSTER_ENVELOPE_FIELDS = [
+    "roster", "jerseyNumber", "parentTeamId", "status", "code", "description", "displayName",
+  ];
   const roster = /^\/api\/v1\/teams\/(\d+)\/roster$/.exec(path);
   if (roster) {
     const teamId = Number(roster[1]);
@@ -460,7 +467,9 @@ function mlbBody(url: URL): string {
         ? ROSTER_BODIES.get(teamId) ?? JSON.stringify({ roster: [] })
         : rosterBody(side, BENCH_SEASON, false);
       if (!fields) return body;
-      return JSON.stringify(pruneFields(JSON.parse(body), fieldSet(fields)));
+      const allowed = fieldSet(fields);
+      for (const extra of ROSTER_ENVELOPE_FIELDS) allowed.add(extra);
+      return JSON.stringify(pruneFields(JSON.parse(body), allowed));
     });
   }
 

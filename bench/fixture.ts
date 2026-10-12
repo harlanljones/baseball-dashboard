@@ -1156,18 +1156,21 @@ export function seasonSeriesBody(
  * `getRosterWithSeasonStats` reads (it drops pitchers, sorts by PA).
  */
 export function rosterBody(side: BenchSide, season: number, hydrate: boolean): string {
+  // A roster entry's person carries id, fullName and the hydrated stats — not
+  // the feed's `batSide`/`pitchHand`, and not a `group` beside `type`. The
+  // entry itself has no `status` and its position has no `code`.
+  const rosterPerson = (id: number, stats: unknown[]) => ({ id, fullName: playerNameById(id), stats });
   const entries: unknown[] = [];
   side.hitters.forEach((player, i) => {
     const counts = hitterCounts(player.id);
     const pa = 520 - i * 37 - (side.team.id % 3) * 11;
     entries.push({
-      person: personEnvelope(
+      person: rosterPerson(
         player.id,
         hydrate
           ? [
               {
                 type: { displayName: "season" },
-                group: { displayName: "hitting" },
                 exemptions: [],
                 splits: [splitEnvelope(season, seasonHittingStat({ ...counts, pa }))],
               },
@@ -1175,21 +1178,19 @@ export function rosterBody(side: BenchSide, season: number, hydrate: boolean): s
           : [],
       ),
       jerseyNumber: String(i + 1),
-      position: { code: "9", name: "Outfielder", type: "Outfielder", abbreviation: "OF" },
-      status: { code: "A", description: "Active" },
+      position: { name: "Outfielder", type: "Outfielder", abbreviation: "OF" },
       parentTeamId: side.team.id,
     });
   });
   side.pitchers.forEach((player, i) => {
     const counts = pitcherCounts(player.id);
     entries.push({
-      person: personEnvelope(
+      person: rosterPerson(
         player.id,
         hydrate
           ? [
               {
                 type: { displayName: "season" },
-                group: { displayName: "pitching" },
                 exemptions: [],
                 splits: [splitEnvelope(season, seasonPitchingStat(counts))],
               },
@@ -1197,8 +1198,7 @@ export function rosterBody(side: BenchSide, season: number, hydrate: boolean): s
           : [],
       ),
       jerseyNumber: String(i + 30),
-      position: { code: "1", name: "Pitcher", type: "Pitcher", abbreviation: i === 0 ? "SP" : "RP" },
-      status: { code: "A", description: "Active" },
+      position: { name: "Pitcher", type: "Pitcher", abbreviation: i === 0 ? "SP" : "RP" },
       parentTeamId: side.team.id,
       role: { code: i === 0 ? "SP" : "RP", name: i === 0 ? "Starter" : "Relief" },
     });
