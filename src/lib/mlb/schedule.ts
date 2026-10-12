@@ -21,7 +21,7 @@ import type {
  * {@link getSchedule}, {@link getGameTeams} and {@link getHeadToHead}: identical
  * for each. Add a name whenever a reader starts reading a new field.
  */
-const SCHEDULE_FIELDS = [
+export const SCHEDULE_FIELDS = [
   "dates", "date", "totalGames", "games", "gamePk", "gameDate", "officialDate",
   "gameType", "status", "abstractGameState", "detailedState", "teams", "away",
   "home", "team", "id", "name", "abbreviation", "score", "isWinner",

@@ -1,5 +1,5 @@
 import { easternDateOf, MlbApiError, mlbFetch, shiftDate, TTL } from "./client";
-import { isPostseason, POSTSEASON_GAME_TYPES } from "./schedule";
+import { isPostseason, POSTSEASON_GAME_TYPES, SCHEDULE_FIELDS } from "./schedule";
 import type {
   PitcherRecentForm,
   PitcherSplitLine,
@@ -859,6 +859,18 @@ interface RawBoxscore {
 }
 
 /**
+ * `fields` filter for a boxscore read. Only the pitch counts matter here, and a
+ * real boxscore measures 179,395 bytes against 12,468 for the same game
+ * narrowed — the reader takes a pitcher id list and one stat per pitcher.
+ * Verified by shaping the full, locally pruned and API-narrowed payloads
+ * through {@link getBullpenWorkload}: identical.
+ */
+const BOXSCORE_FIELDS = [
+  "teams", "away", "home", "team", "id", "pitchers", "players", "stats",
+  "pitching", "numberOfPitches",
+].join(",");
+
+/**
  * Per-pitcher pitch counts from one team's postseason games between
  * `startDate` and `endDate` (inclusive, `YYYY-MM-DD`), shaped like gameLog
  * splits so they merge straight into the regular-season logs.
@@ -875,7 +887,7 @@ async function getPostseasonPitchCounts(
 ): Promise<Map<number, RawGameLogSplit[]>> {
   const schedule = await mlbFetch<RawPostseasonSchedule>(
     "/api/v1/schedule",
-    { sportId: 1, teamId, startDate, endDate, gameType: POSTSEASON_GAME_TYPES },
+    { sportId: 1, teamId, startDate, endDate, gameType: POSTSEASON_GAME_TYPES, fields: SCHEDULE_FIELDS },
     TTL.pitcherLog,
   );
   const games = (schedule.dates ?? [])
@@ -888,7 +900,11 @@ async function getPostseasonPitchCounts(
 
   const boxscores = await Promise.all(
     games.map((g) =>
-      mlbFetch<RawBoxscore>(`/api/v1/game/${g.gamePk}/boxscore`, {}, TTL.pitcherLog),
+      mlbFetch<RawBoxscore>(
+        `/api/v1/game/${g.gamePk}/boxscore`,
+        { fields: BOXSCORE_FIELDS },
+        TTL.pitcherLog,
+      ),
     ),
   );
 
