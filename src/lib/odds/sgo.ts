@@ -32,8 +32,22 @@ const LEAGUE_ID = "MLB";
 /** Hard cap on pagination round-trips per board load (limit is 100/page). */
 const MAX_PAGES = 3;
 
-/** Bookmaker preference order, most-preferred first. FanDuel first by product decision. */
-const PREFERRED_BOOKMAKERS = ["fanduel", "draftkings", "betmgm"] as const;
+/**
+ * Bookmakers asked for in the board request, most-preferred first.
+ *
+ * The provider bills per event rather than per book, but the response carries
+ * every requested book's line for every market, and a league-wide board is
+ * megabytes of lines this app never reads: `pickBookPair` takes the first book
+ * that quotes both sides. `bookmakerID` is the provider's documented way to keep
+ * an odds request small, so the board asks for exactly the books this app is
+ * willing to quote — the three preferred books (FanDuel first, by product
+ * decision), then Caesars and bet365 for the markets the first three don't post.
+ *
+ * The trade: a market none of these books quotes is dropped instead of being
+ * filled from some other book, in exchange for a far smaller payload to fetch,
+ * cache and parse on every read.
+ */
+const PREFERRED_BOOKMAKERS = ["fanduel", "draftkings", "betmgm", "caesars", "bet365"] as const;
 
 /**
  * Our tracked prop markets mapped to SportsGameOdds statIDs (verified
@@ -193,6 +207,7 @@ async function fetchBoard(): Promise<SgoEvent[]> {
     started: false,
     limit: 100,
     oddIDs: ODD_ID_FILTER,
+    bookmakerID: PREFERRED_BOOKMAKERS.join(","),
   };
 
   const events: SgoEvent[] = [];
