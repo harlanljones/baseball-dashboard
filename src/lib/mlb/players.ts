@@ -1,3 +1,5 @@
+import { cache } from "react";
+
 import { easternDateOf, MlbApiError, mlbFetch, shiftDate, TTL } from "./client";
 import { isPostseason, POSTSEASON_GAME_TYPES, SCHEDULE_FIELDS } from "./schedule";
 import type {
@@ -85,6 +87,9 @@ const PEOPLE_FIELDS = [
   "woba", "wRcPlus", "war", "xwoba", "fip", "xfip", "eraMinus", "ops", "date",
   "numberOfPitches",
 ].join(",");
+
+/** A person record: the readers take an id and a name. */
+const PERSON_FIELDS = "people,id,fullName";
 
 /** The same idea for `/teams/{id}/roster`, hydrated or plain. */
 const ROSTER_FIELDS = [
@@ -348,7 +353,12 @@ function parseVsPlayerStat(
  * own `season` field). The two groups' order in `stats[]` is not stable, so
  * callers must select by `type.displayName`, never by array position.
  */
-async function fetchVsPlayer(
+/**
+ * Wrapped in `React.cache`: the vs-pitcher page asks for the same pairing's
+ * career line and its season breakdown, which are one upstream body — without
+ * this the page parses that body twice per render.
+ */
+const fetchVsPlayer = cache(async function fetchVsPlayer(
   batter: PlayerRef,
   pitcher: PlayerRef,
 ): Promise<RawStatsResponse> {
@@ -358,10 +368,11 @@ async function fetchVsPlayer(
       stats: "vsPlayer",
       group: "hitting",
       opposingPlayerId: pitcher.id,
+      fields: PEOPLE_FIELDS,
     },
     TTL.playerStats,
   );
-}
+});
 
 /**
  * Career batter-vs-pitcher line. A pairing that has never met returns a row
@@ -1004,7 +1015,7 @@ export async function getPerson(id: number): Promise<PlayerRef | null> {
   try {
     const res = await mlbFetch<{ people?: { id: number; fullName: string }[] }>(
       `/api/v1/people/${id}`,
-      {},
+      { fields: PERSON_FIELDS },
       TTL.roster,
     );
     const person = res.people?.[0];
