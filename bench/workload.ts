@@ -18,6 +18,7 @@ import { createElement, Fragment } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 
 import BestLeansSection from "@/components/BestLeansSection";
+import Bullpen from "@/components/Bullpen";
 import BoxscoreTables from "@/components/BoxscoreTables";
 import GameCard from "@/components/GameCard";
 import GameLog from "@/components/GameLog";
@@ -28,8 +29,10 @@ import type { PropTeamGroup } from "@/lib/odds/board";
 import { propContextFromFeed } from "@/lib/odds/board";
 import { getBestLeans, type SlateLean } from "@/lib/odds/leans";
 import type { ScoredProp } from "@/lib/odds/types";
-import { getGamePlays, getLiveFeed } from "@/lib/mlb/game";
-import { getSchedule } from "@/lib/mlb/schedule";
+import { easternDateOf } from "@/lib/mlb/client";
+import { getGamePlays, getLiveFeed, withBullpenStats } from "@/lib/mlb/game";
+import { getBullpenSeasonPitching, getBullpenWorkload } from "@/lib/mlb/players";
+import { getSchedule, isPostseason } from "@/lib/mlb/schedule";
 import type { GameFeed } from "@/lib/mlb/types";
 import { safe } from "@/lib/safe";
 import { getGameWeather } from "@/lib/weather/report";
@@ -52,6 +55,7 @@ export interface PhaseTimings {
   propsMs: number;
   renderMs: number;
   liveMs: number;
+  bullpenMs: number;
   totalMs: number;
 }
 
@@ -66,6 +70,8 @@ export interface WorkloadResult {
   slateHtml: string;
   /** Innings, plays and rendered bytes of the game page's feed-derived core. */
   live: { innings: number; plays: number; htmlBytes: number };
+  /** Arms listed, rendered bytes, and total trailing-3-day pitches of the bullpen section. */
+  bullpen: { rows: number; htmlBytes: number; last3: number };
   digest: string;
 }
 
@@ -78,7 +84,13 @@ function scoredPropsOf(groups: PropTeamGroup[]): ScoredProp[] {
  * compares it across two passes: equal means the fixture upstream plus the
  * app's shaping are deterministic, which is the premise of every timing here.
  */
-function digestOf(leans: SlateLean[], scored: ScoredProp[], boardHtml: string, slateHtml: string): string {
+function digestOf(
+  leans: SlateLean[],
+  scored: ScoredProp[],
+  boardHtml: string,
+  slateHtml: string,
+  bullpenSummary: string,
+): string {
   const lines = [
     ...leans.map((lean) => `L|${lean.gamePk}|${lean.playerId}|${lean.marketKey}|${lean.line}|${lean.direction}|${lean.price}|${lean.score.toFixed(4)}`),
     ...scored.map(
@@ -86,6 +98,7 @@ function digestOf(leans: SlateLean[], scored: ScoredProp[], boardHtml: string, s
         `P|${prop.player.id}|${prop.marketKey}|${prop.line}|${prop.tier}|${prop.direction}|${prop.factors.completeness}|${prop.factors.cumulative?.toFixed(4) ?? "-"}|${prop.evidence.join("~")}`,
     ),
     `H|${boardHtml.length}|${slateHtml.length}`,
+    `B|${bullpenSummary}`,
   ];
   let hash = 0x811c9dc5;
   for (const line of lines) {
@@ -170,9 +183,37 @@ export async function runCycle(): Promise<WorkloadResult> {
   );
   const liveMs = performance.now() - liveStart;
 
+  // Phase 5 — the game page's bullpen section, off the same feed: per-arm season
+  // pitching plus recent workload. On a postseason game the workload lookup reads
+  // the team's last three days of boxscores — 169 KB each before the request
+  // narrows them to ~12 KB — which is the only place those reads happen.
+  const bullpenStart = performance.now();
+  const gameDate = easternDateOf(liveFeed.startTime || new Date());
+  const awayIds = liveFeed.boxscore.away.bullpen.map((p) => p.id);
+  const homeIds = liveFeed.boxscore.home.bullpen.map((p) => p.id);
+  const postseason = isPostseason(liveFeed.gameType);
+  const [awayWorkload, homeWorkload, awaySeasonPitching, homeSeasonPitching] = await Promise.all([
+    getBullpenWorkload(awayIds, BENCH_SEASON, gameDate, postseason ? liveFeed.away.team.id : undefined),
+    getBullpenWorkload(homeIds, BENCH_SEASON, gameDate, postseason ? liveFeed.home.team.id : undefined),
+    getBullpenSeasonPitching(awayIds, BENCH_SEASON),
+    getBullpenSeasonPitching(homeIds, BENCH_SEASON),
+  ]);
+  const bullpenHtml = renderToStaticMarkup(
+    createElement(Bullpen, {
+      away: withBullpenStats(liveFeed.boxscore.away, awayWorkload, awaySeasonPitching),
+      home: withBullpenStats(liveFeed.boxscore.home, homeWorkload, homeSeasonPitching),
+    }),
+  );
+  const bullpenMs = performance.now() - bullpenStart;
+  const bullpen = {
+    rows: awayIds.length + homeIds.length,
+    htmlBytes: bullpenHtml.length,
+    last3: [...awayWorkload.values(), ...homeWorkload.values()].reduce((sum, w) => sum + w.last3, 0),
+  };
+
   const scored = scoredPropsOf(groups);
   return {
-    timings: { leansMs, propsMs, renderMs, liveMs, totalMs: performance.now() - started },
+    timings: { leansMs, propsMs, renderMs, liveMs, bullpenMs, totalMs: performance.now() - started },
     leans,
     groups,
     scored,
@@ -185,7 +226,8 @@ export async function runCycle(): Promise<WorkloadResult> {
       plays: livePlays.length,
       htmlBytes: liveHtml.length,
     },
-    digest: digestOf(leans, scored, boardHtml, slateHtml),
+    bullpen,
+    digest: digestOf(leans, scored, boardHtml, slateHtml, `${bullpen.rows}|${bullpen.htmlBytes}|${bullpen.last3}`),
   };
 }
 
@@ -325,6 +367,11 @@ export function checkInvariants(
   if (result.live.innings < 9) failures.push(`captured feed shaped only ${result.live.innings} innings`);
   if (result.live.plays < 5) failures.push(`captured feed shaped only ${result.live.plays} significant plays`);
   if (result.live.htmlBytes < 2000) failures.push(`game-page sections rendered only ${result.live.htmlBytes} bytes`);
+  if (result.bullpen.rows === 0) failures.push("captured feed listed no bullpen arms");
+  if (result.bullpen.htmlBytes < 1000) failures.push(`bullpen section rendered only ${result.bullpen.htmlBytes} bytes`);
+  // The trailing-3-day totals can only be non-zero if the postseason schedule
+  // read resolved to the right window and every boxscore in it shaped.
+  if (result.bullpen.last3 <= 0) failures.push("postseason pitch counts came back empty");
 
   // Render: every scored prop has its anchor, the slate renders, and nothing
   // from a name the roster cannot resolve leaked into the board.

@@ -294,6 +294,29 @@ function isSignificantPlay(play: RawPlay): boolean {
  * The MLB season a game belongs to, derived from its start time (falling back
  * to today in Eastern time when the feed carries no start time).
  */
+/**
+ * Merge the per-pitcher season pitching and recent-workload lookups into the
+ * feed's boxscore, which carries neither.
+ */
+export function withBullpenStats(
+  box: TeamBoxscore,
+  workload: Map<number, { yesterday: number; last3: number }>,
+  seasonPitching: Map<number, { ip: string; era?: string; fip?: number; k: number }>,
+): TeamBoxscore {
+  return {
+    ...box,
+    bullpen: box.bullpen.map((p): BullpenPitcher => {
+      const stats = seasonPitching.get(p.id);
+      return {
+        ...p,
+        ...(stats ?? {}),
+        pitchesYesterday: workload.get(p.id)?.yesterday,
+        pitchesLast3: workload.get(p.id)?.last3,
+      };
+    }),
+  };
+}
+
 export function seasonOf(feed: GameFeed): number {
   const iso = feed.startTime || `${easternToday()}T00:00:00Z`;
   return new Date(iso).getUTCFullYear();

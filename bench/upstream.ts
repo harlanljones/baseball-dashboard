@@ -18,6 +18,7 @@
 import { readFileSync } from "node:fs";
 import { gunzipSync } from "node:zlib";
 
+import { SCHEDULE_FIELDS } from "@/lib/mlb/schedule";
 import { BALLPARKS } from "@/lib/weather/ballparks";
 import {
   BENCH_DATE,
@@ -71,18 +72,60 @@ const CAPTURED_FEED_FIELDS = [
   "pitcher",
 ].join(",");
 
-let capturedFeed: string | null = null;
-let capturedFeedFields: string | null = null;
-function readFixture(path: URL): string {
-  return gunzipSync(readFileSync(path)).toString("utf8");
+/**
+ * The postseason pitch-count path (`getBullpenWorkload`): a team's games over a
+ * three-day window, then one boxscore per game played. Two real postseason
+ * boxscores (169 KB and 174 KB) captured from the live API — the app's request
+ * narrows them to ~12 KB each, which is what this fixture pair makes measurable.
+ * The window and the team both come from the captured feed (gameDate
+ * 2026-10-08 -> 2026-10-05..2026-10-07 for team 114), exactly as the page
+ * derives them, so no date is hardcoded here.
+ */
+const POSTSEASON_SCHEDULE_PATH = new URL("./fixtures/postseason-schedule.json.gz", import.meta.url);
+const POSTSEASON_SCHEDULE_FIELDS_PATH = new URL("./fixtures/postseason-schedule-fields.json.gz", import.meta.url);
+const BOXSCORE_PKS = [849833, 849834];
+const BOXSCORE_FIELDS = [
+  "teams", "away", "home", "team", "id", "pitchers", "players", "stats",
+  "pitching", "numberOfPitches",
+].join(",");
+function boxscorePath(pk: number, narrowed: boolean): URL {
+  return new URL(`./fixtures/boxscore-${pk}${narrowed ? "-fields" : ""}.json.gz`, import.meta.url);
+}
+
+const fixtureCache = new Map<string, string>();
+function fixture(path: URL): string {
+  let body = fixtureCache.get(path.href);
+  if (body == null) {
+    body = gunzipSync(readFileSync(path)).toString("utf8");
+    fixtureCache.set(path.href, body);
+  }
+  return body;
 }
 function capturedFeedBody(): string {
-  capturedFeed ??= readFixture(CAPTURED_FEED_PATH);
-  return capturedFeed;
+  return fixture(CAPTURED_FEED_PATH);
 }
 function capturedNarrowedFeedBody(): string {
-  capturedFeedFields ??= readFixture(CAPTURED_FEED_FIELDS_PATH);
-  return capturedFeedFields;
+  return fixture(CAPTURED_FEED_FIELDS_PATH);
+}
+
+/**
+ * A captured payload is served verbatim when the request asks for exactly the
+ * field list it was captured with; every other request falls back to the local
+ * model. Same reasoning as {@link CAPTURED_FEED_FIELDS}.
+ */
+function capturedBodyFor(
+  fields: string | null,
+  full: URL,
+  narrowed: URL,
+  capturedList: string,
+): string {
+  if (!fields) return fixture(full);
+  const wanted = fieldSet(fields);
+  const captured = fieldSet(capturedList);
+  if (wanted.size === captured.size && [...wanted].every((name) => captured.has(name))) {
+    return fixture(narrowed);
+  }
+  return JSON.stringify(pruneFields(JSON.parse(fixture(full)), wanted));
 }
 
 export interface FetchRecord {
@@ -275,6 +318,14 @@ function mlbBody(url: URL): string {
       const game = GAMES.find((g) => String(g.gamePk) === gamePk);
       return game ? scheduleBody([game], BENCH_DATE) : JSON.stringify({ dates: [] });
     }
+    const teamId = url.searchParams.get("teamId");
+    if (teamId) {
+      // `getPostseasonPitchCounts`: one team's games over a short window.
+      const fields = url.searchParams.get("fields");
+      return memoized(`postsched:${fields ?? ""}`, () =>
+        capturedBodyFor(fields, POSTSEASON_SCHEDULE_PATH, POSTSEASON_SCHEDULE_FIELDS_PATH, SCHEDULE_FIELDS),
+      );
+    }
     const date = url.searchParams.get("date") ?? BENCH_DATE;
     const fields = url.searchParams.get("fields");
     return memoized(`sched:${date}:${fields ?? ""}`, () => {
@@ -313,6 +364,16 @@ function mlbBody(url: URL): string {
       if (!fields) return body;
       return JSON.stringify(pruneFields(JSON.parse(body), fieldSet(fields)));
     });
+  }
+
+  const boxscore = /^\/api\/v1\/game\/(\d+)\/boxscore$/.exec(path);
+  if (boxscore) {
+    const pk = Number(boxscore[1]);
+    if (!BOXSCORE_PKS.includes(pk)) return JSON.stringify({ teams: {} });
+    const fields = url.searchParams.get("fields");
+    return memoized(`box:${pk}:${fields ?? ""}`, () =>
+      capturedBodyFor(fields, boxscorePath(pk, false), boxscorePath(pk, true), BOXSCORE_FIELDS),
+    );
   }
 
   const person = /^\/api\/v1\/people\/(\d+)$/.exec(path);

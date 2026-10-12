@@ -24,7 +24,7 @@ import RosterStatsSection from "@/components/RosterStatsSection";
 import TeamLogo from "@/components/TeamLogo";
 
 import { easternDateOf, MlbApiError } from "@/lib/mlb/client";
-import { getLiveFeed, seasonOf } from "@/lib/mlb/game";
+import { getLiveFeed, seasonOf, withBullpenStats } from "@/lib/mlb/game";
 import {
   getBullpenSeasonPitching,
   getBullpenWorkload,
@@ -33,11 +33,7 @@ import { getHeadToHead, isPostseason } from "@/lib/mlb/schedule";
 import { safe } from "@/lib/safe";
 import { getGameWeather } from "@/lib/weather/report";
 import type { GameWeather } from "@/lib/weather/types";
-import type {
-  BullpenPitcher,
-  GameFeed,
-  TeamBoxscore,
-} from "@/lib/mlb/types";
+import type { GameFeed } from "@/lib/mlb/types";
 
 // --- small utilities ---------------------------------------------------------
 
@@ -99,25 +95,6 @@ function SectionSkeleton() {
 }
 
 // --- async sections ----------------------------------------------------------
-
-function withBullpenStats(
-  box: TeamBoxscore,
-  workload: Map<number, { yesterday: number; last3: number }>,
-  seasonPitching: Map<number, { ip: string; era?: string; fip?: number; k: number }>,
-): TeamBoxscore {
-  return {
-    ...box,
-    bullpen: box.bullpen.map((p): BullpenPitcher => {
-      const stats = seasonPitching.get(p.id);
-      return {
-        ...p,
-        ...(stats ?? {}),
-        pitchesYesterday: workload.get(p.id)?.yesterday,
-        pitchesLast3: workload.get(p.id)?.last3,
-      };
-    }),
-  };
-}
 
 async function BullpenSection({
   feed,
