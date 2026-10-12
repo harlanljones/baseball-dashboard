@@ -20,6 +20,7 @@ import {
   getPitcherRecentFormBatch,
   getPitcherSituationalSplitBatch,
   type PitcherPropStats,
+  type RosterHitter,
   type SeasonHittingBasic,
 } from "@/lib/mlb/players";
 import type { PropGameContext, PropPlayerGroup, PropTeamGroup } from "@/lib/odds/board";
@@ -85,10 +86,9 @@ export async function loadPropGroups({
   // None of these MLB lookups depend on the odds: rosters, pitcher stats and
   // evidence key off the teams and probable starters alone.
   const startLookups = () => {
-    const rosters = Promise.all([
-      safe(getRosterWithSeasonStats(game.away.id, season)),
-      safe(getRosterWithSeasonStats(game.home.id, season)),
-    ]);
+    const awayRoster = safe(getRosterWithSeasonStats(game.away.id, season));
+    const homeRoster = safe(getRosterWithSeasonStats(game.home.id, season));
+    const rosters = Promise.all([awayRoster, homeRoster]);
     const pitcherStatsLookup = pitcherStats
       ? Promise.resolve(pitcherStats)
       : safe(getPitcherPropStatsBatch(pitcherIds, season)).then((m) => m ?? new Map());
@@ -98,7 +98,7 @@ export async function loadPropGroups({
     // Only when a feed was supplied: these are the most expensive lookups here,
     // and a caller that doesn't render evidence shouldn't pay for them.
     const evidence: Promise<EvidenceLookups | null> = feed
-      ? loadEvidence(feed, game, season, pitcherIds, pitcherIsHomeById)
+      ? loadEvidence(feed, game, season, pitcherIds, pitcherIsHomeById, { away: awayRoster, home: homeRoster })
       : Promise.resolve(null);
     return { rosters, pitcherStats: pitcherStatsLookup, evidence };
   };
@@ -257,10 +257,11 @@ async function loadEvidence(
   season: number,
   pitcherIds: number[],
   pitcherIsHomeById: Map<number, boolean>,
+  rosters: { away: Promise<RosterHitter[] | null>; home: Promise<RosterHitter[] | null> },
 ): Promise<EvidenceLookups> {
   const gameDate = easternDateOf(game.startTime || new Date());
   const [matchups, pitcherRecentFormById, pitcherHomeAwayById] = await Promise.all([
-    safe(buildMatchups(feed, season)),
+    safe(buildMatchups(feed, season, rosters)),
     safe(getPitcherRecentFormBatch(pitcherIds, gameDate)).then((m) => m ?? new Map()),
     // Each pitcher gets whichever home/road split matches this game — group
     // by side so the batched lookups stay one request per split code.
