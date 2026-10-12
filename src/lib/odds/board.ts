@@ -146,7 +146,9 @@ export const TIER_CLASS: Record<ScoredProp["tier"], string> = {
 
 /** Stable per-prop anchor id so slate links land on the exact row. */
 export function leanAnchorId(prop: ScoredProp): string {
-  return `lean-${prop.player.id}-${prop.marketKey}-${String(prop.line).replace(/\./g, "_")}`;
+  // A line is a number, so its text holds at most one dot: the plain replace is
+  // the same id as the global one, for every row this renders.
+  return `lean-${prop.player.id}-${prop.marketKey}-${String(prop.line).replace(".", "_")}`;
 }
 
 /** One player's props for a team, plus matchup evidence shared across all of them. */
