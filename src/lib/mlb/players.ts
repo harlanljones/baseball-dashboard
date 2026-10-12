@@ -848,9 +848,12 @@ export function ipToFloat(ip: string): number {
 
 export interface PitcherPropStats {
   k9: number;
+  /** Outs recorded per start. Zero for a pitcher who has not started. */
   outsPerStart: number;
   ip: number;
   gamesStarted: number;
+  /** Appearances, which is the sample a reliever's prop line is measured over. */
+  gamesPlayed: number;
 }
 
 export interface SeasonHittingBasic {
@@ -919,6 +922,7 @@ export async function getPitcherPropStatsBatch(
       outsPerStart: gamesStarted > 0 ? (ip * 3) / gamesStarted : 0,
       ip,
       gamesStarted,
+      gamesPlayed: n(stat.gamesPlayed) ?? 0,
     });
   }
   return byId;

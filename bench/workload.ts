@@ -432,6 +432,19 @@ export function checkInvariants(
 
   // The evidence path the props page exists for: matchup lines attach to the
   // projected lineup, and the weather nudge fired for the open-air fixture park.
+  // Every prop-carrying pitcher in the fixture has a served season line, so a
+  // pitcher prop that comes back ungraded means the evidence basis failed to
+  // resolve for that pitcher — which is what a reliever looked like before the
+  // per-appearance basis existed.
+  const ungradedPitchers = result.scored.filter(
+    (prop) =>
+      (prop.marketKey === "pitcher_strikeouts" || prop.marketKey === "pitcher_outs") &&
+      prop.evidence[0] === "No stats available",
+  );
+  if (ungradedPitchers.length > 0) {
+    failures.push(`${ungradedPitchers.length} pitcher props came back ungraded`);
+  }
+
   const evidenceLines = result.groups.flatMap((group) => group.players.flatMap((player) => player.evidence));
   if (evidenceLines.length === 0) failures.push("no matchup evidence attached to any player");
   const nudged = result.scored.filter((prop) => prop.evidence.some((text) => /favors the (over|under)/.test(text)));

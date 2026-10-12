@@ -20,6 +20,8 @@ export interface PitcherStatContext {
   k9: number;
   outsPerStart: number;
   gamesStarted: number;
+  gamesPlayed: number;
+  ip: number;
 }
 
 export interface BatterStatContext {
@@ -80,13 +82,24 @@ const TIER_ORDER: PropTier[] = [
 /** The player's season-average count for this market's line, or `null` if the sample is too small / the market has no stat basis for this player kind. */
 function seasonAvgFor(marketKey: PropMarketKey, stats: StatContext): number | null {
   if (stats.kind === "pitcher") {
-    if (stats.gamesStarted < MIN_GAMES_STARTED_FOR_TIER) return null;
+    // A starter's line is per start; a reliever's is per appearance, and
+    // requiring starts of a reliever would leave every one of their props
+    // ungraded. The sample guard applies to whichever basis the role uses, and
+    // the arithmetic is identical for a starter (outsPerStart / 3 is his IP).
+    const perStart = stats.gamesStarted >= MIN_GAMES_STARTED_FOR_TIER;
+    const perAppearance = stats.gamesPlayed >= MIN_GAMES_STARTED_FOR_TIER;
+    if (!perStart && !perAppearance) return null;
+    const innings = perStart
+      ? stats.outsPerStart / 3
+      : stats.gamesPlayed > 0
+        ? stats.ip / stats.gamesPlayed
+        : 0;
+    if (innings <= 0) return null;
     switch (marketKey) {
       case "pitcher_strikeouts":
-        // K/9 times this pitcher's average innings per start (outsPerStart / 3 = IP).
-        return (stats.k9 / 9) * (stats.outsPerStart / 3);
+        return (stats.k9 / 9) * innings;
       case "pitcher_outs":
-        return stats.outsPerStart;
+        return innings * 3;
       default:
         return null;
     }

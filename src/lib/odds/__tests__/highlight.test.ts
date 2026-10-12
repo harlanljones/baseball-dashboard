@@ -1,5 +1,11 @@
 import { describe, it, expect } from "vitest";
-import { matchupEvidence, scoreProp, type MatchupContext, type StatContext } from "../highlight";
+import {
+  matchupEvidence,
+  scoreProp,
+  type MatchupContext,
+  type PitcherStatContext,
+  type StatContext,
+} from "../highlight";
 import type { PlayerProp } from "../types";
 import type { PitcherRecentForm, PitcherSplitLine, PlayerRef, SplitLine, VsPlayerLine } from "@/lib/mlb/types";
 import type { GameWeather } from "@/lib/weather/types";
@@ -44,11 +50,13 @@ function windWeather(
 }
 
 describe("scoreProp — pitcher strikeouts", () => {
-  const pitcherStats: StatContext = {
+  const pitcherStats: PitcherStatContext = {
     kind: "pitcher",
     k9: 12,
     outsPerStart: 18, // 6 IP/start -> expected K = (12/9)*6 = 8
     gamesStarted: 20,
+    gamesPlayed: 20,
+    ip: 120,
   };
 
   it("tiers strong-over when season rate is far above the line", () => {
@@ -57,43 +65,78 @@ describe("scoreProp — pitcher strikeouts", () => {
   });
 
   it("tiers lean-over just above the line", () => {
-    const stats: StatContext = { ...pitcherStats, k9: 10.5 }; // expected K = 7
+    const stats: PitcherStatContext = { ...pitcherStats, k9: 10.5 }; // expected K = 7
     const result = scoreProp(prop({ line: 6.2 }), player, stats, null);
     expect(result.tier).toBe("lean-over"); // 7 / 6.2 = 1.13
   });
 
   it("tiers neutral when close to the line", () => {
-    const stats: StatContext = { ...pitcherStats, k9: 10.5 }; // expected K = 7
+    const stats: PitcherStatContext = { ...pitcherStats, k9: 10.5 }; // expected K = 7
     const result = scoreProp(prop({ line: 6.8 }), player, stats, null);
     expect(result.tier).toBe("neutral"); // 7 / 6.8 = 1.03
   });
 
   it("tiers lean-under and strong-under symmetrically", () => {
-    const leanStats: StatContext = { ...pitcherStats, k9: 7.5 }; // expected K = 5
+    const leanStats: PitcherStatContext = { ...pitcherStats, k9: 7.5 }; // expected K = 5
     expect(scoreProp(prop({ line: 6 }), player, leanStats, null).tier).toBe(
       "lean-under",
     ); // 5 / 6 = 0.83
 
-    const strongStats: StatContext = { ...pitcherStats, k9: 6 }; // expected K = 4
+    const strongStats: PitcherStatContext = { ...pitcherStats, k9: 6 }; // expected K = 4
     expect(scoreProp(prop({ line: 6 }), player, strongStats, null).tier).toBe(
       "strong-under",
     ); // 4 / 6 = 0.67
   });
 
   it("stays neutral for a small sample regardless of the raw rate", () => {
-    const stats: StatContext = { ...pitcherStats, gamesStarted: 2 };
+    // Both bases are small, so neither can be graded.
+    const stats: PitcherStatContext = { ...pitcherStats, gamesStarted: 2, gamesPlayed: 2 };
     const result = scoreProp(prop({ line: 6 }), player, stats, null);
+    expect(result.tier).toBe("neutral");
+  });
+});
+
+describe("scoreProp — a reliever", () => {
+  // A reliever has no starts, so the per-start basis is empty for him; the line
+  // is measured over appearances instead. Requiring starts here would leave
+  // every one of his props ungraded.
+  const reliever: PitcherStatContext = {
+    kind: "pitcher",
+    k9: 9,
+    outsPerStart: 0,
+    gamesStarted: 0,
+    gamesPlayed: 60,
+    ip: 60, // 1 IP per appearance -> 3 outs, 1 strikeout
+  };
+
+  it("grades outs off outs per appearance", () => {
+    const result = scoreProp(prop({ marketKey: "pitcher_outs", line: 2.5 }), player, reliever, null);
+    expect(result.evidence[0]).toBe("Season avg: 3.0 (line 2.5)");
+    expect(result.tier).toBe("lean-over");
+  });
+
+  it("grades strikeouts off strikeouts per appearance", () => {
+    const result = scoreProp(prop({ marketKey: "pitcher_strikeouts", line: 0.5 }), player, reliever, null);
+    expect(result.evidence[0]).toBe("Season avg: 1.0 (line 0.5)");
+    expect(result.tier).toBe("strong-over");
+  });
+
+  it("stays ungraded when the appearance sample is small too", () => {
+    const result = scoreProp(prop({ marketKey: "pitcher_outs", line: 2.5 }), player, { ...reliever, gamesPlayed: 2 }, null);
+    expect(result.evidence[0]).toBe("No stats available");
     expect(result.tier).toBe("neutral");
   });
 });
 
 describe("scoreProp — pitcher outs", () => {
   it("scores directly off outsPerStart", () => {
-    const stats: StatContext = {
+    const stats: PitcherStatContext = {
       kind: "pitcher",
       k9: 9,
       outsPerStart: 18,
       gamesStarted: 20,
+      gamesPlayed: 20,
+      ip: 120,
     };
     const result = scoreProp(
       prop({ marketKey: "pitcher_outs", line: 15 }),

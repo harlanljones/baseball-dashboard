@@ -237,6 +237,22 @@ export function playerNameById(id: number): string {
   return NAME_BY_ID.get(id) ?? `Player ${id}`;
 }
 
+/**
+ * Pitchers who work out of the bullpen. Their season line is a relief line —
+ * no starts — which matters because the prop evidence has to pick a
+ * per-appearance basis for them rather than a per-start one.
+ */
+const RELIEVER_IDS = new Set<number>();
+for (const game of GAMES) {
+  for (const side of [game.away, game.home]) {
+    for (const pitcher of side.pitchers.slice(PROP_PITCHERS_PER_TEAM)) RELIEVER_IDS.add(pitcher.id);
+  }
+}
+
+export function isReliever(id: number): boolean {
+  return RELIEVER_IDS.has(id);
+}
+
 // --- Season stat lines -------------------------------------------------------
 
 export interface HitterCounts {
@@ -283,6 +299,7 @@ export function hitterCounts(id: number): HitterCounts {
 
 export interface PitcherCounts {
   gamesStarted: number;
+  gamesPlayed: number;
   ip: number;
   ipText: string;
   k: number;
@@ -295,8 +312,30 @@ export interface PitcherCounts {
 }
 
 export function pitcherCounts(id: number): PitcherCounts {
+  if (isReliever(id)) {
+    const games = 45 + Math.floor(unit(id, 11) * 25);
+    const ip = 45 + Math.round(unit(id, 12) * 30 * 3) / 3;
+    const k9 = 8.5 + unit(id, 13) * 4;
+    const k = Math.round((k9 * ip) / 9);
+    const bb = Math.round(ip * (0.06 + unit(id, 14) * 0.06));
+    const earnedRuns = Math.round(ip * (0.22 + unit(id, 15) * 0.26));
+    return {
+      gamesStarted: 0,
+      gamesPlayed: games,
+      ip,
+      ipText: `${Math.floor(ip)}.${Math.round((ip - Math.floor(ip)) * 3)}`,
+      k,
+      bb,
+      battersFaced: Math.round(ip * 4.2),
+      earnedRuns,
+      era: ((earnedRuns * 9) / ip).toFixed(2),
+      k9,
+      outsPerStart: 0,
+    };
+  }
   const gamesStarted = 18 + Math.floor(unit(id, 11) * 14);
-  const ip = 95 + Math.floor(unit(id, 12) * 85);
+  // Innings pitched, fractional as the provider reports them (e.g. 118.2 = 118 2/3).
+  const ip = 95 + Math.round(unit(id, 12) * 85 * 3) / 3;
   const k9 = 7 + unit(id, 13) * 5;
   const k = Math.round((k9 * ip) / 9);
   const bb = Math.round(ip * (0.05 + unit(id, 14) * 0.06));
@@ -305,8 +344,11 @@ export function pitcherCounts(id: number): PitcherCounts {
   const outsPerStart = (ip * 3) / gamesStarted;
   return {
     gamesStarted,
+    gamesPlayed: gamesStarted + 3,
     ip,
-    ipText: `${Math.floor(ip / 3)}.${ip % 3}`,
+    // The API's `inningsPitched` is whole innings plus a thirds digit, so the
+    // value has to be encoded as innings — not as outs, which is a third of it.
+    ipText: `${Math.floor(ip)}.${Math.round((ip - Math.floor(ip)) * 3)}`,
     k,
     bb,
     battersFaced,
@@ -322,11 +364,18 @@ export function propLineFor(id: number, market: PropMarketKey, salt: number): nu
   const factor = 0.7 + unit(id, salt + 40) * 0.6; // season-average / line
   if (market === "pitcher_strikeouts") {
     const p = pitcherCounts(id);
-    return halfLine((p.k9 * p.outsPerStart) / 27 / factor, 2.5, 9.5);
+    // A reliever's strikeout line is per appearance, a starter's per start.
+    const basis = p.gamesStarted > 0 ? p.outsPerStart / 3 : p.ip / p.gamesPlayed;
+    return p.gamesStarted > 0
+      ? halfLine((p.k9 * p.outsPerStart) / 27 / factor, 2.5, 9.5)
+      : halfLine((p.k9 / 9) * basis / factor, 0.5, 2.5);
   }
   if (market === "pitcher_outs") {
     const p = pitcherCounts(id);
-    return halfLine(p.outsPerStart / factor, 9.5, 20.5);
+    const basis = p.gamesStarted > 0 ? p.outsPerStart : (p.ip * 3) / p.gamesPlayed;
+    return p.gamesStarted > 0
+      ? halfLine(basis / factor, 9.5, 20.5)
+      : halfLine(basis / factor, 1.5, 4.5);
   }
   const c = hitterCounts(id);
   const perGame: Record<string, number> = {
@@ -1123,7 +1172,7 @@ function seasonHittingStat(counts: HitterCounts): Record<string, unknown> {
 function seasonPitchingStat(counts: PitcherCounts): Record<string, unknown> {
   return {
     age: 29,
-    gamesPlayed: counts.gamesStarted + 3,
+    gamesPlayed: counts.gamesPlayed,
     gamesStarted: counts.gamesStarted,
     wins: 9,
     losses: 7,

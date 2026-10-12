@@ -213,7 +213,14 @@ export async function loadPropGroups({
     if (isPitcher) {
       const p = pitcherStatsById.get(entry.player.id);
       if (p) {
-        stats = { kind: "pitcher", k9: p.k9, outsPerStart: p.outsPerStart, gamesStarted: p.gamesStarted };
+        stats = {
+          kind: "pitcher",
+          k9: p.k9,
+          outsPerStart: p.outsPerStart,
+          gamesStarted: p.gamesStarted,
+          gamesPlayed: p.gamesPlayed,
+          ip: p.ip,
+        };
       }
     } else {
       const h = batterStatsById.get(entry.player.id);
