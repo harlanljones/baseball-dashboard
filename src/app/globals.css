@@ -227,11 +227,25 @@ html {
   .prop-factors {
     @apply mt-3 grid grid-cols-1 gap-3 sm:grid-cols-3;
   }
-  .factor-head {
-    @apply flex items-center justify-between gap-2;
+  /* One element per bar: the fill is a gradient stop driven by --fill/--bar
+     custom properties, so a 100-prop board renders 300 fewer nodes than a
+     track-plus-width-styled-child pair would. */
+  .factor {
+    @apply grid min-w-0 grid-cols-[minmax(0,1fr)_auto] items-center gap-x-2 gap-y-1;
+  }
+  .factor-label {
+    @apply text-xs uppercase tracking-[0.08em] text-ink/65;
+  }
+  .factor-value {
+    @apply nums font-mono text-xs uppercase tracking-[0.08em];
   }
   .factor-track {
-    @apply mt-1 h-1 overflow-hidden rounded-full bg-ink/10;
+    @apply col-span-full h-1 overflow-hidden rounded-full bg-ink/10;
+    background-image: linear-gradient(
+      to right,
+      var(--bar) var(--fill),
+      transparent var(--fill)
+    );
   }
   .prop-evidence {
     @apply mt-2 text-xs leading-snug text-ink/70;

@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, type CSSProperties } from "react";
 import PlayerHeadshot from "./PlayerHeadshot";
 import ScorePop from "./ScorePop";
 import TeamLogo from "./TeamLogo";
@@ -15,7 +15,7 @@ import {
   WEIGHT_LABELS,
   calculateScore,
   leanAnchorId,
-  scoreBarClass,
+  scoreBarColor,
   scoreToneClass,
   type WeightKey,
   type Weights,
@@ -69,19 +69,16 @@ function topLean(props: ScoredProp[], weights: Weights) {
     .sort((a, b) => b.score - a.score)[0];
 }
 
-function Factor({ label, value, toneClass, barClass }: { label: string; value: number | null; toneClass: string; barClass: string }) {
+function Factor({ label, value, toneClass, barColor }: { label: string; value: number | null; toneClass: string; barColor: string }) {
+  const fill = value == null ? 0 : Math.max(4, Math.min(100, value));
+  // The fill lives in custom properties on the wrapper, which the track inherits,
+  // so the bar is one node with no inline width to recompute.
+  const style = { "--fill": `${fill}%`, "--bar": barColor } as CSSProperties;
   return (
-    <div className="min-w-0">
-      <div className="factor-head label-caps">
-        <span>{label}</span>
-        <span className={`nums font-mono ${toneClass}`}>{value == null ? "—" : Math.round(value)}</span>
-      </div>
-      <div className="factor-track">
-        <div
-          className={`h-full rounded-full ${barClass}`}
-          style={{ width: `${value == null ? 0 : Math.max(4, Math.min(100, value))}%` }}
-        />
-      </div>
+    <div className="factor" style={style}>
+      <span className="factor-label">{label}</span>
+      <span className={`factor-value ${toneClass}`}>{value == null ? "—" : Math.round(value)}</span>
+      <div className="factor-track" />
     </div>
   );
 }
@@ -128,19 +125,19 @@ function PropRow({ prop, score }: { prop: ScoredProp; score: number | null }) {
           label="Model"
           value={prop.factors.modelConfidence}
           toneClass={scoreToneClass(prop.factors.modelConfidence)}
-          barClass={scoreBarClass(prop.factors.modelConfidence)}
+          barColor={scoreBarColor(prop.factors.modelConfidence)}
         />
         <Factor
           label="Edge"
           value={prop.factors.statisticalEdge}
           toneClass={scoreToneClass(prop.factors.statisticalEdge)}
-          barClass={scoreBarClass(prop.factors.statisticalEdge)}
+          barColor={scoreBarColor(prop.factors.statisticalEdge)}
         />
         <Factor
           label="Value"
           value={prop.factors.marketValue}
           toneClass={scoreToneClass(prop.factors.marketValue)}
-          barClass={scoreBarClass(prop.factors.marketValue)}
+          barColor={scoreBarColor(prop.factors.marketValue)}
         />
       </div>
       {(firstEvidence || restEvidence.length > 0) && (

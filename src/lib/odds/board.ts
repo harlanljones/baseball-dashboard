@@ -105,11 +105,16 @@ export function scoreToneClass(score: number | null): string {
   return "text-ink/70";
 }
 
-export function scoreBarClass(score: number | null): string {
-  if (score == null) return "bg-ink/25";
-  if (score >= 80) return "bg-grass";
-  if (score >= 60) return "bg-gold";
-  return "bg-ink/30";
+/**
+ * Fill color for a score bar. Bars are single elements whose fill is a gradient
+ * stop driven by custom properties, so they take a color rather than a class —
+ * one node per bar instead of a track plus a width-styled child.
+ */
+export function scoreBarColor(score: number | null): string {
+  if (score == null) return "color-mix(in oklab, var(--color-ink) 25%, transparent)";
+  if (score >= 80) return "var(--color-grass)";
+  if (score >= 60) return "var(--color-gold)";
+  return "color-mix(in oklab, var(--color-ink) 30%, transparent)";
 }
 
 /** Plain-language tier chips — strength carries the tint, direction lives in the words. */
