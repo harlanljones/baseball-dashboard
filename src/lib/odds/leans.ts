@@ -2,6 +2,7 @@ import { unstable_cache } from "next/cache";
 
 import { easternToday } from "@/lib/mlb/client";
 import { getSchedule } from "@/lib/mlb/schedule";
+import { getPitcherPropStatsBatch, type PitcherPropStats } from "@/lib/mlb/players";
 import { loadPropGroups } from "@/components/PropsSidebarSection";
 import type { ScheduleGame } from "@/lib/mlb/types";
 import {
@@ -11,6 +12,7 @@ import {
   propContextFromScheduleGame,
 } from "@/lib/odds/board";
 import { withOddsScope } from "@/lib/odds/requestScope";
+import { safe } from "@/lib/safe";
 import type { PropDirection, PropMarketKey, ScoredProp } from "@/lib/odds/types";
 
 /** Games sampled per slate. Beyond this the provider board stops paying for itself. */
@@ -77,14 +79,29 @@ async function computeBestLeans(date: string): Promise<SlateLean[]> {
   const { games } = await getSchedule(date);
   const previewGames = games.filter((g) => g.state === "Preview").slice(0, MAX_GAMES);
 
+  // One season-line lookup for every probable starter on the slate, instead of
+  // one per game: the ids are known from the schedule rows before any game is
+  // scored, and a slate's games share a season. Started here (not awaited) so it
+  // runs alongside the games' own work.
+  const pitcherStatsBySeason = new Map<number, Promise<Map<number, PitcherPropStats>>>();
+  for (const season of new Set(previewGames.map(seasonOf))) {
+    const ids = previewGames
+      .filter((game) => seasonOf(game) === season)
+      .flatMap((game) => [game.away.probablePitcher?.id, game.home.probablePitcher?.id])
+      .filter((id): id is number => id != null);
+    pitcherStatsBySeason.set(season, safe(getPitcherPropStatsBatch(ids, season)).then((m) => m ?? new Map()));
+  }
+
   const perGame = await withOddsScope(() =>
     Promise.all(
       previewGames.map(async (game): Promise<LeanCandidate[]> => {
         try {
+          const season = seasonOf(game);
           const groups = await loadPropGroups({
             game: propContextFromScheduleGame(game),
-            season: seasonOf(game),
+            season,
             weather: null,
+            pitcherStats: pitcherStatsBySeason.get(season) ?? null,
           });
           const candidates: LeanCandidate[] = [];
           for (const group of groups) {

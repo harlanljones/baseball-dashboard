@@ -70,9 +70,9 @@ const STAT_ID_TO_MARKET: Record<string, PropMarketKey> = Object.fromEntries(
 
 /**
  * oddID filter selecting only our markets' main over/under lines for every
- * player at once (`PLAYER_ID` is the API's wildcard participant token).
- * Requested under both parameter spellings seen across SGO's v2 docs and
- * OpenAPI spec; an unfiltered payload parses identically either way.
+ * player at once (`PLAYER_ID` is the API's wildcard participant token). Sent
+ * under both parameter spellings the provider's docs use — see
+ * {@link fetchBoard}.
  */
 const ODD_ID_FILTER = Object.values(MARKET_STAT_IDS)
   .flatMap((statId) => [`ou-over`, `ou-under`].map((tail) => `${statId}-PLAYER_ID-game-${tail}`))
@@ -206,6 +206,12 @@ async function fetchBoard(): Promise<SgoEvent[]> {
     oddsAvailable: true,
     started: false,
     limit: 100,
+    // The provider's OpenAPI spec (and its SDKs) name this filter `oddID`
+    // (singular), while its MLB docs page shows `oddIDs`. Both spellings are
+    // sent with the same value: the API honours whichever it implements, and if
+    // it honours neither the board comes back unfiltered — every moneyline,
+    // spread, total and alternate line for every event, parsed and thrown away.
+    oddID: ODD_ID_FILTER,
     oddIDs: ODD_ID_FILTER,
     bookmakerID: PREFERRED_BOOKMAKERS.join(","),
   };

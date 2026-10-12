@@ -19,6 +19,7 @@ import {
   getPitcherPropStatsBatch,
   getPitcherRecentFormBatch,
   getPitcherSituationalSplitBatch,
+  type PitcherPropStats,
   type SeasonHittingBasic,
 } from "@/lib/mlb/players";
 import type { PropGameContext, PropPlayerGroup, PropTeamGroup } from "@/lib/odds/board";
@@ -49,17 +50,24 @@ interface EvidenceLookups {
  * `weather` may be a promise: it is only read at scoring time, so a caller can
  * start the forecast alongside everything here instead of ahead of it. Pass
  * one that resolves `null` on failure; it goes unread when a game has no odds.
+ *
+ * `pitcherStats` is the same idea for the probable starters' season lines: a
+ * caller that already batched them for several games (the slate-wide leans)
+ * passes that lookup — as a promise, so it runs alongside this game's other
+ * work rather than in front of it.
  */
 export async function loadPropGroups({
   game,
   season,
   weather,
   feed = null,
+  pitcherStats = null,
 }: {
   game: PropGameContext;
   season: number;
   weather: GameWeather | null | Promise<GameWeather | null>;
   feed?: GameFeed | null;
+  pitcherStats?: Map<number, PitcherPropStats> | Promise<Map<number, PitcherPropStats>> | null;
 }): Promise<PropTeamGroup[]> {
   const pitcherEntries: RosterEntry[] = (
     [
@@ -81,9 +89,9 @@ export async function loadPropGroups({
       safe(getRosterWithSeasonStats(game.away.id, season)),
       safe(getRosterWithSeasonStats(game.home.id, season)),
     ]);
-    const pitcherStats = safe(getPitcherPropStatsBatch(pitcherIds, season)).then(
-      (m) => m ?? new Map(),
-    );
+    const pitcherStatsLookup = pitcherStats
+      ? Promise.resolve(pitcherStats)
+      : safe(getPitcherPropStatsBatch(pitcherIds, season)).then((m) => m ?? new Map());
     // Matchup evidence — reuses the same lookups as the game page's "Matchups"
     // section (batter vs today's starter) and probable-starter cards (pitcher
     // recent form / home-road split); Next's fetch cache dedupes the repeats.
@@ -92,7 +100,7 @@ export async function loadPropGroups({
     const evidence: Promise<EvidenceLookups | null> = feed
       ? loadEvidence(feed, game, season, pitcherIds, pitcherIsHomeById)
       : Promise.resolve(null);
-    return { rosters, pitcherStats, evidence };
+    return { rosters, pitcherStats: pitcherStatsLookup, evidence };
   };
 
   // With a feed (the props page, where a reader is waiting) the lookups run
