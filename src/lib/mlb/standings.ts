@@ -63,6 +63,16 @@ function mapTeamRecord(t: RawTeamRecord): StandingsRow {
 // --- Public API --------------------------------------------------------------
 
 /**
+ * Every field the standings reader touches. `teamRecords` and its own fields
+ * carry the bulk: the unfiltered response is ~110 KB, the filtered one ~39 KB.
+ */
+const STANDINGS_FIELDS = [
+  "records", "league", "division", "teamRecords", "team", "id", "name",
+  "abbreviation", "wins", "losses", "winningPercentage", "gamesBack",
+  "runDifferential", "clinchIndicator", "streak", "streakCode", "divisionRank",
+].join(",");
+
+/**
  * Regular-season standings for both leagues, one entry per division, ordered
  * AL East, AL Central, AL West, NL East, NL Central, NL West. Teams within a
  * division are ordered by division rank.
@@ -75,6 +85,7 @@ export async function getStandings(season: number): Promise<DivisionStandings[]>
       season,
       standingsTypes: "regularSeason",
       hydrate: "team,division,league",
+      fields: STANDINGS_FIELDS,
     },
     TTL.roster,
   );

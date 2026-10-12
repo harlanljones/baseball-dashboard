@@ -78,6 +78,9 @@ async function main(): Promise<number> {
   if (!lastCycleUrls.some((url) => /\/api\/v1\/game\/\d+\/boxscore/.test(url))) {
     failures.push("a timed cycle never read a postseason boxscore");
   }
+  if (!lastCycleUrls.some((url) => url.startsWith("https://statsapi.mlb.com/api/v1/standings"))) {
+    failures.push("a timed cycle never read the standings");
+  }
 
   const totals = timed.map((cycle) => cycle.timings.totalMs);
   // Per-process numbers are means over the timed cycles; the aggregation across
@@ -92,6 +95,10 @@ async function main(): Promise<number> {
     ["bullpen_rows", timed[0].bullpen.rows],
     ["bullpen_last3_pitches", timed[0].bullpen.last3],
     ["bullpen_html_bytes", timed[0].bullpen.htmlBytes],
+    ["offseason_ms", meanOf(timed.map((cycle) => cycle.timings.offseasonMs))],
+    ["offseason_series", timed[0].offseason.series],
+    ["offseason_teams", timed[0].offseason.teams],
+    ["offseason_html_bytes", timed[0].offseason.htmlBytes],
     ["live_innings", timed[0].live.innings],
     ["live_plays", timed[0].live.plays],
     ["upstream_bytes", lastCycleCalls.reduce((sum, call) => sum + call.bytes, 0)],

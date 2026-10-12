@@ -57,6 +57,9 @@ export const TEAMS: readonly BenchTeam[] = [
 ];
 
 export const BENCH_DATE = "2026-07-11";
+/** A winter date: the home page has no games, so it renders the offseason sections. */
+export const OFFSEASON_DATE = "2026-01-15";
+
 export const BENCH_SEASON = 2026;
 
 /** Games on the slate — a full MLB day. */

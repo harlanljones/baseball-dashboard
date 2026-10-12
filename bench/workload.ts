@@ -19,6 +19,9 @@ import { renderToStaticMarkup } from "react-dom/server";
 
 import BestLeansSection from "@/components/BestLeansSection";
 import Bullpen from "@/components/Bullpen";
+import OpeningDayCountdown from "@/components/OpeningDayCountdown";
+import SeasonRecap from "@/components/SeasonRecap";
+import StandingsTables from "@/components/StandingsTables";
 import BoxscoreTables from "@/components/BoxscoreTables";
 import GameCard from "@/components/GameCard";
 import GameLog from "@/components/GameLog";
@@ -33,6 +36,8 @@ import { easternDateOf } from "@/lib/mlb/client";
 import { getGamePlays, getLiveFeed, withBullpenStats } from "@/lib/mlb/game";
 import { getBullpenSeasonPitching, getBullpenWorkload } from "@/lib/mlb/players";
 import { getSchedule, isPostseason } from "@/lib/mlb/schedule";
+import { getOffseasonContext, getOpeningDay, getSeasonRecap } from "@/lib/mlb/season";
+import { getStandings } from "@/lib/mlb/standings";
 import type { GameFeed } from "@/lib/mlb/types";
 import { safe } from "@/lib/safe";
 import { getGameWeather } from "@/lib/weather/report";
@@ -43,6 +48,7 @@ import type { GameWeather } from "@/lib/weather/types";
 import {
   BENCH_DATE,
   BENCH_SEASON,
+  OFFSEASON_DATE,
   GAMES,
   PHANTOM_NAMES,
   PROPS_GAME,
@@ -56,6 +62,7 @@ export interface PhaseTimings {
   renderMs: number;
   liveMs: number;
   bullpenMs: number;
+  offseasonMs: number;
   totalMs: number;
 }
 
@@ -72,6 +79,16 @@ export interface WorkloadResult {
   live: { innings: number; plays: number; htmlBytes: number };
   /** Arms listed, rendered bytes, and total trailing-3-day pitches of the bullpen section. */
   bullpen: { rows: number; htmlBytes: number; last3: number };
+  /** The offseason home view: its three sections and what they produced. */
+  offseason: {
+    recapSeason: number;
+    nextSeason: number;
+    series: number;
+    divisions: number;
+    teams: number;
+    champion?: string;
+    htmlBytes: number;
+  };
   digest: string;
 }
 
@@ -90,6 +107,7 @@ function digestOf(
   boardHtml: string,
   slateHtml: string,
   bullpenSummary: string,
+  offseasonSummary: string,
 ): string {
   const lines = [
     ...leans.map((lean) => `L|${lean.gamePk}|${lean.playerId}|${lean.marketKey}|${lean.line}|${lean.direction}|${lean.price}|${lean.score.toFixed(4)}`),
@@ -99,6 +117,7 @@ function digestOf(
     ),
     `H|${boardHtml.length}|${slateHtml.length}`,
     `B|${bullpenSummary}`,
+    `O|${offseasonSummary}`,
   ];
   let hash = 0x811c9dc5;
   for (const line of lines) {
@@ -211,9 +230,42 @@ export async function runCycle(): Promise<WorkloadResult> {
     last3: [...awayWorkload.values(), ...homeWorkload.values()].reduce((sum, w) => sum + w.last3, 0),
   };
 
+  // Phase 6 — the offseason home view: a winter date has no games, so the page
+  // renders three independent sections instead — the opening-day countdown, the
+  // previous season's postseason recap, and that season's final standings. Each
+  // awaits its own endpoint (a 1.18 MB opening-day schedule, 110 KB of
+  // standings, 290 KB of postseason series before the requests narrow them).
+  const offseasonStart = performance.now();
+  const context = await getOffseasonContext(OFFSEASON_DATE);
+  if (!context) throw new Error("harness: no offseason context for the winter fixture date");
+  const [recap, divisions, openingDay] = await Promise.all([
+    getSeasonRecap(context.recapSeason),
+    getStandings(context.recapSeason),
+    getOpeningDay(context.nextSeason),
+  ]);
+  const offseasonHtml = renderToStaticMarkup(
+    createElement(
+      Fragment,
+      null,
+      openingDay ? createElement(OpeningDayCountdown, { openingDay, today: OFFSEASON_DATE }) : null,
+      recap.series.length > 0 ? createElement(SeasonRecap, { recap }) : null,
+      divisions.length > 0 ? createElement(StandingsTables, { season: context.recapSeason, divisions }) : null,
+    ),
+  );
+  const offseasonMs = performance.now() - offseasonStart;
+  const offseason = {
+    recapSeason: context.recapSeason,
+    nextSeason: context.nextSeason,
+    series: recap.series.length,
+    divisions: divisions.length,
+    teams: divisions.reduce((sum, division) => sum + division.teams.length, 0),
+    champion: recap.champion?.name,
+    htmlBytes: offseasonHtml.length,
+  };
+
   const scored = scoredPropsOf(groups);
   return {
-    timings: { leansMs, propsMs, renderMs, liveMs, bullpenMs, totalMs: performance.now() - started },
+    timings: { leansMs, propsMs, renderMs, liveMs, bullpenMs, offseasonMs, totalMs: performance.now() - started },
     leans,
     groups,
     scored,
@@ -227,7 +279,15 @@ export async function runCycle(): Promise<WorkloadResult> {
       htmlBytes: liveHtml.length,
     },
     bullpen,
-    digest: digestOf(leans, scored, boardHtml, slateHtml, `${bullpen.rows}|${bullpen.htmlBytes}|${bullpen.last3}`),
+    offseason,
+    digest: digestOf(
+      leans,
+      scored,
+      boardHtml,
+      slateHtml,
+      `${bullpen.rows}|${bullpen.htmlBytes}|${bullpen.last3}`,
+      `${offseason.recapSeason}|${offseason.series}|${offseason.divisions}|${offseason.teams}|${offseason.champion ?? "-"}|${offseason.htmlBytes}`,
+    ),
   };
 }
 
@@ -372,6 +432,11 @@ export function checkInvariants(
   // The trailing-3-day totals can only be non-zero if the postseason schedule
   // read resolved to the right window and every boxscore in it shaped.
   if (result.bullpen.last3 <= 0) failures.push("postseason pitch counts came back empty");
+  if (result.offseason.divisions !== 6) failures.push(`offseason standings has ${result.offseason.divisions} divisions`);
+  if (result.offseason.teams !== 30) failures.push(`offseason standings has ${result.offseason.teams} teams`);
+  if (result.offseason.series === 0) failures.push("offseason recap has no series");
+  if (!result.offseason.champion) failures.push("offseason recap has no champion");
+  if (result.offseason.htmlBytes < 2000) failures.push(`offseason sections rendered only ${result.offseason.htmlBytes} bytes`);
 
   // Render: every scored prop has its anchor, the slate renders, and nothing
   // from a name the roster cannot resolve leaked into the board.

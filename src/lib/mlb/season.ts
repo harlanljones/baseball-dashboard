@@ -105,12 +105,31 @@ export interface SeasonDates {
   regularSeasonEndDate?: string;
 }
 
+/** The three dates the season-dates reader returns. */
+const SEASON_DATES_FIELDS = [
+  "seasons", "springStartDate", "regularSeasonStartDate", "regularSeasonEndDate",
+].join(",");
+
+/**
+ * Every field `mapGame` and the series/dedupe helpers touch. The linescore is
+ * deliberately not hydrated: no recap component reads a game's inning (only
+ * `GameStatusBadge` does, and that renders off the schedule and feed paths),
+ * and the hydrate is most of the payload — 219 KB unfiltered, 30 KB here.
+ */
+const POSTSEASON_SERIES_FIELDS = [
+  "series", "games", "sortNumber", "seriesDescription", "gamesInSeries",
+  "gamePk", "gameDate", "officialDate", "gameType", "status",
+  "abstractGameState", "detailedState", "teams", "away", "home", "team", "id",
+  "name", "abbreviation", "score", "isWinner", "leagueRecord", "wins", "losses",
+  "pct", "probablePitcher", "fullName", "venue", "location", "city",
+].join(",");
+
 /** Key dates for a season: spring training start, regular season start/end. */
 export async function getSeasonDates(season: number): Promise<SeasonDates | null> {
   try {
     const data = await mlbFetch<RawSeasonsResponse>(
       `/api/v1/seasons/${season}`,
-      { sportId: 1 },
+      { sportId: 1, fields: SEASON_DATES_FIELDS },
       TTL.roster,
     );
     const s = data.seasons?.[0];
@@ -135,7 +154,7 @@ export async function getSeasonDates(season: number): Promise<SeasonDates | null
 export async function getSeasonRecap(season: number): Promise<SeasonRecap> {
   const data = await mlbFetch<RawPostseasonResponse>(
     "/api/v1/schedule/postseason/series",
-    { sportId: 1, season, hydrate: "team,linescore" },
+    { sportId: 1, season, hydrate: "team", fields: POSTSEASON_SERIES_FIELDS },
     TTL.headToHead,
   );
   const rawSeries = data.series ?? [];

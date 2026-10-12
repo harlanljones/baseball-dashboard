@@ -92,6 +92,43 @@ function boxscorePath(pk: number, narrowed: boolean): URL {
   return new URL(`./fixtures/boxscore-${pk}${narrowed ? "-fields" : ""}.json.gz`, import.meta.url);
 }
 
+/**
+ * The offseason home view (`OffseasonSections`): a season's final standings, a
+ * season's postseason recap, and the next season's key dates plus opening day.
+ * All four captured from the live API — 110 KB of standings, 290 KB of
+ * postseason series (the recap's own request is 32 KB), a 1.18 MB opening-day
+ * schedule (already narrowed to 1.5 KB by the app) and an 830 B season record.
+ * The seasons match what the app asks for on a winter date: the 2026 season
+ * dates put 2026-01-15 before spring training, so the recap and standings are
+ * the 2025 season and opening day is 2026.
+ */
+const STANDINGS_PATH = new URL("./fixtures/standings.json.gz", import.meta.url);
+const STANDINGS_FIELDS_PATH = new URL("./fixtures/standings-fields.json.gz", import.meta.url);
+const POSTSEASON_SERIES_PATH = new URL("./fixtures/postseason-series.json.gz", import.meta.url);
+const POSTSEASON_SERIES_FIELDS_PATH = new URL("./fixtures/postseason-series-fields.json.gz", import.meta.url);
+const SEASON_DATES_PATH = new URL("./fixtures/season-dates.json.gz", import.meta.url);
+const SEASON_DATES_FIELDS_PATH = new URL("./fixtures/season-dates-fields.json.gz", import.meta.url);
+const OPENING_DAY_PATH = new URL("./fixtures/opening-day-schedule.json.gz", import.meta.url);
+const OPENING_DAY_FIELDS_PATH = new URL("./fixtures/opening-day-schedule-fields.json.gz", import.meta.url);
+
+/** Copies of the app's own lists; a mismatch falls back to the local model. */
+const STANDINGS_FIELDS = [
+  "records", "league", "division", "teamRecords", "team", "id", "name",
+  "abbreviation", "wins", "losses", "winningPercentage", "gamesBack",
+  "runDifferential", "clinchIndicator", "streak", "streakCode", "divisionRank",
+].join(",");
+const POSTSEASON_SERIES_FIELDS = [
+  "series", "games", "sortNumber", "seriesDescription", "gamesInSeries",
+  "gamePk", "gameDate", "officialDate", "gameType", "status",
+  "abstractGameState", "detailedState", "teams", "away", "home", "team", "id",
+  "name", "abbreviation", "score", "isWinner", "leagueRecord", "wins", "losses",
+  "pct", "probablePitcher", "fullName", "venue", "location", "city",
+].join(",");
+const SEASON_DATES_FIELDS = [
+  "seasons", "springStartDate", "regularSeasonStartDate", "regularSeasonEndDate",
+].join(",");
+const OPENING_DAY_FIELDS = "dates,date";
+
 const fixtureCache = new Map<string, string>();
 function fixture(path: URL): string {
   let body = fixtureCache.get(path.href);
@@ -326,6 +363,14 @@ function mlbBody(url: URL): string {
         capturedBodyFor(fields, POSTSEASON_SCHEDULE_PATH, POSTSEASON_SCHEDULE_FIELDS_PATH, SCHEDULE_FIELDS),
       );
     }
+    const startDate = url.searchParams.get("startDate");
+    if (startDate) {
+      // `getOpeningDay`: the first regular-season date in a Feb-May window.
+      const fields = url.searchParams.get("fields");
+      return memoized(`opening:${fields ?? ""}`, () =>
+        capturedBodyFor(fields, OPENING_DAY_PATH, OPENING_DAY_FIELDS_PATH, OPENING_DAY_FIELDS),
+      );
+    }
     const date = url.searchParams.get("date") ?? BENCH_DATE;
     const fields = url.searchParams.get("fields");
     return memoized(`sched:${date}:${fields ?? ""}`, () => {
@@ -364,6 +409,28 @@ function mlbBody(url: URL): string {
       if (!fields) return body;
       return JSON.stringify(pruneFields(JSON.parse(body), fieldSet(fields)));
     });
+  }
+
+  if (path === "/api/v1/standings") {
+    const fields = url.searchParams.get("fields");
+    return memoized(`standings:${fields ?? ""}`, () =>
+      capturedBodyFor(fields, STANDINGS_PATH, STANDINGS_FIELDS_PATH, STANDINGS_FIELDS),
+    );
+  }
+
+  if (path === "/api/v1/schedule/postseason/series") {
+    const fields = url.searchParams.get("fields");
+    return memoized(`series:${fields ?? ""}`, () =>
+      capturedBodyFor(fields, POSTSEASON_SERIES_PATH, POSTSEASON_SERIES_FIELDS_PATH, POSTSEASON_SERIES_FIELDS),
+    );
+  }
+
+  const seasonDates = /^\/api\/v1\/seasons\/(\d+)$/.exec(path);
+  if (seasonDates) {
+    const fields = url.searchParams.get("fields");
+    return memoized(`season:${seasonDates[1]}:${fields ?? ""}`, () =>
+      capturedBodyFor(fields, SEASON_DATES_PATH, SEASON_DATES_FIELDS_PATH, SEASON_DATES_FIELDS),
+    );
   }
 
   const boxscore = /^\/api\/v1\/game\/(\d+)\/boxscore$/.exec(path);
