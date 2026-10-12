@@ -571,16 +571,100 @@ export interface SgoOddFixture {
 }
 
 /** One SportsGameOdds event, shaped like the provider's v2 `/events` payload. */
+/**
+ * The event envelope. The provider's OpenAPI document declares thirteen fields
+ * on an Event, twelve on a Team and ten on a Player; a fixture that models a
+ * convenient subset understates the board and quietly flatters anything
+ * measured against it, so all of them are present (with deterministic values).
+ * `players[id].name` is kept alongside the declared `names` because the reader
+ * uses the flat field.
+ */
 export interface SgoEventFixture {
   eventID: string;
+  sportID: string;
   leagueID: string;
-  teams: {
-    away: { names: { long: string; medium: string } };
-    home: { names: { long: string; medium: string } };
-  };
+  type: string;
+  activity: string;
+  manual: boolean;
+  aliases: string[];
+  info: Record<string, string>;
+  results: Record<string, string>;
+  teams: { away: SgoTeamEnvelope; home: SgoTeamEnvelope };
   status: { startsAt: string; started: boolean; completed: boolean };
   odds: Record<string, SgoOddFixture>;
-  players?: Record<string, { name: string }>;
+  players?: Record<string, SgoPlayerEnvelope>;
+}
+
+export interface SgoTeamEnvelope {
+  teamID: string;
+  sportID: string;
+  leagueID: string;
+  names: { long: string; medium: string; short: string };
+  logo: string;
+  colors: string[];
+  aliases: string[];
+  lookups: { teamID: string; leagueID: string };
+  standings: { wins: number; losses: number; rank: number };
+  venue: { name: string; city: string };
+  coach: string;
+  owner: string;
+}
+
+export interface SgoPlayerEnvelope {
+  name: string;
+  playerID: string;
+  sportID: string;
+  leagueID: string;
+  teamID: string;
+  names: { long: string; medium: string; short: string };
+  jerseyNumber: string;
+  position: string;
+  aliases: string[];
+  lookups: { playerID: string; teamID: string };
+  playerTeams: string[];
+}
+
+function sgoTeamEnvelope(team: BenchTeam): SgoTeamEnvelope {
+  const slug = team.abbreviation.toUpperCase();
+  return {
+    teamID: `${slug}_MLB`,
+    sportID: "BASEBALL",
+    leagueID: "MLB",
+    names: { long: team.name, medium: team.abbreviation, short: team.abbreviation },
+    logo: `https://cdn.sportsgameodds.com/teams/${slug}.png`,
+    colors: ["#0B1121", "#C8102E"],
+    aliases: [`${team.name} (MLB)`, team.abbreviation],
+    lookups: { teamID: `${slug}_MLB`, leagueID: "MLB" },
+    standings: { wins: 51, losses: 39, rank: 2 },
+    venue: { name: `${team.name} Ballpark`, city: team.name.split(" ").pop() ?? "City" },
+    coach: "Bench Coach",
+    owner: `${team.name} Ownership Group`,
+  };
+}
+
+/** The team a prop-carrying player belongs to, for his event envelope. */
+function teamOfPlayer(game: BenchGame, id: number): BenchTeam {
+  for (const side of [game.away, game.home]) {
+    if ([...side.hitters, ...side.pitchers].some((p) => p.id === id)) return side.team;
+  }
+  return game.home.team;
+}
+
+function sgoPlayerEnvelope(id: number, team: BenchTeam, name: string): SgoPlayerEnvelope {
+  const slug = team.abbreviation.toUpperCase();
+  return {
+    name,
+    playerID: sgoPlayerId(name),
+    sportID: "BASEBALL",
+    leagueID: "MLB",
+    teamID: `${slug}_MLB`,
+    names: { long: name, medium: name.split(" ").pop() ?? name, short: name.slice(0, 1) },
+    jerseyNumber: String(1 + (id % 98)),
+    position: id >= 900000 ? "Pitcher" : "Outfielder",
+    aliases: [name.replace(" ", "_")],
+    lookups: { playerID: sgoPlayerId(name), teamID: `${slug}_MLB` },
+    playerTeams: [`${slug}_MLB`],
+  };
 }
 
 /**
@@ -590,12 +674,12 @@ export interface SgoEventFixture {
  */
 export function sgoEvent(game: BenchGame, withPlayers: boolean): SgoEventFixture {
   const odds: Record<string, SgoOddFixture> = {};
-  const players: Record<string, { name: string }> = {};
+  const players: Record<string, SgoPlayerEnvelope> = {};
 
   for (const { player, market, line } of propPairsForEvent(game)) {
     const statID = STAT_ID_BY_MARKET[market];
     const playerID = sgoPlayerId(player.fullName);
-    if (withPlayers) players[playerID] = { name: player.fullName };
+    if (withPlayers) players[playerID] = sgoPlayerEnvelope(player.id, teamOfPlayer(game, player.id), player.fullName);
 
     for (const sideID of ["over", "under"] as const) {
       const dropped = hash32(player.id + market.length * 977 + (sideID === "over" ? 1 : 2)) % 20 === 0;
@@ -675,16 +759,22 @@ export function sgoEvent(game: BenchGame, withPlayers: boolean): SgoEventFixture
         },
       };
     }
-    players[playerID] = { name };
+    players[playerID] = sgoPlayerEnvelope(phantomId, teamOfPlayer(game, phantomId), name);
   });
 
   const event: SgoEventFixture = {
     eventID: `SGO_${game.gamePk}`,
+    sportID: "BASEBALL",
     leagueID: "MLB",
-    teams: {
-      away: { names: { long: game.away.team.name, medium: game.away.team.abbreviation } },
-      home: { names: { long: game.home.team.name, medium: game.home.team.abbreviation } },
-    },
+    type: "match",
+    activity: "baseball",
+    manual: false,
+    aliases: [`${game.away.team.name} at ${game.home.team.name}`],
+    info: { venue: game.venue, city: game.city, dayNight: "night" },
+    // The provider returns a results object for every event; the reader ignores
+    // it, and `expandResults` only widens it.
+    results: { game: "0", period: "0" },
+    teams: { away: sgoTeamEnvelope(game.away.team), home: sgoTeamEnvelope(game.home.team) },
     status: { startsAt: game.startTimeISO, started: false, completed: false },
     odds,
   };
