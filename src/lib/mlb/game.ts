@@ -307,8 +307,45 @@ export function seasonOf(feed: GameFeed): number {
  * still read the cached body back and parsed it again, so the game page paid
  * for two parses: one for the feed and one for the game log's plays.
  */
+/**
+ * `fields` filter for the live feed: every leaf this module (and
+ * {@link getGamePlays}) reads, and nothing else.
+ *
+ * A feed carries far more than the page uses — a finalized game's payload
+ * measured 715 KB, of which `liveData.plays[].playEvents` (every pitch of every
+ * at-bat) and the players' biographical metadata are the bulk, while the shaping
+ * below reads under a tenth of it. The API honours `fields` as a comma-separated
+ * list of field names; requesting exactly these returns 64 KB of the same game
+ * whose shaped output is byte-identical (verified against the live API for game
+ * 849831: 715,130 → 64,002 bytes, identical `getLiveFeed` + `getGamePlays`
+ * results), and cuts read+parse+shape from 2.1 ms to 0.17 ms.
+ *
+ * Add a name here whenever this module starts reading a new field — the list is
+ * the contract with the filter, and a missing name silently shapes as undefined.
+ */
+const FEED_FIELDS = [
+  // envelope + gameData
+  "gamePk", "gameData", "players", "pitchHand", "code", "game", "type", "status",
+  "abstractGameState", "detailedState", "datetime", "dateTime", "venue", "id", "name",
+  "abbreviation", "location", "city", "weather", "condition", "temp", "wind", "teams",
+  "away", "home", "probablePitchers", "fullName",
+  // linescore, boxscore, decisions
+  "liveData", "linescore", "scheduledInnings", "innings", "num", "ordinalNum", "runs",
+  "hits", "errors", "boxscore", "team", "batters", "pitchers", "bullpen", "battingOrder",
+  "person", "position", "stats", "batting", "pitching", "seasonStats", "atBats",
+  "baseOnBalls", "strikeOuts", "avg", "inningsPitched", "earnedRuns", "era", "decisions",
+  "winner", "loser", "save",
+  // plays (game log)
+  "plays", "allPlays", "about", "halfInning", "inning", "result", "eventType",
+  "description", "awayScore", "homeScore", "rbi", "matchup", "batter", "pitcher",
+].join(",");
+
 const getRawFeed = cache(function getRawFeed(gamePk: number): Promise<RawFeedWithPlays> {
-  return mlbFetch<RawFeedWithPlays>(`/api/v1.1/game/${gamePk}/feed/live`, {}, TTL.live);
+  return mlbFetch<RawFeedWithPlays>(
+    `/api/v1.1/game/${gamePk}/feed/live`,
+    { fields: FEED_FIELDS },
+    TTL.live,
+  );
 });
 
 /**

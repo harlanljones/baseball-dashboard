@@ -18,18 +18,23 @@ import { createElement, Fragment } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 
 import BestLeansSection from "@/components/BestLeansSection";
+import BoxscoreTables from "@/components/BoxscoreTables";
 import GameCard from "@/components/GameCard";
+import GameLog from "@/components/GameLog";
+import Linescore from "@/components/Linescore";
 import PlayerPropsBoard from "@/components/PlayerPropsBoard";
 import { loadPropGroups } from "@/components/PropsSidebarSection";
 import type { PropTeamGroup } from "@/lib/odds/board";
 import { propContextFromFeed } from "@/lib/odds/board";
 import { getBestLeans, type SlateLean } from "@/lib/odds/leans";
 import type { ScoredProp } from "@/lib/odds/types";
-import { getLiveFeed } from "@/lib/mlb/game";
+import { getGamePlays, getLiveFeed } from "@/lib/mlb/game";
 import { getSchedule } from "@/lib/mlb/schedule";
 import type { GameFeed } from "@/lib/mlb/types";
 import { safe } from "@/lib/safe";
 import { getGameWeather } from "@/lib/weather/report";
+
+import { CAPTURED_FEED_PK } from "./upstream";
 import type { GameWeather } from "@/lib/weather/types";
 
 import {
@@ -46,6 +51,7 @@ export interface PhaseTimings {
   leansMs: number;
   propsMs: number;
   renderMs: number;
+  liveMs: number;
   totalMs: number;
 }
 
@@ -58,6 +64,8 @@ export interface WorkloadResult {
   matchedProps: number;
   boardHtml: string;
   slateHtml: string;
+  /** Innings, plays and rendered bytes of the game page's feed-derived core. */
+  live: { innings: number; plays: number; htmlBytes: number };
   digest: string;
 }
 
@@ -90,9 +98,9 @@ function digestOf(leans: SlateLean[], scored: ScoredProp[], boardHtml: string, s
 }
 
 /**
- * One request cycle: the two betting surfaces plus the render of the pages
- * they feed. Each cycle is a fresh "request" — no scope or cache is shared with
- * the previous one.
+ * One request cycle: the two betting surfaces, the render of the pages they
+ * feed, and the game page's own feed read. Each cycle is a fresh "request" — no
+ * scope or cache is shared with the previous one.
  */
 export async function runCycle(): Promise<WorkloadResult> {
   const started = performance.now();
@@ -141,9 +149,30 @@ export async function runCycle(): Promise<WorkloadResult> {
   );
   const renderMs = performance.now() - renderStart;
 
+  // Phase 4 — the game page's data path: its largest single upstream read (a
+  // full feed, ~715 KB before the request narrows it) and the sections that read
+  // from it, none of which cost an extra request.
+  const liveStart = performance.now();
+  const liveFeed = await getLiveFeed(CAPTURED_FEED_PK);
+  const livePlays = await getGamePlays(CAPTURED_FEED_PK);
+  const liveHtml = renderToStaticMarkup(
+    createElement(
+      Fragment,
+      null,
+      createElement(Linescore, { feed: liveFeed }),
+      createElement(BoxscoreTables, {
+        away: liveFeed.boxscore.away,
+        home: liveFeed.boxscore.home,
+        isLive: true,
+      }),
+      createElement(GameLog, { plays: livePlays }),
+    ),
+  );
+  const liveMs = performance.now() - liveStart;
+
   const scored = scoredPropsOf(groups);
   return {
-    timings: { leansMs, propsMs, renderMs, totalMs: performance.now() - started },
+    timings: { leansMs, propsMs, renderMs, liveMs, totalMs: performance.now() - started },
     leans,
     groups,
     scored,
@@ -151,6 +180,11 @@ export async function runCycle(): Promise<WorkloadResult> {
     matchedProps: scored.length,
     boardHtml,
     slateHtml,
+    live: {
+      innings: liveFeed.linescore.innings.length,
+      plays: livePlays.length,
+      htmlBytes: liveHtml.length,
+    },
     digest: digestOf(leans, scored, boardHtml, slateHtml),
   };
 }
@@ -284,6 +318,13 @@ export function checkInvariants(
   if (evidenceLines.length === 0) failures.push("no matchup evidence attached to any player");
   const nudged = result.scored.filter((prop) => prop.evidence.some((text) => /favors the (over|under)/.test(text)));
   if (nudged.length === 0) failures.push("weather nudge never fired for the open-air fixture game");
+
+  // The game page's feed-derived core: the captured feed must actually shape
+  // (a fixture the parser cannot read would otherwise render nothing) and its
+  // sections must produce markup.
+  if (result.live.innings < 9) failures.push(`captured feed shaped only ${result.live.innings} innings`);
+  if (result.live.plays < 5) failures.push(`captured feed shaped only ${result.live.plays} significant plays`);
+  if (result.live.htmlBytes < 2000) failures.push(`game-page sections rendered only ${result.live.htmlBytes} bytes`);
 
   // Render: every scored prop has its anchor, the slate renders, and nothing
   // from a name the roster cannot resolve leaked into the board.

@@ -15,6 +15,9 @@
  *    does too (it stores the body and re-parses it on every read).
  */
 
+import { readFileSync } from "node:fs";
+import { gunzipSync } from "node:zlib";
+
 import { BALLPARKS } from "@/lib/weather/ballparks";
 import {
   BENCH_DATE,
@@ -35,6 +38,22 @@ import {
 } from "./fixture";
 
 export type WeatherProfile = "out-hot" | "in-cold" | "calm";
+
+/**
+ * A real finalized game's `feed/live` payload (715 KB, 64 plays, 9 innings, 52
+ * players), captured once from the live API and committed gzipped. It is the
+ * app's largest single upstream read, so the harness reads it too; the request
+ * `fields` filter still applies, which is what makes narrowing it measurable.
+ */
+export const CAPTURED_FEED_PK = 849832;
+const CAPTURED_FEED_PATH = new URL("./fixtures/game-feed.json.gz", import.meta.url);
+let capturedFeed: string | null = null;
+function capturedFeedBody(): string {
+  if (capturedFeed == null) {
+    capturedFeed = gunzipSync(readFileSync(CAPTURED_FEED_PATH)).toString("utf8");
+  }
+  return capturedFeed;
+}
 
 export interface FetchRecord {
   url: string;
@@ -160,6 +179,38 @@ function sgoBoardBody(url: URL): string {
   return page;
 }
 
+/**
+ * Local model of the API's `fields` filter: keep listed names, recurse into
+ * objects and arrays, drop branches with nothing listed beneath them.
+ */
+function pruneFields(value: unknown, wanted: Set<string>, listed = false): unknown {
+  if (Array.isArray(value)) {
+    const items = value.map((item) => pruneFields(item, wanted, listed)).filter((item) => item !== undefined);
+    return listed || items.length > 0 ? items : undefined;
+  }
+  if (value && typeof value === "object") {
+    const out: Record<string, unknown> = {};
+    for (const [key, child] of Object.entries(value as Record<string, unknown>)) {
+      const keep = wanted.has(key);
+      if (!keep && !hasListedDescendant(child, wanted)) continue;
+      const pruned = pruneFields(child, wanted, keep);
+      if (pruned !== undefined) out[key] = pruned;
+    }
+    return listed || Object.keys(out).length > 0 ? out : undefined;
+  }
+  return listed ? value : undefined;
+}
+
+function hasListedDescendant(value: unknown, wanted: Set<string>): boolean {
+  if (Array.isArray(value)) return value.some((item) => hasListedDescendant(item, wanted));
+  if (value && typeof value === "object") {
+    return Object.entries(value as Record<string, unknown>).some(
+      ([key, child]) => wanted.has(key) || hasListedDescendant(child, wanted),
+    );
+  }
+  return false;
+}
+
 /** The named books' lines for one odd, in provider order. */
 function pickBooks(
   byBookmaker: Record<string, SgoBookLine> | undefined,
@@ -217,9 +268,27 @@ function mlbBody(url: URL): string {
 
   const liveFeed = /^\/api\/v1\.1\/game\/(\d+)\/feed\/live$/.exec(path);
   if (liveFeed) {
+    if (Number(liveFeed[1]) === CAPTURED_FEED_PK) {
+      const fields = url.searchParams.get("fields");
+      return memoized(`feed:captured:${fields ?? ""}`, () => {
+        const body = capturedFeedBody();
+        if (!fields) return body;
+        const wanted = new Set(fields.split(",").map((f) => f.trim()).filter(Boolean));
+        return JSON.stringify(pruneFields(JSON.parse(body), wanted));
+      });
+    }
     const game = GAMES.find((g) => String(g.gamePk) === liveFeed[1]);
     if (!game) return JSON.stringify({ gamePk: 0, gameData: { teams: { away: { id: 0 } } }, liveData: {} });
-    return memoized(`feed:${liveFeed[1]}`, () => liveFeedBody(game));
+    // The API honours `fields` as a list of field names; the stub applies the
+    // list the caller sent, so a narrowed request serves a narrowed body without
+    // the fixture and the app having to agree on a constant.
+    const fields = url.searchParams.get("fields");
+    return memoized(`feed:${liveFeed[1]}:${fields ?? ""}`, () => {
+      const body = liveFeedBody(game);
+      if (!fields) return body;
+      const wanted = new Set(fields.split(",").map((f) => f.trim()).filter(Boolean));
+      return JSON.stringify(pruneFields(JSON.parse(body), wanted));
+    });
   }
 
   throw new Error(`bench upstream: unhandled statsapi route ${url.pathname}`);
