@@ -219,6 +219,14 @@ async function fetchBoard(): Promise<SgoEvent[]> {
     oddID: ODD_ID_FILTER,
     oddIDs: ODD_ID_FILTER,
     bookmakerID: PREFERRED_BOOKMAKERS.join(","),
+    // The provider's OpenAPI spec declares both as response-shaping params on
+    // `/events`. Each book block carries thirteen fields; this reader touches
+    // three (`odds`, `overUnder`, `available`), and `includeOpenCloseOdds`
+    // governs six of the other ten. Alternate lines are read nowhere either,
+    // and `oddID` filtering alone leaves their inclusion to the provider's
+    // default — so both are asked for explicitly rather than assumed.
+    includeAltLines: false,
+    includeOpenCloseOdds: false,
   };
 
   const events: SgoEvent[] = [];

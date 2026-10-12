@@ -481,11 +481,33 @@ export const BOOK_NAMES = [
   "wynnbet",
 ];
 
+/**
+ * One book's block for an odd. The provider's OpenAPI spec (`ByBookmakerOdds`)
+ * declares 13 fields; the app reads three of them (`odds`, `overUnder`,
+ * `available`), and `includeOpenCloseOdds` governs six more. Modelling all of
+ * them keeps the board the size a real one is, so asking the provider to omit
+ * what the app does not read shows up as the saving it is.
+ */
 export interface SgoBookLine {
+  bookmakerID?: string;
   odds?: string;
   overUnder?: string;
+  spread?: string;
   available?: boolean;
+  isMainLine?: boolean;
+  lastUpdatedAt?: string;
+  openOdds?: string;
+  closeOdds?: string;
+  openSpread?: string;
+  closeSpread?: string;
+  openOverUnder?: string;
+  closeOverUnder?: string;
 }
+
+/** The six fields `includeOpenCloseOdds` controls. */
+export const OPEN_CLOSE_FIELDS = [
+  "openOdds", "closeOdds", "openSpread", "closeSpread", "openOverUnder", "closeOverUnder",
+] as const;
 
 export interface SgoOddFixture {
   oddID?: string;
@@ -538,10 +560,21 @@ export function sgoEvent(game: BenchGame, withPlayers: boolean): SgoEventFixture
         const drift = ((hash32(player.id + b * 31 + market.length * 17) % 5) - 2) * 0.5;
         // American price on the grid books actually post, side-dependent.
         const price = -140 + (hash32(player.id * 7 + (b * 17 + (sideID === "over" ? 3 : 11)) * 131) % 81);
+        const lineText = Math.max(0.5, line + drift).toFixed(1);
         byBookmaker[book] = {
+          bookmakerID: book,
           odds: String(price),
-          overUnder: Math.max(0.5, line + drift).toFixed(1),
+          overUnder: lineText,
+          spread: String(drift),
           available: !(book === "fanatics" && b % 3 === 0),
+          isMainLine: true,
+          lastUpdatedAt: `${BENCH_DATE}T18:00:00Z`,
+          openOdds: String(price - 5),
+          closeOdds: String(price + 5),
+          openSpread: String(drift),
+          closeSpread: String(drift),
+          openOverUnder: lineText,
+          closeOverUnder: lineText,
         };
       }
       odds[oddID] = {

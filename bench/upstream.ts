@@ -32,6 +32,7 @@ import {
   rosterBody,
   liveFeedBody,
   scheduleBody,
+  OPEN_CLOSE_FIELDS,
   sgoEvent,
   type BenchSide,
   type SgoBookLine,
@@ -260,10 +261,16 @@ function sgoBoardBody(url: URL): string {
   const eventIDs = url.searchParams.get("eventIDs");
   const oddIDs = url.searchParams.get("oddIDs");
   const bookmakerIDs = url.searchParams.get("bookmakerID") ?? url.searchParams.get("bookmakerIDs");
+  // Response-shaping params the provider's OpenAPI spec declares on `/events`.
+  // `includeOpenCloseOdds=false` drops six of the thirteen fields in each
+  // book's block; `includeAltLines` is accepted but the fixture posts only main
+  // lines, so it changes nothing here.
+  const openClose = url.searchParams.get("includeOpenCloseOdds");
+  const includeOpenClose = openClose === null ? true : openClose !== "false";
   // The assembled page is cached by request shape: joining 2 MB of per-event
   // strings is the fixture's own work, and counting it as application time
   // would dilute everything the benchmark is meant to measure.
-  const pageKey = `sgo:${cursor}:${limit}:${eventIDs ?? ""}:${oddIDs ?? ""}:${bookmakerIDs ?? ""}`;
+  const pageKey = `sgo:${cursor}:${limit}:${eventIDs ?? ""}:${oddIDs ?? ""}:${bookmakerIDs ?? ""}:${includeOpenClose}`;
   const cachedPage = memo.get(pageKey);
   if (cachedPage != null) return cachedPage;
 
@@ -289,14 +296,17 @@ function sgoBoardBody(url: URL): string {
       selected.push(EVENT_STRINGS[i]);
       continue;
     }
-    const key = `ev:${i}:${[...(requested ?? [])].sort().join("|")}:${bookmakerIDs ?? ""}`;
+    const key = `ev:${i}:${[...(requested ?? [])].sort().join("|")}:${bookmakerIDs ?? ""}:${includeOpenClose}`;
     let body = memo.get(key);
     if (body == null) {
       const event = EVENT_OBJECTS[i];
       const odds: Record<string, SgoOddFixture> = {};
       for (const [oddID, odd] of Object.entries(event.odds)) {
         if (odd.statID && requested && !requested.has(odd.statID)) continue;
-        odds[oddID] = books ? { ...odd, byBookmaker: pickBooks(odd.byBookmaker, books) } : odd;
+        const byBookmaker = books ? pickBooks(odd.byBookmaker, books) : odd.byBookmaker;
+        odds[oddID] = includeOpenClose
+          ? { ...odd, byBookmaker }
+          : { ...odd, byBookmaker: stripOpenClose(byBookmaker) };
       }
       body = JSON.stringify({ ...event, odds });
       memo.set(key, body);
@@ -348,6 +358,19 @@ function hasListedDescendant(value: unknown, wanted: Set<string>): boolean {
 }
 
 /** The named books' lines for one odd, in provider order. */
+/** Drop the fields `includeOpenCloseOdds=false` asks the provider to omit. */
+function stripOpenClose(
+  byBookmaker: Record<string, SgoBookLine> | undefined,
+): Record<string, SgoBookLine> {
+  const kept: Record<string, SgoBookLine> = {};
+  for (const [book, line] of Object.entries(byBookmaker ?? {})) {
+    const trimmed: SgoBookLine = { ...line };
+    for (const field of OPEN_CLOSE_FIELDS) delete trimmed[field];
+    kept[book] = trimmed;
+  }
+  return kept;
+}
+
 function pickBooks(
   byBookmaker: Record<string, SgoBookLine> | undefined,
   books: Set<string>,
