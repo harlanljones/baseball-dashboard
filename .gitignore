@@ -50,3 +50,6 @@ next-env.d.ts
 
 # claude code
 .claude/
+
+# Profiler artifacts from bench runs (bun --cpu-prof writes these here).
+bench/*.cpuprofile
