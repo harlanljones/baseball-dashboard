@@ -417,4 +417,99 @@ describe("getPlayerProps", () => {
 
     await expect(getPlayerProps("evt-1")).rejects.toThrow();
   });
+
+  it("asks for the preferred books instead of every US bookmaker", async () => {
+    vi.stubEnv("ODDS_API_KEY", "test-key");
+    const urls: string[] = [];
+    stubFetch((rawUrl) => {
+      urls.push(rawUrl);
+      return TOA_PROPS;
+    });
+
+    await getPlayerProps("evt-1");
+
+    expect(urls).toHaveLength(1);
+    const { searchParams } = new URL(urls[0]);
+    expect(searchParams.get("bookmakers")).toBe("fanduel,draftkings,betmgm");
+    expect(searchParams.has("regions")).toBe(false);
+  });
+
+  it("reads the most preferred book that carries a tracked market", async () => {
+    vi.stubEnv("ODDS_API_KEY", "test-key");
+    stubFetch(() => ({
+      id: "evt-1",
+      bookmakers: [
+        {
+          key: "bovada",
+          markets: [
+            {
+              key: "batter_stolen_bases",
+              outcomes: [{ name: "Over", description: "Aaron Judge", price: -110, point: 0.5 }],
+            },
+          ],
+        },
+        {
+          // betmgm is listed first but sits behind fanduel in our preference.
+          key: "betmgm",
+          markets: [
+            {
+              key: "batter_hits",
+              outcomes: [
+                { name: "Over", description: "Aaron Judge", price: 100, point: 0.5 },
+                { name: "Under", description: "Aaron Judge", price: -120, point: 0.5 },
+              ],
+            },
+          ],
+        },
+        {
+          key: "fanduel",
+          markets: [
+            {
+              key: "batter_hits",
+              outcomes: [
+                { name: "Over", description: "Aaron Judge", price: -130, point: 0.5 },
+                { name: "Under", description: "Aaron Judge", price: 110, point: 0.5 },
+              ],
+            },
+          ],
+        },
+      ],
+    }));
+
+    expect(await getPlayerProps("evt-1")).toEqual([
+      expect.objectContaining({ playerName: "Aaron Judge", line: 0.5, overPrice: -130, underPrice: 110 }),
+    ]);
+  });
+
+  it("widens to the whole region when no preferred book has a tracked market", async () => {
+    vi.stubEnv("ODDS_API_KEY", "test-key");
+    const urls: string[] = [];
+    stubFetch((rawUrl) => {
+      urls.push(rawUrl);
+      const narrow = new URL(rawUrl).searchParams.has("bookmakers");
+      return narrow
+        ? {
+            id: "evt-1",
+            bookmakers: [
+              {
+                key: "fanduel",
+                markets: [
+                  {
+                    key: "batter_stolen_bases",
+                    outcomes: [{ name: "Over", description: "Aaron Judge", price: -110, point: 0.5 }],
+                  },
+                ],
+              },
+            ],
+          }
+        : TOA_PROPS;
+    });
+
+    expect(await getPlayerProps("evt-1")).toEqual([
+      expect.objectContaining({ playerName: "Aaron Judge", line: 0.5, overPrice: -130, underPrice: 110 }),
+    ]);
+    expect(urls).toHaveLength(2);
+    expect(new URL(urls[0]).searchParams.get("bookmakers")).toBe("fanduel,draftkings,betmgm");
+    expect(new URL(urls[1]).searchParams.get("regions")).toBe("us");
+  });
 });
