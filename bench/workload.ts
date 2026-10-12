@@ -52,6 +52,8 @@ import {
   OFFSEASON_DATE,
   GAMES,
   PHANTOM_NAMES,
+  BATTER_MARKETS,
+  PITCHER_MARKETS,
   PROPS_GAME,
   expectedMatchedProps,
   relieverIds,
@@ -469,6 +471,16 @@ export function checkInvariants(
     .filter((line) => line.includes("starts"));
   if (relieverStarts.length > 0) {
     failures.push(`a reliever's evidence is worded in starts: ${relieverStarts[0]}`);
+  }
+
+  // Sanity guards for the board's shape, not its content: a board that leans
+  // one way only, or that has lost a tracked market, means the scoring or the
+  // shaping broke rather than the fixture's data happening to fall that way.
+  const directions = new Set(result.scored.map((prop) => prop.direction));
+  if (directions.size < 2) failures.push("every scored prop leans the same way");
+  const scoredMarkets = new Set(result.scored.map((prop) => prop.marketKey));
+  for (const market of [...BATTER_MARKETS, ...PITCHER_MARKETS]) {
+    if (!scoredMarkets.has(market)) failures.push(`no scored prop for the tracked market ${market}`);
   }
 
   const evidenceLines = result.groups.flatMap((group) => group.players.flatMap((player) => player.evidence));
