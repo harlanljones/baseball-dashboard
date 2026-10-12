@@ -55,7 +55,7 @@ function Section({
   children: React.ReactNode;
 }) {
   return (
-    <section className="rounded-md border border-ink/10 bg-card p-4 shadow-sm">
+    <section className="card-pad">
       <div className="mb-3 flex items-baseline justify-between gap-3">
         <h2 className="eyebrow text-lg">{title}</h2>
         {aside}
@@ -77,7 +77,7 @@ function CollapsibleSection({
   children: React.ReactNode;
 }) {
   return (
-    <details className="group rounded-md border border-ink/10 bg-card p-4 shadow-sm">
+    <details className="group card-pad">
       <summary className="flex cursor-pointer list-none items-baseline justify-between gap-3 [&::-webkit-details-marker]:hidden">
         <h2 className="eyebrow text-base transition-colors group-hover:text-ink">{title}</h2>
         <span
@@ -242,7 +242,7 @@ export default async function GamePage({
       <BackLink href="/">All games</BackLink>
 
       {/* Header */}
-      <div className="rounded-md border border-ink/10 bg-card p-4 shadow-sm">
+      <div className="card-pad">
         <h1 className="sr-only">
           {feed.away.team.name} at {feed.home.team.name}
         </h1>
@@ -288,7 +288,7 @@ export default async function GamePage({
         )}
 
         {feed.state === "Final" && (d?.winner || d?.loser) && (
-          <p className="mt-3 border-t border-ink/10 pt-2 text-xs text-ink/65">
+          <p className="mt-3 divider-t pt-2 text-xs text-ink/65">
             {d?.winner && <>W: {d.winner.fullName}</>}
             {d?.loser && <> · L: {d.loser.fullName}</>}
             {d?.save && <> · SV: {d.save.fullName}</>}
@@ -296,7 +296,7 @@ export default async function GamePage({
         )}
 
         {isPreview && (feed.probablePitchers.away || feed.probablePitchers.home) && (
-          <div className="mt-3 border-t border-ink/10 pt-2 text-sm text-ink/65">
+          <div className="mt-3 divider-t pt-2 text-sm text-ink/65">
             <span className="mr-3">Probables:</span>
             <span className="inline-flex flex-wrap items-center gap-x-5 gap-y-1 align-middle">
               {(["away", "home"] as const).map((side) => {
@@ -402,7 +402,7 @@ export default async function GamePage({
             aside={
               <a
                 href="/glossary"
-                className="text-xs text-grass underline underline-offset-2 hover:text-field-deep dark:hover:text-grass"
+                className="text-xs link-subtle"
               >
                 Glossary
               </a>

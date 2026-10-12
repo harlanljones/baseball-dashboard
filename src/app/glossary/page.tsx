@@ -27,11 +27,11 @@ export default function GlossaryPage() {
         {GLOSSARY.map((group) => (
           <section
             key={group.title}
-            className="rounded-md border border-ink/10 bg-card p-4 shadow-sm"
+            className="card-pad"
           >
             <h2 className="eyebrow text-lg">{group.title}</h2>
             <p className="mt-1 max-w-xl text-sm text-ink/65">{group.intro}</p>
-            <dl className="mt-3 divide-y divide-ink/10 border-t border-ink/10">
+            <dl className="mt-3 divide-y divide-ink/10 divider-t">
               {group.terms.map(({ term, definition }) => (
                 <div
                   key={term}
@@ -51,7 +51,7 @@ export default function GlossaryPage() {
       <p className="mt-5 max-w-xl text-xs text-ink/65">
         Grades compare players within this site&apos;s thresholds, not official
         awards. See the{" "}
-        <Link href="/" className="text-grass underline underline-offset-2 hover:text-field-deep dark:hover:text-grass">
+        <Link href="/" className="link-subtle">
           today&apos;s slate
         </Link>{" "}
         to put the numbers to work.

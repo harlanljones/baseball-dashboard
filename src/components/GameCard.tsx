@@ -73,7 +73,7 @@ export default function GameCard({ game }: { game: ScheduleGame }) {
   return (
     <Link
       href={`/games/${game.gamePk}`}
-      className="block rounded-md border border-ink/10 bg-card p-4 shadow-sm transition hover:border-field/40"
+      className="block card-pad transition hover:border-field/40"
     >
       <div className="mb-2.5 flex items-center justify-between">
         <GameStatusBadge game={game} />
@@ -90,7 +90,7 @@ export default function GameCard({ game }: { game: ScheduleGame }) {
       </div>
 
       {(hasProbables || game.venue) && (
-        <div className="mt-3 space-y-1 border-t border-ink/10 pt-2 text-xs text-ink/65">
+        <div className="mt-3 space-y-1 divider-t pt-2 text-xs text-ink/65">
           {hasProbables && (
             <div className="flex flex-wrap gap-x-4 gap-y-1">
               <ProbableRow

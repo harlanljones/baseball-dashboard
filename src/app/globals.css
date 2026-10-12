@@ -68,8 +68,9 @@ html {
   outline-offset: 2px;
 }
 
-/* Tabular figures keep box-score and linescore columns aligned. */
-.nums {
+/* Tabular figures keep box-score and linescore columns aligned. Declared as a
+   utility so component classes below can @apply it. */
+@utility nums {
   font-variant-numeric: tabular-nums;
 }
 
@@ -155,4 +156,120 @@ html {
   height: 1em;
   flex: none;
   background: var(--color-gold);
+}
+
+/* Component classes: clusters that repeat once per rendered row, so the same
+   utility strings stop being re-emitted in every row's HTML. They live in the
+   components layer, which leaves utilities free to override them per element
+   exactly as they did when the same utilities sat in the markup. */
+@layer components {
+  /* Shared chips, links and panels. */
+  .chip {
+    @apply rounded-sm border border-ink/25 px-1 py-px text-xs font-semibold uppercase tracking-wider text-ink/75;
+  }
+  .link-subtle {
+    @apply text-grass underline underline-offset-2 hover:text-field-deep dark:hover:text-grass;
+  }
+  .card-pad {
+    @apply rounded-md border border-ink/10 bg-card p-4 shadow-sm;
+  }
+  .label-caps {
+    @apply text-xs uppercase tracking-[0.08em] text-ink/65;
+  }
+  .panel {
+    @apply min-w-0 overflow-hidden rounded-md border border-ink/10 bg-card;
+  }
+  .panel-head {
+    @apply flex items-center gap-2 border-b border-ink/10 px-3 py-2.5;
+  }
+  .panel-title {
+    @apply font-display text-base font-semibold uppercase tracking-wide;
+  }
+  .panel-count {
+    @apply ml-auto text-xs text-ink/65;
+  }
+
+  /* Player-prop board: one row per market, so these are the highest-volume
+     class strings in the app. */
+  .prop-row {
+    @apply scroll-mt-20 border-b border-ink/10 px-3 py-3 last:border-b-0;
+  }
+  .prop-row-head {
+    @apply flex items-start gap-2.5;
+  }
+  .prop-row-body {
+    @apply min-w-0 flex-1;
+  }
+  .prop-row-title {
+    @apply flex flex-wrap items-baseline gap-x-2 gap-y-0.5;
+  }
+  .prop-name {
+    @apply font-display text-base font-semibold;
+  }
+  .prop-market {
+    @apply text-xs text-ink/65;
+  }
+  .prop-line {
+    @apply mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs;
+  }
+  .prop-value {
+    @apply nums font-mono text-ink/75;
+  }
+  .prop-value-muted {
+    @apply nums font-mono text-ink/65;
+  }
+  .prop-partial {
+    @apply text-gold-deep;
+  }
+  .prop-score {
+    @apply shrink-0 text-right;
+  }
+  .prop-factors {
+    @apply mt-3 grid grid-cols-1 gap-3 sm:grid-cols-3;
+  }
+  .factor-head {
+    @apply flex items-center justify-between gap-2;
+  }
+  .factor-track {
+    @apply mt-1 h-1 overflow-hidden rounded-full bg-ink/10;
+  }
+  .prop-evidence {
+    @apply mt-2 text-xs leading-snug text-ink/70;
+  }
+  /* Table cells: roster, box-score and standings tables render hundreds of
+     these, and the header/cell clusters were TS string constants that
+     re-emitted ~70 characters of utilities into every cell's HTML. */
+  .th {
+    @apply font-display px-2 py-1 text-xs font-semibold uppercase tracking-wider text-ink/65;
+  }
+  .th-left {
+    @apply font-display px-2 py-1 text-xs font-semibold uppercase tracking-wider text-ink/65 text-left;
+  }
+  .th-right {
+    @apply font-display px-2 py-1 text-xs font-semibold uppercase tracking-wider text-ink/65 text-right;
+  }
+  .td {
+    @apply px-2 py-1;
+  }
+  .td-left {
+    @apply px-2 py-1 text-left;
+  }
+  .td-right {
+    @apply px-2 py-1 text-right;
+  }
+  .td-num {
+    @apply font-mono px-2 py-1 text-right;
+  }
+  .note-sm {
+    @apply mt-1 text-sm text-ink/65;
+  }
+  .table-nums {
+    @apply nums w-full min-w-max text-sm;
+  }
+  .divider-t {
+    @apply border-t border-ink/10;
+  }
+  .lean-banner {
+    @apply flex flex-wrap items-center justify-between gap-3 border border-grass/30 bg-field/5 px-3 py-2.5 text-sm;
+  }
 }

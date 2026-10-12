@@ -45,7 +45,7 @@ export default async function Home({
           <h1 className="font-display text-3xl font-bold uppercase leading-none tracking-wide">
             {offseason ? "Offseason" : date === today ? "Today's Games" : "Games"}
           </h1>
-          <p className="mt-1 text-sm text-ink/65">{prettyDate(date)}</p>
+          <p className="note-sm">{prettyDate(date)}</p>
         </div>
         <nav
           aria-label="Date navigation"

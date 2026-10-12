@@ -85,7 +85,7 @@ export default async function PlayerPropsPage({ params }: { params: Promise<{ ga
     <PageContainer wide>
       <BackLink href={`/games/${id}`}>Game overview</BackLink>
 
-      <header className="mt-4 rounded-md border border-ink/10 bg-card p-4 shadow-sm">
+      <header className="mt-4 card-pad">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <GameStatusBadge game={feed} />
           {isPreview && feed.startTime && <LocalTime iso={feed.startTime} weekday />}
@@ -101,7 +101,7 @@ export default async function PlayerPropsPage({ params }: { params: Promise<{ ga
             <span>{feed.home.team.name}</span>
           </div>
         </div>
-        <div className="mt-3 flex flex-wrap gap-x-4 gap-y-1 border-t border-ink/10 pt-3 text-xs text-ink/65">
+        <div className="mt-3 flex flex-wrap gap-x-4 gap-y-1 divider-t pt-3 text-xs text-ink/65">
           {feed.venue && <span>{[feed.venue, feed.venueCity].filter(Boolean).join(", ")}</span>}
           {feed.probablePitchers.away && <span>{feed.away.team.abbreviation} probable: {feed.probablePitchers.away.fullName}</span>}
           {feed.probablePitchers.home && <span>{feed.home.team.abbreviation} probable: {feed.probablePitchers.home.fullName}</span>}

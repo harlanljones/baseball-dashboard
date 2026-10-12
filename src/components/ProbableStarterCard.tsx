@@ -21,7 +21,7 @@ function SplitRow({
   split: PitcherSplitLine | null;
 }) {
   return (
-    <tr className="border-t border-ink/10">
+    <tr className="divider-t">
       <td className="py-1 pr-2 text-left text-ink/65">{label}</td>
       <td className="font-mono py-1 px-2 text-right">{split?.ip ?? "—"}</td>
       <td className={`font-mono py-1 px-2 text-right ${statClass("era", split?.era)}`}>
@@ -134,7 +134,7 @@ export default function ProbableStarterCard({
           <SplitRow label="vs LHB" split={vsLeft} />
           <SplitRow label="vs RHB" split={vsRight} />
           {recentForm && recentForm.starts === 0 ? (
-            <tr className="border-t border-ink/10">
+            <tr className="divider-t">
               <td colSpan={5} className="py-1 text-left text-sm text-ink/65">
                 No outings in the last 30 days
               </td>

@@ -1,5 +1,4 @@
 import TeamLogo from "@/components/TeamLogo";
-import { TD_LEFT, TD_RIGHT, TH_LEFT, TH_RIGHT } from "@/components/tableStyles";
 import type { DivisionStandings, StandingsRow } from "@/lib/mlb/types";
 
 function diffText(diff: number | undefined): string {
@@ -25,22 +24,22 @@ function DivisionTable({ division }: { division: DivisionStandings }) {
         <caption className="sr-only">{division.name}</caption>
         <thead>
           <tr className="border-b border-ink/15">
-            <th scope="col" className={TH_LEFT}>
+            <th scope="col" className="th-left">
               Team
             </th>
-            <th scope="col" className={`nums ${TH_RIGHT}`}>
+            <th scope="col" className={`nums th-right`}>
               W
             </th>
-            <th scope="col" className={`nums ${TH_RIGHT}`}>
+            <th scope="col" className={`nums th-right`}>
               L
             </th>
-            <th scope="col" className={`nums ${TH_RIGHT}`}>
+            <th scope="col" className={`nums th-right`}>
               PCT
             </th>
-            <th scope="col" className={`nums ${TH_RIGHT}`}>
+            <th scope="col" className={`nums th-right`}>
               GB
             </th>
-            <th scope="col" className={`nums ${TH_RIGHT}`}>
+            <th scope="col" className={`nums th-right`}>
               DIFF
             </th>
           </tr>
@@ -48,7 +47,7 @@ function DivisionTable({ division }: { division: DivisionStandings }) {
         <tbody className="divide-y divide-ink/10">
           {division.teams.map((row: StandingsRow) => (
             <tr key={row.team.id}>
-              <th scope="row" className={`${TD_LEFT} font-normal`}>
+              <th scope="row" className={`td-left font-normal`}>
                 <span className="flex min-w-0 items-center gap-1.5">
                   <TeamLogo teamId={row.team.id} size={18} />
                   <span className="truncate">
@@ -65,11 +64,11 @@ function DivisionTable({ division }: { division: DivisionStandings }) {
                   )}
                 </span>
               </th>
-              <td className={`nums ${TD_RIGHT}`}>{row.wins}</td>
-              <td className={`nums ${TD_RIGHT}`}>{row.losses}</td>
-              <td className={`nums ${TD_RIGHT}`}>{row.pct}</td>
-              <td className={`nums ${TD_RIGHT}`}>{row.gamesBack}</td>
-              <td className={`nums ${TD_RIGHT}`}>{diffText(row.runDifferential)}</td>
+              <td className={`nums td-right`}>{row.wins}</td>
+              <td className={`nums td-right`}>{row.losses}</td>
+              <td className={`nums td-right`}>{row.pct}</td>
+              <td className={`nums td-right`}>{row.gamesBack}</td>
+              <td className={`nums td-right`}>{diffText(row.runDifferential)}</td>
             </tr>
           ))}
         </tbody>

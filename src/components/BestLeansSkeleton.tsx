@@ -83,7 +83,7 @@ export default function BestLeansSkeleton() {
   return (
     <section
       role="status"
-      className="mb-5 rounded-md border border-ink/10 bg-card p-4 shadow-sm"
+      className="mb-5 card-pad"
     >
       <LeansHeader note="Reading the slate…" />
       <span className="sr-only">Loading best leans across the slate</span>

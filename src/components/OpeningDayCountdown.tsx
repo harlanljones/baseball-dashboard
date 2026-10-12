@@ -43,7 +43,7 @@ export default function OpeningDayCountdown({
         </p>
       )}
       {daysToOpener >= 0 && (
-        <p className="mt-1 text-sm text-ink/65">{prettyDate(openingDay.date)}</p>
+        <p className="note-sm">{prettyDate(openingDay.date)}</p>
       )}
       {springDays !== null && springDays > 0 && (
         <p className="nums mt-2 text-xs text-ink/65">

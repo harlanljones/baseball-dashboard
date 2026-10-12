@@ -585,7 +585,7 @@ export default function BallparkWeather({
 
       {/* Dome/retractable note */}
       {isDomed && (
-        <div className="border-t border-ink/10 pt-2 text-xs text-ink/65">
+        <div className="divider-t pt-2 text-xs text-ink/65">
           {roofLabel} — outdoor conditions shown for reference; wind and sky
           won&apos;t affect play.
         </div>
@@ -593,7 +593,7 @@ export default function BallparkWeather({
 
       {/* Wind field diagram (only for open-air parks) */}
       {weather.gametime && roofType === "open" && (
-        <div className="space-y-2 border-t border-ink/10 pt-3">
+        <div className="space-y-2 divider-t pt-3">
           <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-4">
             <div className="max-w-xs">
               <WindFieldDiagram weather={weather} />
@@ -620,7 +620,7 @@ export default function BallparkWeather({
 
       {/* Hourly timeline */}
       {weather.hours.length > 0 && (
-        <div className="space-y-2 border-t border-ink/10 pt-3">
+        <div className="space-y-2 divider-t pt-3">
           <div className="text-xs font-semibold uppercase tracking-wide text-ink/65">
             Hourly
           </div>
@@ -637,7 +637,7 @@ export default function BallparkWeather({
       )}
 
       {observedText && (
-        <div className="border-t border-ink/10 pt-2 text-xs text-ink/65">
+        <div className="divider-t pt-2 text-xs text-ink/65">
           Observed: {observedText}
         </div>
       )}

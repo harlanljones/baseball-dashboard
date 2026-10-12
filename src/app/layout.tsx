@@ -188,7 +188,7 @@ export default function RootLayout({
         <main id="main" className="flex min-h-0 w-full flex-1 flex-col">
           {children}
         </main>
-        <footer className="flex h-footer shrink-0 items-center justify-center border-t border-ink/10 px-4 text-center text-xs leading-4 text-ink/65">
+        <footer className="flex h-footer shrink-0 items-center justify-center divider-t px-4 text-center text-xs leading-4 text-ink/65">
           <span>
             MLB data · Weather by&nbsp;
             <a

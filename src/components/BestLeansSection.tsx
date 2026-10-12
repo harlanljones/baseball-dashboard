@@ -16,7 +16,7 @@ function formatPrice(value: number): string {
 
 function DirectionChip({ direction }: { direction: "over" | "under" }) {
   return (
-    <span className="rounded-sm border border-ink/25 px-1 py-px text-xs font-semibold uppercase tracking-wider text-ink/75">
+    <span className="chip">
       {direction}
     </span>
   );
@@ -97,7 +97,7 @@ export default function BestLeansSection({
       <section
         ref={ref}
         role="status"
-        className="mb-5 rounded-md border border-ink/10 bg-card p-4 shadow-sm"
+        className="mb-5 card-pad"
       >
         <LeansHeader note="Reading the slate…" />
         <span className="sr-only">Loading best leans across the slate</span>
@@ -134,7 +134,7 @@ export default function BestLeansSection({
   return (
     <section
       ref={ref}
-      className="fade-in mb-5 rounded-md border border-ink/10 bg-card p-4 shadow-sm"
+      className="fade-in mb-5 card-pad"
     >
       <LeansHeader note="Research signals only" />
       <div className="mt-3 divide-y divide-ink/10 border-y border-ink/10">
