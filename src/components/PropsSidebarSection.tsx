@@ -70,7 +70,7 @@ export async function loadPropGroups({
   feed?: GameFeed | null;
   pitcherStats?: Map<number, PitcherPropStats> | Promise<Map<number, PitcherPropStats>> | null;
 }): Promise<PropTeamGroup[]> {
-  const pitcherEntries: RosterEntry[] = (
+  const starterEntries: RosterEntry[] = (
     [
       [game.probablePitchers.away, game.away],
       [game.probablePitchers.home, game.home],
@@ -78,6 +78,14 @@ export async function loadPropGroups({
   )
     .filter((pair): pair is [PlayerRef, TeamRef] => pair[0] != null)
     .map(([player, team]) => ({ player, team }));
+  // The provider posts strikeout/outs props for bullpen arms as well, so they
+  // are attributed alongside the starters when the context carries them. Their
+  // season line, recent form and home/road split come from the same lookups.
+  const pitcherEntries: RosterEntry[] = [
+    ...starterEntries,
+    ...(game.bullpenPitchers?.away ?? []).map((player) => ({ player, team: game.away })),
+    ...(game.bullpenPitchers?.home ?? []).map((player) => ({ player, team: game.home })),
+  ];
   const pitcherIds = pitcherEntries.map((e) => e.player.id);
   const pitcherIsHomeById = new Map(
     pitcherEntries.map((e) => [e.player.id, e.team.id === game.home.id]),

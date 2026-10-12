@@ -444,11 +444,15 @@ export function expectedProviderProps(game: BenchGame): number {
   return propPairsForEvent(game).filter((pair) => pair.usable).length;
 }
 
-/** True when the app can attribute the pair: a prop hitter, or a probable starter. */
+/**
+ * True when the app can attribute the pair: a prop hitter, a probable starter,
+ * or a bullpen arm the feed lists.
+ */
 function isMatchable(game: BenchGame, pair: EventPropPair): boolean {
+  const bullpenEnd = PROP_PITCHERS_PER_TEAM + PROP_RELIEVERS_PER_TEAM;
   for (const side of [game.away, game.home]) {
     if (side.hitters.slice(0, PROP_HITTERS_PER_TEAM).some((p) => p.id === pair.player.id)) return true;
-    if (side.pitchers.slice(0, PROP_PITCHERS_PER_TEAM).some((p) => p.id === pair.player.id)) return true;
+    if (side.pitchers.slice(0, bullpenEnd).some((p) => p.id === pair.player.id)) return true;
   }
   return false;
 }
@@ -753,10 +757,13 @@ export function liveFeedBody(game: BenchGame): string {
       team: { id: side.team.id, name: side.team.name, abbreviation: side.team.abbreviation },
       players,
       // A Preview game has no posted order yet, which is what sends the prop
-      // board down its roster-proxy lineup path.
+      // board down its roster-proxy lineup path. The bullpen is listed: those
+      // are the arms whose props the board can attribute.
       batters: [],
       pitchers: [],
-      bullpen: [],
+      bullpen: side.pitchers
+        .slice(PROP_PITCHERS_PER_TEAM, PROP_PITCHERS_PER_TEAM + PROP_RELIEVERS_PER_TEAM)
+        .map((pitcher) => pitcher.id),
       battingOrder: [],
       info: [],
       note: [],

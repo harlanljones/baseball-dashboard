@@ -32,15 +32,27 @@ export interface PropGameContext {
   /** First pitch, ISO. Used to disambiguate doubleheaders at the odds provider. */
   startTime: string;
   probablePitchers: { away?: PlayerRef; home?: PlayerRef };
+  /**
+   * Bullpen arms available for the game, when the caller has the feed. The
+   * provider posts strikeout/outs props for them too, so a context that carries
+   * them brings those rows onto the board instead of dropping them.
+   */
+  bullpenPitchers?: { away: PlayerRef[]; home: PlayerRef[] };
 }
 
 /** A game page's feed, narrowed to what the prop board actually reads. */
 export function propContextFromFeed(feed: GameFeed): PropGameContext {
+  const arms = (side: { bullpen: { id: number; name: string }[] }): PlayerRef[] =>
+    side.bullpen.map((pitcher) => ({ id: pitcher.id, fullName: pitcher.name }));
   return {
     away: feed.away.team,
     home: feed.home.team,
     startTime: feed.startTime,
     probablePitchers: feed.probablePitchers,
+    bullpenPitchers: {
+      away: arms(feed.boxscore.away),
+      home: arms(feed.boxscore.home),
+    },
   };
 }
 
