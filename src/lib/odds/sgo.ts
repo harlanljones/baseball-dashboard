@@ -307,13 +307,27 @@ export async function findSgoEvent(
 }
 
 /**
+ * Memo for {@link playerNameFromId}. An event that carries no player record
+ * names each player from his id, and one player appears once per market and
+ * side, so the same id is expanded several times on every board. The function
+ * is pure; the map is cleared wholesale past a bound rather than evicted.
+ */
+const PLAYER_NAMES = new Map<string, string>();
+const PLAYER_NAMES_LIMIT = 5000;
+
+/**
  * Derives a display name from a SportsGameOdds playerID
  * (`AARON_JUDGE_1_MLB` → `AARON JUDGE`). Used when the event carries no
  * player record for the prop.
  */
 export function playerNameFromId(playerId: string): string {
+  const cached = PLAYER_NAMES.get(playerId);
+  if (cached !== undefined) return cached;
   const stripped = /^(.*)_\d+_[A-Za-z0-9]+$/.exec(playerId)?.[1] ?? playerId;
-  return stripped.replaceAll("_", " ").trim();
+  const name = stripped.replaceAll("_", " ").trim();
+  if (PLAYER_NAMES.size >= PLAYER_NAMES_LIMIT) PLAYER_NAMES.clear();
+  PLAYER_NAMES.set(playerId, name);
+  return name;
 }
 
 function parseAmericanPrice(raw: string | undefined): number | null {
