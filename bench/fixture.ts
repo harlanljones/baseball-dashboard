@@ -938,6 +938,87 @@ export function scheduleBody(games: BenchGame[], date: string): string {
 }
 
 /**
+ * The two teams' completed regular-season meetings, as `getHeadToHead` reads
+ * them: `gamePk`, `gameType`, a Final status and both sides' scores and
+ * winners. The reader keeps only decided meetings, so a slate of Preview games
+ * would leave the series empty.
+ */
+export function seasonSeriesBody(
+  teamAId: number,
+  teamBId: number,
+  season: number,
+  round?: string,
+): string {
+  const meetings = 6;
+  const raw = [];
+  // The body's own team refs only have to carry the ids `tallySeries` matches
+  // on; the display names come from the caller's `TeamRef`s.
+  const ref = (id: number) => ({ id, name: `Bench Team ${id}`, abbreviation: "BEN" });
+  const [first, second] = [teamAId, teamBId];
+  for (let i = 0; i < meetings; i += 1) {
+    // Alternate the venue, as a real season series does.
+    const away = ref(i % 2 === 0 ? first : second);
+    const home = ref(i % 2 === 0 ? second : first);
+    const awayScore = 2 + (hash32(first * 31 + i * 17) % 7);
+    const homeScore = 1 + (hash32(second * 71 + i * 29 + 5) % 7);
+    const month = 4 + i; // April through September
+    const date = `${season}-${String(month).padStart(2, "0")}-1${i % 9}`;
+    raw.push({
+      gamePk: 700000 + (first % 1000) + i,
+      gameType: "R",
+      season: String(season),
+      gameDate: `${date}T23:05:00Z`,
+      officialDate: date,
+      status: { abstractGameState: "Final", detailedState: "Final" },
+      teams: {
+        away: {
+          team: away,
+          leagueRecord: { wins: 48, losses: 42, pct: ".533" },
+          score: awayScore,
+          isWinner: awayScore > homeScore,
+        },
+        home: {
+          team: home,
+          leagueRecord: { wins: 51, losses: 39, pct: ".567" },
+          score: homeScore,
+          isWinner: homeScore > awayScore,
+        },
+      },
+    });
+  }
+  if (round) {
+    // The round's games so far, as the same query returns them for a
+    // postseason matchup.
+    const awayScore = 3 + (hash32(first * 13 + 7) % 5);
+    const homeScore = 2 + (hash32(second * 17 + 11) % 5);
+    const date = `${season}-10-0${1 + (first % 6)}`;
+    raw.push({
+      gamePk: 800000 + (first % 1000),
+      gameType: round,
+      season: String(season),
+      gameDate: `${date}T23:05:00Z`,
+      officialDate: date,
+      status: { abstractGameState: "Final", detailedState: "Final" },
+      teams: {
+        away: {
+          team: ref(first),
+          leagueRecord: { wins: 48, losses: 42, pct: ".533" },
+          score: awayScore,
+          isWinner: awayScore > homeScore,
+        },
+        home: {
+          team: ref(second),
+          leagueRecord: { wins: 51, losses: 39, pct: ".567" },
+          score: homeScore,
+          isWinner: homeScore > awayScore,
+        },
+      },
+    });
+  }
+  return JSON.stringify({ dates: raw.map((g) => ({ date: g.officialDate, games: [g] })) });
+}
+
+/**
  * Active-roster response, hydrated with season hitting stats — what
  * `getRosterWithSeasonStats` reads (it drops pitchers, sorts by PA).
  */

@@ -28,6 +28,7 @@ import {
   STAT_ID_BY_MARKET,
   openMeteoBody,
   peopleBody,
+  seasonSeriesBody,
   personBody,
   rosterBody,
   liveFeedBody,
@@ -401,8 +402,21 @@ function mlbBody(url: URL): string {
     }
     const teamId = url.searchParams.get("teamId");
     if (teamId) {
-      // `getPostseasonPitchCounts`: one team's games over a short window.
       const fields = url.searchParams.get("fields");
+      // `getHeadToHead` names the opponent; `getPostseasonPitchCounts` never
+      // does, and both otherwise look alike (`teamId` + a date range).
+      const opponentId = url.searchParams.get("opponentId");
+      if (opponentId) {
+        // Two teams' completed meetings this season, plus that round's games
+        // when the game is a postseason one (the query asks for `R,<round>`).
+        const round = /[DLWF]/.exec(url.searchParams.get("gameType") ?? "")?.[0];
+        const body = seasonSeriesBody(Number(teamId), Number(opponentId), BENCH_SEASON, round);
+        return memoized(`h2h:${teamId}:${opponentId}:${round ?? ""}:${fields ?? ""}`, () => {
+          if (!fields) return body;
+          return JSON.stringify(pruneFields(JSON.parse(body), fieldSet(fields)));
+        });
+      }
+      // `getPostseasonPitchCounts`: one team's games over a short window.
       return memoized(`postsched:${fields ?? ""}`, () =>
         capturedBodyFor(fields, POSTSEASON_SCHEDULE_PATH, POSTSEASON_SCHEDULE_FIELDS_PATH, SCHEDULE_FIELDS),
       );

@@ -25,6 +25,7 @@ import StandingsTables from "@/components/StandingsTables";
 import BoxscoreTables from "@/components/BoxscoreTables";
 import GameCard from "@/components/GameCard";
 import GameLog from "@/components/GameLog";
+import HeadToHead from "@/components/HeadToHead";
 import Linescore from "@/components/Linescore";
 import PlayerPropsBoard from "@/components/PlayerPropsBoard";
 import { loadPropGroups } from "@/components/PropsSidebarSection";
@@ -35,7 +36,7 @@ import type { ScoredProp } from "@/lib/odds/types";
 import { easternDateOf } from "@/lib/mlb/client";
 import { getGamePlays, getLiveFeed, withBullpenStats } from "@/lib/mlb/game";
 import { getBullpenSeasonPitching, getBullpenWorkload } from "@/lib/mlb/players";
-import { getSchedule, isPostseason } from "@/lib/mlb/schedule";
+import { getHeadToHead, getSchedule, isPostseason } from "@/lib/mlb/schedule";
 import { getOffseasonContext, getOpeningDay, getSeasonRecap } from "@/lib/mlb/season";
 import { getStandings } from "@/lib/mlb/standings";
 import type { GameFeed } from "@/lib/mlb/types";
@@ -77,6 +78,8 @@ export interface WorkloadResult {
   slateHtml: string;
   /** Innings, plays and rendered bytes of the game page's feed-derived core. */
   live: { innings: number; plays: number; htmlBytes: number };
+  /** The season series: the last read the game page makes that the cycle did not cover. */
+  headToHead: { meetings: number; postseason?: string; htmlBytes: number };
   /** Arms listed, rendered bytes, and total trailing-3-day pitches of the bullpen section. */
   bullpen: { rows: number; htmlBytes: number; last3: number };
   /** The offseason home view: its three sections and what they produced. */
@@ -108,6 +111,7 @@ function digestOf(
   slateHtml: string,
   bullpenSummary: string,
   offseasonSummary: string,
+  headToHeadSummary: string,
 ): string {
   const lines = [
     ...leans.map((lean) => `L|${lean.gamePk}|${lean.playerId}|${lean.marketKey}|${lean.line}|${lean.direction}|${lean.price}|${lean.score.toFixed(4)}`),
@@ -118,6 +122,7 @@ function digestOf(
     `H|${boardHtml.length}|${slateHtml.length}`,
     `B|${bullpenSummary}`,
     `O|${offseasonSummary}`,
+    `S|${headToHeadSummary}`,
   ];
   let hash = 0x811c9dc5;
   for (const line of lines) {
@@ -200,6 +205,15 @@ export async function runCycle(): Promise<WorkloadResult> {
       createElement(GameLog, { plays: livePlays }),
     ),
   );
+  // The season series is the game page's other read — a schedule query scoped
+  // to the two teams across the season, narrowed to the same field list.
+  const h2h = await getHeadToHead(liveFeed.away.team, liveFeed.home.team, BENCH_SEASON, liveFeed.gameType);
+  const h2hHtml = renderToStaticMarkup(createElement(HeadToHead, { h2h }));
+  const headToHead = {
+    meetings: h2h.meetings.length,
+    postseason: h2h.postseason?.name,
+    htmlBytes: h2hHtml.length,
+  };
   const liveMs = performance.now() - liveStart;
 
   // Phase 5 — the game page's bullpen section, off the same feed: per-arm season
@@ -278,6 +292,7 @@ export async function runCycle(): Promise<WorkloadResult> {
       plays: livePlays.length,
       htmlBytes: liveHtml.length,
     },
+    headToHead,
     bullpen,
     offseason,
     digest: digestOf(
@@ -287,6 +302,7 @@ export async function runCycle(): Promise<WorkloadResult> {
       slateHtml,
       `${bullpen.rows}|${bullpen.htmlBytes}|${bullpen.last3}`,
       `${offseason.recapSeason}|${offseason.series}|${offseason.divisions}|${offseason.teams}|${offseason.champion ?? "-"}|${offseason.htmlBytes}`,
+      `${headToHead.meetings}|${headToHead.postseason ?? "-"}|${headToHead.htmlBytes}`,
     ),
   };
 }
@@ -427,6 +443,10 @@ export function checkInvariants(
   if (result.live.innings < 9) failures.push(`captured feed shaped only ${result.live.innings} innings`);
   if (result.live.plays < 5) failures.push(`captured feed shaped only ${result.live.plays} significant plays`);
   if (result.live.htmlBytes < 2000) failures.push(`game-page sections rendered only ${result.live.htmlBytes} bytes`);
+  if (result.headToHead.meetings === 0) failures.push("the season series came back with no meetings");
+  if (result.headToHead.htmlBytes < 200) failures.push(`season series rendered only ${result.headToHead.htmlBytes} bytes`);
+  // The captured feed is a postseason game, so its series carries that round.
+  if (!result.headToHead.postseason) failures.push("the season series lost its postseason round");
   if (result.bullpen.rows === 0) failures.push("captured feed listed no bullpen arms");
   if (result.bullpen.htmlBytes < 1000) failures.push(`bullpen section rendered only ${result.bullpen.htmlBytes} bytes`);
   // The trailing-3-day totals can only be non-zero if the postseason schedule

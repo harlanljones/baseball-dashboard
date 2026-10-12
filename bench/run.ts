@@ -110,6 +110,7 @@ async function main(): Promise<number> {
     ["offseason_html_bytes", timed[0].offseason.htmlBytes],
     ["live_innings", timed[0].live.innings],
     ["live_plays", timed[0].live.plays],
+    ["h2h_meetings", timed[0].headToHead.meetings],
     ["upstream_bytes", lastCycleCalls.reduce((sum, call) => sum + call.bytes, 0)],
     ["props_matched", timed[0].matchedProps],
     ["provider_prop_pairs", expectedProviderProps(PROPS_GAME)],
