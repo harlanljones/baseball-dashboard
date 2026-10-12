@@ -49,6 +49,15 @@ const MAX_PAGES = 3;
  */
 const PREFERRED_BOOKMAKERS = ["fanduel", "draftkings", "betmgm", "caesars", "bet365"] as const;
 
+/**
+ * The books we ask the provider for — a deliberate product decision, not a
+ * preference. The board is the bulk of a cold cycle's payload, and three books
+ * cost roughly 40% less of it than five; the analysis then picks the best price
+ * among the three. That is a narrower "best price" than the five-book
+ * preference above would give, which is the trade this constant makes.
+ */
+const REQUESTED_BOOKMAKERS = PREFERRED_BOOKMAKERS.slice(0, 3);
+
 /** Preference rank per book, so pairing reads it instead of scanning the list per candidate. */
 const BOOK_ORDER: Record<string, number> = Object.fromEntries(
   PREFERRED_BOOKMAKERS.map((book, rank) => [book, rank]),
@@ -218,7 +227,7 @@ async function fetchBoard(): Promise<SgoEvent[]> {
     // spread, total and alternate line for every event, parsed and thrown away.
     oddID: ODD_ID_FILTER,
     oddIDs: ODD_ID_FILTER,
-    bookmakerID: PREFERRED_BOOKMAKERS.join(","),
+    bookmakerID: REQUESTED_BOOKMAKERS.join(","),
     // The provider's OpenAPI spec declares both as response-shaping params on
     // `/events`. Each book block carries thirteen fields; this reader touches
     // three (`odds`, `overUnder`, `available`), and `includeOpenCloseOdds`
