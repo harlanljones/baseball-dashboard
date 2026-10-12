@@ -228,24 +228,26 @@ html {
     @apply mt-3 grid grid-cols-1 gap-3 sm:grid-cols-3;
   }
   /* One element per bar: the fill is a gradient stop driven by --fill/--bar
-     custom properties, so a 100-prop board renders 300 fewer nodes than a
-     track-plus-width-styled-child pair would. */
+     custom properties, and the bar is the factor grid's own second row, so a
+     100-prop board renders 300 fewer nodes than a track element would and 600
+     fewer than a track-plus-width-styled-child pair. */
   .factor {
     @apply grid min-w-0 grid-cols-[minmax(0,1fr)_auto] items-center gap-x-2 gap-y-1;
   }
-  .factor-label {
-    @apply text-xs uppercase tracking-[0.08em] text-ink/65;
-  }
-  .factor-value {
-    @apply nums font-mono text-xs uppercase tracking-[0.08em];
-  }
-  .factor-track {
+  .factor::after {
+    content: "";
     @apply col-span-full h-1 overflow-hidden rounded-full bg-ink/10;
     background-image: linear-gradient(
       to right,
       var(--bar) var(--fill),
       transparent var(--fill)
     );
+  }
+  .factor-label {
+    @apply text-xs uppercase tracking-[0.08em] text-ink/65;
+  }
+  .factor-value {
+    @apply nums font-mono text-xs uppercase tracking-[0.08em];
   }
   /* Evidence lines carry their own type, and only the first one opens the gap
      above the block — consecutive lines sit flush, as they did inside the

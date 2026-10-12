@@ -71,14 +71,13 @@ function topLean(props: ScoredProp[], weights: Weights) {
 
 function Factor({ label, value, toneClass, barColor }: { label: string; value: number | null; toneClass: string; barColor: string }) {
   const fill = value == null ? 0 : Math.max(4, Math.min(100, value));
-  // The fill lives in custom properties on the wrapper, which the track inherits,
-  // so the bar is one node with no inline width to recompute.
+  // The fill lives in custom properties on the wrapper, which the bar it draws
+  // with `::after` inherits, so the bar costs no node and no inline width.
   const style = { "--fill": `${fill}%`, "--bar": barColor } as CSSProperties;
   return (
     <div className="factor" style={style}>
       <span className="factor-label">{label}</span>
       <span className={`factor-value ${toneClass}`}>{value == null ? "—" : Math.round(value)}</span>
-      <div className="factor-track" />
     </div>
   );
 }
