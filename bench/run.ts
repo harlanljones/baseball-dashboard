@@ -50,10 +50,13 @@ async function main(): Promise<number> {
   const cycles: WorkloadResult[] = [];
   const callsPerCycle: number[] = [];
 
+  const stubMsPerCycle: number[] = [];
   for (let i = 0; i < WARMUP_CYCLES + TIMED_CYCLES; i += 1) {
     const before = upstream.calls.length;
+    const stubBefore = upstream.stubMs;
     cycles.push(await runCycle());
     callsPerCycle.push(upstream.calls.length - before);
+    stubMsPerCycle.push(upstream.stubMs - stubBefore);
   }
 
   const timed = cycles.slice(WARMUP_CYCLES);
@@ -114,6 +117,7 @@ async function main(): Promise<number> {
     ["board_html_bytes", timed[0].boardHtml.length],
     ["slate_html_bytes", timed[0].slateHtml.length],
     ["upstream_calls", timedCalls[0]],
+    ["stub_ms", meanOf(stubMsPerCycle.slice(WARMUP_CYCLES))],
   ];
 
   console.log(

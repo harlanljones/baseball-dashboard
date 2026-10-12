@@ -171,6 +171,18 @@ export interface FetchRecord {
   bytes: number;
 }
 
+/**
+ * The stub's own cost, accumulated so the harness can report it. Routing and
+ * building a response body is the benchmark standing in for the network, not
+ * application work: measuring it keeps the "negligible" claim in this file's
+ * header honest, and catches it if a fixture ever stops being memoised.
+ */
+export interface Upstream {
+  calls: FetchRecord[];
+  unexpected: string[];
+  stubMs: number;
+}
+
 const SIDE_BY_TEAM_ID = new Map<number, BenchSide>();
 for (const game of GAMES) {
   SIDE_BY_TEAM_ID.set(game.away.team.id, game.away);
@@ -487,10 +499,26 @@ export interface Upstream {
 }
 
 /** Install the routing stub over global `fetch` and return its call log. */
+/**
+ * A response-shaped stand-in for the network. The app's clients read only `ok`,
+ * `status` and `json()`; a real `Response` would encode the body to bytes and
+ * decode it again on every read, which is the network's cost rather than the
+ * application's — and it would land inside the measured cycle. The app's own
+ * `JSON.parse` still runs on every read, which is the cost being measured.
+ */
+function stubResponse(body: string): Response {
+  return {
+    ok: true,
+    status: 200,
+    json: async () => JSON.parse(body),
+  } as unknown as Response;
+}
+
 export function installUpstream(): Upstream {
-  const log: Upstream = { calls: [], unexpected: [] };
+  const log: Upstream = { calls: [], unexpected: [], stubMs: 0 };
 
   const stub = async (input: RequestInfo | URL, init?: RequestInit): Promise<Response> => {
+    const started = performance.now();
     const raw = typeof input === "string" ? input : input instanceof URL ? input.href : input.url;
     const url = new URL(raw);
     void init;
@@ -513,8 +541,10 @@ export function installUpstream(): Upstream {
       log.unexpected.push(`${raw}: ${(error as Error).message}`);
       throw error;
     }
+    const response = stubResponse(body);
     log.calls.push({ url: raw, status: 200, bytes: body.length });
-    return new Response(body, { status: 200, headers: { "content-type": "application/json" } });
+    log.stubMs += performance.now() - started;
+    return response;
   };
 
   // The DOM `fetch` type carries extra overloads (Request, URL); the routing
